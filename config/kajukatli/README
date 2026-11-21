@@ -1,0 +1,2 @@
+settings.json appears here the first time the shell runs. every key is explained in
+the main README under "settings". edit it while the shell is running; it notices.

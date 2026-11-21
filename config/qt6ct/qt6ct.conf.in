@@ -1,0 +1,20 @@
+[Appearance]
+color_scheme_path=@CONFIG@/qt6ct/colors/kajukatli.conf
+custom_palette=true
+icon_theme=Papirus-Dark
+standard_dialogs=xdgdesktopportal
+style=Fusion
+
+[Fonts]
+fixed="IBM Plex Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+general="IBM Plex Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+
+[Interface]
+activate_item_on_single_click=1
+cursor_flash_time=1200
+double_click_interval=400
+menus_have_icons=true
+show_shortcuts_in_context_menus=true
+toolbutton_style=4
+underline_shortcut=1
+wheel_scroll_lines=3

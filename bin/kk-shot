@@ -1,0 +1,30 @@
+#!/bin/sh
+# kk-shot area|screen|window   screenshot → clipboard + ~/Pictures/screenshots, with a notification
+# hold on to it: click "edit" on the notification to annotate in satty.
+set -u
+dir="${XDG_PICTURES_DIR:-$HOME/Pictures}/screenshots"
+mkdir -p "$dir"
+file="$dir/$(date +%Y-%m-%d_%H-%M-%S).png"
+mode="${1:-area}"
+
+case "$mode" in
+    area)
+        geom="$(slurp -d -b '#0c0c0c88' -c '#c9b79cff' -s '#00000000' -w 1)" || exit 0
+        grim -g "$geom" "$file" ;;
+    screen)
+        out="$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')"
+        grim -o "$out" "$file" ;;
+    window)
+        geom="$(hyprctl activewindow -j | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')"
+        grim -g "$geom" "$file" ;;
+    *) echo "usage: kk-shot area|screen|window" >&2; exit 2 ;;
+esac
+
+[ -s "$file" ] || exit 1
+wl-copy --type image/png < "$file"
+action="$(notify-send -a screenshot -i "$file" --action=edit=edit --action=open=folder \
+    "kept it." "$(basename "$file") · copied to clipboard")"
+case "$action" in
+    edit) satty --filename "$file" --output-filename "$file" --copy-command wl-copy ;;
+    open) xdg-open "$dir" ;;
+esac

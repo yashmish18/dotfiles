@@ -1,0 +1,19 @@
+#!/bin/sh
+# kk-power on-battery   → exit 0 when running on battery (used by hypridle)
+case "$1" in
+    on-battery)
+        for s in /sys/class/power_supply/*; do
+            [ -f "$s/type" ] || continue
+            if [ "$(cat "$s/type")" = "Mains" ] || [ "$(cat "$s/type")" = "USB" ]; then
+                [ "$(cat "$s/online" 2>/dev/null)" = "1" ] && exit 1
+            fi
+        done
+        # no mains supply found online: battery (or a desktop with no supply info → say no)
+        ls /sys/class/power_supply/BAT* >/dev/null 2>&1 && exit 0
+        exit 1
+        ;;
+    *)
+        echo "usage: kk-power on-battery" >&2
+        exit 2
+        ;;
+esac

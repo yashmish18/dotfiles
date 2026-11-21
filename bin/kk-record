@@ -1,0 +1,43 @@
+#!/bin/sh
+# kk-record   start: drag an area, or click a screen for all of it.
+# kk-record   again: stop. files land in ~/Videos/recordings
+set -u
+pidfile="${XDG_RUNTIME_DIR:-/tmp}/kk-record.pid"
+dir="${XDG_VIDEOS_DIR:-$HOME/Videos}/recordings"
+
+tell() { qs -c kajukatli ipc call shell recording "$1" >/dev/null 2>&1 || true; }
+
+if [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
+    kill -INT "$(cat "$pidfile")"
+    rm -f "$pidfile"
+    tell false
+    notify-send -a recorder "cut." "saved in $dir"
+    exit 0
+fi
+
+mkdir -p "$dir"
+file="$dir/$(date +%Y-%m-%d_%H-%M-%S).mp4"
+geom="$(slurp -o -d -b '#0c0c0c88' -c '#b5655aff' -w 1 2>/dev/null)" || exit 0
+
+# encode on the integrated gpu (vaapi) so the nvidia card can keep sleeping
+render=""
+for r in /sys/class/drm/renderD*; do
+    v="$(cat "$r/device/vendor" 2>/dev/null)"
+    if [ "$v" = "0x8086" ] || [ "$v" = "0x1002" ]; then render="/dev/dri/$(basename "$r")"; break; fi
+done
+
+start() {
+    wf-recorder -g "$geom" "$@" -f "$file" >/dev/null 2>&1 &
+    pid=$!
+    sleep 0.6
+    kill -0 "$pid" 2>/dev/null
+}
+
+if [ -n "$render" ] && start -c h264_vaapi -d "$render"; then :
+elif start; then :
+else
+    notify-send -u critical -a recorder "couldn't start recording" "is wf-recorder installed?"
+    exit 1
+fi
+echo "$pid" > "$pidfile"
+tell true

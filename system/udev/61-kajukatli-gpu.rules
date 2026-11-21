@@ -1,0 +1,5 @@
+# stable names for the two gpus, so hyprland's AQ_DRM_DEVICES never depends on card0/card1 order
+# (by-path names contain ':' which AQ_DRM_DEVICES uses as a separator, hence these symlinks)
+KERNEL=="card*", SUBSYSTEM=="drm", ATTRS{vendor}=="0x8086", SYMLINK+="dri/kk-igpu"
+KERNEL=="card*", SUBSYSTEM=="drm", ATTRS{vendor}=="0x1002", SYMLINK+="dri/kk-igpu"
+KERNEL=="card*", SUBSYSTEM=="drm", ATTRS{vendor}=="0x10de", SYMLINK+="dri/kk-dgpu"

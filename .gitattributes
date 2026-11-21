@@ -1,0 +1,4 @@
+# shell scripts must keep unix line endings, even when cloned on windows
+* text=auto eol=lf
+*.png binary
+*.jpg binary

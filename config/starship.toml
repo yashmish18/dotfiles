@@ -1,0 +1,51 @@
+# kajukatli · starship. lowercase, quiet, one line of facts then a small arrow.
+add_newline = true
+format = "$directory$git_branch$git_status$python$nodejs$rust$cmd_duration$jobs$line_break$character"
+right_format = "$time"
+
+[character]
+success_symbol = "[›](#c9b79c)"
+error_symbol   = "[›](#b5655a)"
+vimcmd_symbol  = "[‹](#8a9a7b)"
+
+[directory]
+style = "italic #e8e4dc"
+read_only = " ro"
+read_only_style = "#b5655a"
+truncation_length = 3
+truncate_to_repo = true
+truncation_symbol = "…/"
+home_symbol = "~"
+
+[git_branch]
+format = "[on](#5a5650) [$branch]($style) "
+style = "#c9b79c"
+
+[git_status]
+format = "[$all_status$ahead_behind]($style) "
+style = "#8f8a80"
+modified = "*"
+untracked = "?"
+staged = "+"
+deleted = "-"
+ahead = "↑"
+behind = "↓"
+
+[cmd_duration]
+min_time = 2000
+format = "[took $duration](#5a5650) "
+
+[jobs]
+format = "[$number in the back](#8f8a80) "
+
+[time]
+disabled = false
+format = "[$time](#5a5650)"
+time_format = "%H:%M"
+
+[python]
+format = "[py $version](#7d8ea3) "
+[nodejs]
+format = "[node $version](#8a9a7b) "
+[rust]
+format = "[rust $version](#b5655a) "

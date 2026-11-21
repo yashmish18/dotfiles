@@ -1,0 +1,522 @@
+#!/usr/bin/env python3
+"""
+kk-prep — turn an image, gif or video into a kajukatli wallpaper bundle.
+
+for every wallpaper it writes, once, into ~/.cache/kajukatli/walls/<key>/:
+    display.jpg   the picture, sized for the screen (first frame for videos)
+    thumb.jpg     small preview for the picker
+    depth.png     depth map (white = near) for the 3d parallax
+    ink.png       r = outline strokes, g = drawing order along each stroke,
+                  b = distance from the subject (where the ink starts bleeding)
+    palette.json  muted accent colour + brightness, used by kk-theme
+    meta.json     everything above, printed to stdout as the last line
+
+it never runs again for the same file unless you pass --force.
+the ai parts (depth, subject) are optional: if a model is missing or fails,
+the bundle is still made and the shell falls back to a plain ink fade.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.request
+from pathlib import Path
+
+HOME = Path.home()
+CACHE = Path(os.environ.get("XDG_CACHE_HOME", HOME / ".cache")) / "kajukatli"
+DATA = Path(os.environ.get("XDG_DATA_HOME", HOME / ".local" / "share")) / "kajukatli"
+WALLS = CACHE / "walls"
+MODELS = DATA / "models"
+VENV = DATA / "venv"
+
+BUNDLE_VERSION = 3  # bump to rebuild every cached bundle
+VIDEO_EXT = {".mp4", ".webm", ".mkv", ".mov", ".avi", ".m4v", ".gif"}
+IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
+
+DEPTH_URL = "https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model.onnx"
+DEPTH_FILE = MODELS / "depth-anything-v2-small.onnx"
+
+DEFAULT_ACCENT = "#c9b79c"
+INK_DARK = "#0c0c0c"
+INK_LIGHT = "#ece8e0"
+
+
+# ---------------------------------------------------------------- plumbing
+
+def reexec_in_venv() -> None:
+    """the heavy python deps live in a private venv made by install.sh."""
+    py = VENV / "bin" / "python"
+    if py.exists() and Path(sys.prefix).resolve() != VENV.resolve():
+        os.execv(str(py), [str(py), os.path.abspath(__file__), *sys.argv[1:]])
+
+
+def log(*parts: object) -> None:
+    print("kk-prep:", *parts, file=sys.stderr, flush=True)
+
+
+def file_key(path: Path) -> str:
+    """cheap stable key: size, mtime and the first/last megabyte."""
+    st = path.stat()
+    h = hashlib.sha1(f"{BUNDLE_VERSION}:{st.st_size}:{int(st.st_mtime)}".encode())
+    with open(path, "rb") as f:
+        h.update(f.read(1 << 20))
+        if st.st_size > (2 << 20):
+            f.seek(-(1 << 20), os.SEEK_END)
+            h.update(f.read())
+    return h.hexdigest()[:16]
+
+
+def run(cmd: list[str]) -> bool:
+    try:
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        err = getattr(e, "stderr", b"") or b""
+        log("command failed:", " ".join(cmd[:3]), "…", err.decode(errors="replace")[-300:])
+        return False
+
+
+def ort_threads() -> int:
+    # leave half the cores free so the desktop stays smooth while we work
+    return max(2, (os.cpu_count() or 4) // 2)
+
+
+def ort_providers() -> list[str]:
+    import onnxruntime as ort
+    have = ort.get_available_providers()
+    want = [p for p in ("CUDAExecutionProvider",) if p in have and os.environ.get("KK_PREP_GPU") == "1"]
+    return want + ["CPUExecutionProvider"]
+
+
+# ---------------------------------------------------------------- media
+
+def extract_still(src: Path, out: Path) -> bool:
+    """a frame from half a second in (the very first one is often black)."""
+    for ss in ("0.5", "0"):
+        if run(["ffmpeg", "-v", "error", "-y", "-ss", ss, "-i", str(src), "-frames:v", "1", "-q:v", "2", str(out)]):
+            if out.exists() and out.stat().st_size > 0:
+                return True
+    return False
+
+
+def gif_to_mp4(src: Path, out: Path) -> bool:
+    """mpv plays an h264 file for a fraction of the cpu a gif costs."""
+    return run([
+        "ffmpeg", "-v", "error", "-y", "-i", str(src),
+        "-movflags", "+faststart", "-pix_fmt", "yuv420p",
+        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+        "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-an", str(out),
+    ])
+
+
+def load_rgb(path: Path):
+    import numpy as np
+    from PIL import Image, ImageOps
+    with Image.open(path) as im:
+        im = ImageOps.exif_transpose(im)
+        im = im.convert("RGB")
+        return np.array(im)
+
+
+def save_jpg(rgb, path: Path, quality: int = 92) -> None:
+    from PIL import Image
+    Image.fromarray(rgb).save(path, "JPEG", quality=quality, optimize=True, progressive=True)
+
+
+def fit_long_edge(rgb, edge: int):
+    import cv2
+    h, w = rgb.shape[:2]
+    s = edge / max(h, w)
+    if s >= 1:
+        return rgb
+    return cv2.resize(rgb, (round(w * s), round(h * s)), interpolation=cv2.INTER_AREA)
+
+
+def make_thumb(rgb, path: Path, tw: int = 384, th: int = 240) -> None:
+    import cv2
+    h, w = rgb.shape[:2]
+    s = max(tw / w, th / h)
+    r = cv2.resize(rgb, (max(tw, round(w * s)), max(th, round(h * s))), interpolation=cv2.INTER_AREA)
+    y = (r.shape[0] - th) // 2
+    x = (r.shape[1] - tw) // 2
+    save_jpg(r[y:y + th, x:x + tw], path, 86)
+
+
+# ---------------------------------------------------------------- depth
+
+def ensure_depth_model() -> Path | None:
+    if DEPTH_FILE.exists() and DEPTH_FILE.stat().st_size > 1_000_000:
+        return DEPTH_FILE
+    MODELS.mkdir(parents=True, exist_ok=True)
+    log("downloading depth model (once, ~100 MB)…")
+    tmp = DEPTH_FILE.with_suffix(".part")
+    try:
+        with urllib.request.urlopen(DEPTH_URL, timeout=60) as r, open(tmp, "wb") as f:
+            shutil.copyfileobj(r, f, 1 << 20)
+        tmp.replace(DEPTH_FILE)
+        return DEPTH_FILE
+    except Exception as e:  # network down, hf moved the file, …
+        log("depth model unavailable:", e)
+        tmp.unlink(missing_ok=True)
+        return None
+
+
+def estimate_depth(rgb):
+    """returns float32 0..1 at the image size (1 = nearest), or None."""
+    import cv2
+    import numpy as np
+    model = ensure_depth_model()
+    if model is None:
+        return None
+    try:
+        import onnxruntime as ort
+        so = ort.SessionOptions()
+        so.intra_op_num_threads = ort_threads()
+        sess = ort.InferenceSession(str(model), so, providers=ort_providers())
+        inp = sess.get_inputs()[0]
+        size = 518  # multiple of 14, what the model was trained at
+        x = cv2.resize(rgb, (size, size), interpolation=cv2.INTER_CUBIC).astype(np.float32) / 255.0
+        x = (x - np.array([0.485, 0.456, 0.406], np.float32)) / np.array([0.229, 0.224, 0.225], np.float32)
+        x = x.transpose(2, 0, 1)[None]
+        out = sess.run(None, {inp.name: x})[0]
+        d = np.squeeze(out).astype(np.float32)
+        if d.ndim != 2:
+            log("unexpected depth output shape", out.shape)
+            return None
+        lo, hi = np.percentile(d, 1), np.percentile(d, 99)
+        d = np.clip((d - lo) / max(hi - lo, 1e-6), 0, 1)
+        h, w = rgb.shape[:2]
+        d = cv2.resize(d, (w, h), interpolation=cv2.INTER_CUBIC)
+        # grow the foreground a touch so edges don't smear when the camera moves
+        d = cv2.dilate(d, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
+        d = cv2.GaussianBlur(d, (0, 0), 2.0)
+        return np.clip(d, 0, 1)
+    except Exception as e:
+        log("depth failed:", e)
+        return None
+
+
+# ---------------------------------------------------------------- subject
+
+def subject_mask(rgb, model_name: str):
+    """returns uint8 mask 0/255 at image size, or None when there's no clear subject."""
+    import cv2
+    import numpy as np
+    try:
+        from PIL import Image
+        from rembg import new_session, remove
+        sess = new_session(model_name)
+        m = remove(Image.fromarray(rgb), session=sess, only_mask=True)
+        m = np.array(m.convert("L"))
+    except Exception as e:
+        log("subject detection failed:", e)
+        return None
+    h, w = rgb.shape[:2]
+    if m.shape != (h, w):
+        m = cv2.resize(m, (w, h), interpolation=cv2.INTER_LINEAR)
+    m = (m > 127).astype(np.uint8) * 255
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    m = cv2.morphologyEx(m, cv2.MORPH_OPEN, k)
+    m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, k, iterations=2)
+    frac = float(m.mean()) / 255.0
+    if frac < 0.01 or frac > 0.92:
+        log(f"no clear subject (covers {frac:.0%} of the frame)")
+        return None
+    return m
+
+
+# ---------------------------------------------------------------- ink map
+
+def _draw_polyline(stroke, order, pts, t0: float, t1: float, width: int, strength: int) -> None:
+    """draws pts as a line; order channel holds the drawing time t0..t1 along it."""
+    import cv2
+    import numpy as np
+    seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
+    total = float(seg.sum())
+    if total < 1:
+        return
+    cum = np.concatenate([[0.0], np.cumsum(seg)]) / total
+    for i in range(len(pts) - 1):
+        a = tuple(int(v) for v in pts[i])
+        b = tuple(int(v) for v in pts[i + 1])
+        t = t0 + (t1 - t0) * cum[i]
+        # order first, a little wider and hard-edged, so it fully covers the soft stroke
+        cv2.line(order, a, b, int(round(t * 254)) + 1, width + 3, cv2.LINE_8)
+        cv2.line(stroke, a, b, strength, width, cv2.LINE_AA)
+
+
+def build_ink(rgb, mask):
+    """returns (bgr uint8 image for cv2.imwrite, has_subject)."""
+    import cv2
+    import numpy as np
+    h, w = rgb.shape[:2]
+    diag = float(np.hypot(w, h))
+    stroke = np.zeros((h, w), np.uint8)
+    order = np.zeros((h, w), np.uint8)
+
+    if mask is None:
+        yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+        dist = np.hypot(xx - w / 2, yy - h / 2) / (diag * 0.5)
+        dist = np.clip(dist, 0, 1)
+        return cv2.merge([(dist * 255).astype(np.uint8), order, stroke]), False
+
+    width = max(2, round(diag * 0.0016))
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    min_area = 0.002 * w * h
+    contours = sorted((c for c in contours if cv2.contourArea(c) > min_area), key=cv2.contourArea, reverse=True)[:6]
+    for c in contours:
+        c = cv2.approxPolyDP(c, 1.2, True).reshape(-1, 2).astype(np.float32)
+        if len(c) < 3:
+            continue
+        # start where a hand would: the top of the shape
+        c = np.roll(c, -int(np.argmin(c[:, 1])), axis=0)
+        c = np.vstack([c, c[:1]])
+        _draw_polyline(stroke, order, c, 0.0, 1.0, width, 255)
+
+    # a few interior lines (hair, folds, eyes) so it reads as a sketch, not a cut-out
+    inner = cv2.erode(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15)))
+    gray = cv2.GaussianBlur(cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY), (0, 0), 1.6)
+    edges = cv2.Canny(gray, 50, 130) & inner
+    lines, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    lines = sorted((l for l in lines if len(l) > max(40, diag * 0.02)), key=len, reverse=True)[:70]
+    for i, l in enumerate(lines):
+        pts = l.reshape(-1, 2).astype(np.float32)[::2]
+        if len(pts) < 2:
+            continue
+        start = 0.25 + 0.45 * (i / max(1, len(lines)))
+        _draw_polyline(stroke, order, pts, start, min(1.0, start + 0.3), max(1, width - 1), 150)
+
+    dist = cv2.distanceTransform(255 - mask, cv2.DIST_L2, 5) / (diag * 0.55)
+    dist = np.clip(dist, 0, 1)
+    return cv2.merge([(dist * 255).astype(np.uint8), order, stroke]), True
+
+
+# ---------------------------------------------------------------- palette
+
+def palette(rgb) -> dict:
+    """one muted accent. loud colours get pulled toward the grey of old prints."""
+    import cv2
+    import numpy as np
+    small = cv2.resize(rgb, (96, 96), interpolation=cv2.INTER_AREA)
+    lab = cv2.cvtColor(small, cv2.COLOR_RGB2LAB).reshape(-1, 3).astype(np.float32)
+    luma = float(lab[:, 0].mean()) / 255.0
+    crit = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0)
+    _, labels, centers = cv2.kmeans(lab, 6, None, crit, 3, cv2.KMEANS_PP_CENTERS)
+    counts = np.bincount(labels.ravel(), minlength=6).astype(np.float32) / len(labels)
+    best, score = None, 0.0
+    for c, n in zip(centers, counts):
+        chroma = float(np.hypot(c[1] - 128, c[2] - 128))
+        s = chroma * np.sqrt(n)
+        if chroma > 8 and s > score:
+            best, score = c, s
+    if best is None:
+        accent = DEFAULT_ACCENT
+    else:
+        L, a, b = best
+        ca, cb = a - 128, b - 128
+        chroma = float(np.hypot(ca, cb))
+        k = min(1.0, 26.0 / max(chroma, 1e-6))  # cap saturation
+        lab_px = np.uint8([[[190, 128 + ca * k, 128 + cb * k]]])  # light enough to read on ink
+        r, g, bb = cv2.cvtColor(lab_px, cv2.COLOR_LAB2RGB)[0, 0]
+        accent = f"#{r:02x}{g:02x}{bb:02x}"
+    return {"accent": accent, "luma": round(luma, 3), "ink": INK_DARK if luma > 0.5 else INK_LIGHT}
+
+
+# ---------------------------------------------------------------- library (for the picker)
+
+THUMBS = CACHE / "thumbs"
+INDEX = CACHE / "index.json"
+
+
+def list_library(folder: Path) -> list[dict]:
+    """every wallpaper in the folder with a thumbnail. cheap after the first run:
+    keys are remembered by (size, mtime) and thumbnails are made once."""
+    try:
+        index = json.loads(INDEX.read_text())
+    except (OSError, ValueError):
+        index = {}
+    files = []
+    if folder.is_dir():
+        for p in sorted(folder.rglob("*"), key=lambda x: str(x).lower()):
+            if p.is_file() and not p.name.startswith(".") and p.suffix.lower() in VIDEO_EXT | IMAGE_EXT:
+                if len(p.relative_to(folder).parts) <= 3:
+                    files.append(p)
+    THUMBS.mkdir(parents=True, exist_ok=True)
+    out, new_index = [], {}
+    for p in files:
+        try:
+            st = p.stat()
+        except OSError:
+            continue
+        sig = f"{st.st_size}:{int(st.st_mtime)}"
+        cached = index.get(str(p))
+        key = cached["key"] if cached and cached.get("sig") == sig else file_key(p)
+        new_index[str(p)] = {"sig": sig, "key": key}
+        kind = "video" if p.suffix.lower() in VIDEO_EXT else "image"
+        entry = {"path": str(p), "name": p.stem, "kind": kind, "thumb": "", "prepared": False, "depth": False, "subject": False}
+        meta_path = WALLS / key / "meta.json"
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text())
+                entry.update(thumb=meta.get("thumb", ""), prepared=True,
+                             depth=bool(meta.get("depth")), subject=bool(meta.get("has_subject")))
+            except (OSError, ValueError):
+                pass
+        if not entry["thumb"]:
+            t = THUMBS / f"{key}.jpg"
+            if not t.exists():
+                try:
+                    if kind == "video":
+                        frame = THUMBS / f".{key}.frame.jpg"
+                        if extract_still(p, frame):
+                            make_thumb(fit_long_edge(load_rgb(frame), 1024), t)
+                            frame.unlink(missing_ok=True)
+                    else:
+                        make_thumb(fit_long_edge(load_rgb(p), 1024), t)
+                except Exception as e:
+                    log("thumbnail failed for", p.name, e)
+            if t.exists():
+                entry["thumb"] = str(t)
+        out.append(entry)
+    try:
+        INDEX.write_text(json.dumps(new_index))
+    except OSError:
+        pass
+    return out
+
+
+# ---------------------------------------------------------------- main
+
+def prepare(src: Path, args) -> dict:
+    import cv2
+    import numpy as np
+
+    key = file_key(src)
+    out = WALLS / key
+    meta_path = out / "meta.json"
+    if meta_path.exists() and not args.force:
+        meta = json.loads(meta_path.read_text())
+        if meta.get("version") == BUNDLE_VERSION and (out / "display.jpg").exists():
+            return meta
+
+    WALLS.mkdir(parents=True, exist_ok=True)
+    tmp = Path(tempfile.mkdtemp(prefix=f".{key}-", dir=WALLS))
+    try:
+        ext = src.suffix.lower()
+        kind = "video" if ext in VIDEO_EXT else "image"
+        video = ""
+        if kind == "video":
+            still = tmp / "still.jpg"
+            if not extract_still(src, still):
+                raise RuntimeError("could not read a frame from the video (is ffmpeg installed?)")
+            if ext == ".gif":
+                mp4 = tmp / "loop.mp4"
+                if not gif_to_mp4(src, mp4):
+                    raise RuntimeError("could not convert the gif")
+                video = str(out / "loop.mp4")
+            else:
+                video = str(src)
+            rgb = load_rgb(still)
+            still.unlink()
+        else:
+            rgb = load_rgb(src)
+
+        disp = fit_long_edge(rgb, args.max_edge)
+        save_jpg(disp, tmp / "display.jpg")
+        make_thumb(disp, tmp / "thumb.jpg")
+        h, w = disp.shape[:2]
+
+        # the maps don't need full resolution; they're sampled smoothly anyway
+        work = fit_long_edge(disp, 1280)
+        has_depth = has_subject = False
+        mask = None
+        if not args.no_ai:
+            log("estimating depth…")
+            d = estimate_depth(work)
+            if d is not None:
+                cv2.imwrite(str(tmp / "depth.png"), (d * 255).astype(np.uint8))
+                has_depth = True
+            log(f"finding the subject ({args.model})…")
+            mask = subject_mask(work, args.model)
+
+        ink, has_subject = build_ink(work, mask)
+        cv2.imwrite(str(tmp / "ink.png"), ink)
+
+        pal = palette(work)
+        (tmp / "palette.json").write_text(json.dumps(pal, indent=2))
+
+        meta = {
+            "version": BUNDLE_VERSION,
+            "key": key,
+            "source": str(src),
+            "name": src.stem,
+            "kind": kind,
+            "video": video,
+            "dir": str(out),
+            "display": str(out / "display.jpg"),
+            "thumb": str(out / "thumb.jpg"),
+            "depth": str(out / "depth.png") if has_depth else "",
+            "ink": str(out / "ink.png"),
+            "has_subject": has_subject,
+            "width": w,
+            "height": h,
+            "accent": pal["accent"],
+            "ink_color": pal["ink"],
+            "luma": pal["luma"],
+        }
+        (tmp / "meta.json").write_text(json.dumps(meta, indent=2))
+
+        if out.exists():
+            shutil.rmtree(out)
+        tmp.replace(out)  # atomic: a half-built bundle is never visible
+        return meta
+    finally:
+        if tmp.exists():
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+def main() -> int:
+    reexec_in_venv()
+    ap = argparse.ArgumentParser(prog="kk-prep", description=__doc__.split("\n\n")[0])
+    ap.add_argument("file", type=Path, nargs="?")
+    ap.add_argument("--list", type=Path, metavar="DIR", help="print the wallpaper library in DIR as json")
+    ap.add_argument("--force", action="store_true", help="rebuild even if cached")
+    ap.add_argument("--no-ai", action="store_true", help="skip depth + subject detection")
+    ap.add_argument("--model", default=os.environ.get("KK_SUBJECT_MODEL", "birefnet-general-lite"),
+                    help="rembg model: birefnet-general-lite (default), isnet-anime, isnet-general-use, u2net")
+    ap.add_argument("--max-edge", type=int, default=int(os.environ.get("KK_MAX_EDGE", "3840")))
+    args = ap.parse_args()
+
+    WALLS.mkdir(parents=True, exist_ok=True)
+    if args.list is not None:
+        print(json.dumps(list_library(args.list.expanduser())), flush=True)
+        return 0
+    if args.file is None:
+        ap.print_help()
+        return 2
+
+    src = args.file.expanduser().resolve()
+    if not src.is_file():
+        log("no such file:", src)
+        return 2
+    if src.suffix.lower() not in VIDEO_EXT | IMAGE_EXT:
+        log("not an image or video:", src.suffix)
+        return 2
+    WALLS.mkdir(parents=True, exist_ok=True)
+    try:
+        meta = prepare(src, args)
+    except Exception as e:
+        log("failed:", e)
+        return 1
+    print(json.dumps(meta), flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

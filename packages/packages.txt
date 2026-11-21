@@ -1,0 +1,90 @@
+# kajukatli · packages. install.sh takes each name from the official repos when it can,
+# and from the AUR otherwise. lines starting with # are comments.
+
+# --- compositor & session ---------------------------------------------------------
+hyprland
+hypridle
+hyprlock
+hyprpolkitagent
+hyprsunset
+hyprpicker
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+greetd
+greetd-tuigreet
+polkit
+xdg-user-dirs
+xdg-utils
+
+# --- the shell (quickshell) and what it needs ---------------------------------------
+quickshell
+qt6-wayland
+qt6-svg
+qt6-imageformats
+qt6-shadertools
+qt6-5compat
+
+# --- network, bluetooth, sound, power ----------------------------------------------
+networkmanager
+network-manager-applet
+bluez
+bluez-utils
+blueman
+pipewire
+pipewire-pulse
+pipewire-alsa
+wireplumber
+pavucontrol
+brightnessctl
+playerctl
+power-profiles-daemon
+upower
+
+# --- apps --------------------------------------------------------------------------
+kitty
+dolphin
+ark
+archlinux-xdg-menu
+kio-extras
+ffmpegthumbs
+kdegraphics-thumbnailers
+qt6ct
+firefox
+mpv
+
+# --- screenshots, clipboard, recording -----------------------------------------------
+grim
+slurp
+wl-clipboard
+cliphist
+satty
+wf-recorder
+jq
+libnotify
+
+# --- wallpaper engine ------------------------------------------------------------------
+mpvpaper
+ffmpeg
+python
+python-pip
+
+# --- terminal life ----------------------------------------------------------------------
+fastfetch
+starship
+eza
+bat
+zoxide
+fzf
+pciutils
+
+# --- look --------------------------------------------------------------------------------
+ttf-ibm-plex
+ttf-jetbrains-mono-nerd
+ttf-nerd-fonts-symbols
+noto-fonts
+noto-fonts-cjk
+noto-fonts-emoji
+papirus-icon-theme
+adw-gtk-theme
+nwg-look
+bibata-cursor-theme-bin

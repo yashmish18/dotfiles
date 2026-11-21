@@ -1,0 +1,68 @@
+import QtQuick
+import Quickshell
+import Quickshell.Wayland
+import Quickshell.Hyprland
+import qs.services
+import qs.components
+
+// full-screen sheets: workspace overview, wallpaper contact sheet, keybind cheatsheet.
+// created only while open, so they cost nothing the rest of the time.
+LazyLoader {
+    id: loader
+    active: Ui.overlay !== ""
+
+    PanelWindow {
+        id: win
+        screen: {
+            const mon = Hyprland.focusedMonitor;
+            return Quickshell.screens.find(s => mon && s.name === mon.name) || Quickshell.screens[0];
+        }
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.namespace: "kajukatli-overlay"
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+        exclusionMode: ExclusionMode.Ignore
+        anchors { top: true; bottom: true; left: true; right: true }
+        color: "transparent"
+
+        Rectangle {
+            id: dim
+            anchors.fill: parent
+            color: Qt.rgba(0.047, 0.047, 0.047, 0.9)
+            opacity: 0
+            Component.onCompleted: opacity = 1
+            Behavior on opacity { NumberAnimation { duration: Theme.normal } }
+
+            ShaderEffect {
+                anchors.fill: parent
+                fragmentShader: Qt.resolvedUrl("../../shaders/grain.frag.qsb")
+                property real time: 0
+                property real amount: 0.05
+                property vector2d size: Qt.vector2d(width / 1.5, height / 1.5)
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: Ui.overlay = ""
+        }
+
+        Loader {
+            id: content
+            anchors.fill: parent
+            anchors.margins: 56
+            focus: true
+            opacity: 0
+            y: 12
+            Component.onCompleted: { opacity = 1; y = 0; }
+            Behavior on opacity { NumberAnimation { duration: Theme.slow } }
+            Behavior on y { NumberAnimation { duration: Theme.slow; easing.type: Easing.OutCubic } }
+            sourceComponent: Ui.overlay === "overview" ? overviewC : Ui.overlay === "wallpapers" ? wallC : Ui.overlay === "cheatsheet" ? cheatC : null
+            Keys.onEscapePressed: Ui.overlay = ""
+        }
+
+        Component { id: overviewC; Overview { screen: win.screen } }
+        Component { id: wallC; WallpaperPicker {} }
+        Component { id: cheatC; Cheatsheet {} }
+    }
+}

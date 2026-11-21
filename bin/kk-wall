@@ -1,0 +1,20 @@
+#!/bin/sh
+# kk-wall set <file>   kk-wall next|prev|random   kk-wall current   kk-wall redetect [anime]
+# talks to the running shell; if it isn't running, prepares the file and themes the desktop.
+set -u
+ipc() { qs -c kajukatli ipc call wall "$@" 2>/dev/null; }
+
+case "${1:-}" in
+    set)
+        [ -n "${2:-}" ] || { echo "kk-wall set <file>" >&2; exit 2; }
+        f="$(realpath "$2")" || exit 1
+        ipc set "$f" && exit 0
+        meta="$(kk-prep "$f" | tail -n1)" || exit 1
+        dir="$(printf '%s' "$meta" | jq -r .dir)"
+        kk-theme "$dir"
+        ;;
+    next|prev|random|current) ipc "$1" ;;
+    redetect)
+        if [ "${2:-}" = "anime" ]; then ipc redetect isnet-anime; else ipc redetect birefnet-general-lite; fi ;;
+    *) sed -n '2,3p' "$0" | sed 's/^# //'; exit 2 ;;
+esac

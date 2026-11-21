@@ -1,0 +1,6 @@
+-- gpu routing. install.sh replaces this file after detecting your hardware.
+-- on a hybrid laptop it pins hyprland to the integrated gpu so the nvidia card can sleep:
+--   hl.env("AQ_DRM_DEVICES", "/dev/dri/kk-igpu")
+-- if an external port (often hdmi) is wired to the nvidia card, add it as a second device:
+--   hl.env("AQ_DRM_DEVICES", "/dev/dri/kk-igpu:/dev/dri/kk-dgpu")
+-- run a game / app on the nvidia gpu with:  prime-run <app>

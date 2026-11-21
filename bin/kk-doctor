@@ -1,0 +1,53 @@
+#!/bin/sh
+# kk-doctor — checks that every piece of the rice is in place, and says what to fix.
+ok=0; bad=0
+pass() { printf '  \033[38;2;138;154;123mok\033[0m    %s\n' "$1"; ok=$((ok+1)); }
+fail() { printf '  \033[38;2;181;101;90mfix\033[0m   %s\n        → %s\n' "$1" "$2"; bad=$((bad+1)); }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+echo; echo "  kajukatli doctor"; echo
+
+for c in Hyprland qs kitty dolphin hypridle hyprlock grim slurp wl-copy cliphist brightnessctl playerctl \
+         nmcli blueman-manager mpvpaper ffmpeg jq notify-send wf-recorder hyprsunset satty python3; do
+    have "$c" && pass "$c" || fail "$c missing" "run install.sh again, or: sudo pacman -S <package for $c>"
+done
+
+qs_dir="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/kajukatli"
+for s in wallpaper film grain mono; do
+    [ -s "$qs_dir/shaders/$s.frag.qsb" ] && pass "shader $s" || fail "shader $s not compiled" "./install.sh --shaders"
+done
+
+venv="${XDG_DATA_HOME:-$HOME/.local/share}/kajukatli/venv/bin/python"
+if [ -x "$venv" ] && "$venv" -c "import onnxruntime, rembg, cv2, PIL" 2>/dev/null; then
+    pass "wallpaper ai (depth + subject)"
+else
+    fail "wallpaper ai env" "./install.sh --ai   (wallpapers still work without it, just no 3d/outline)"
+fi
+
+if pgrep -x qs >/dev/null 2>&1 || pgrep -f "quickshell" >/dev/null 2>&1; then pass "shell running"; else fail "shell not running" "qs -c kajukatli   (and read what it prints)"; fi
+if have hyprctl && [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+    errs="$(hyprctl configerrors 2>/dev/null | grep -v '^$')"
+    [ -z "$errs" ] && pass "hyprland config" || fail "hyprland config errors" "$errs"
+fi
+
+systemctl is-enabled NetworkManager >/dev/null 2>&1 && pass "networkmanager enabled" || fail "networkmanager" "sudo systemctl enable --now NetworkManager"
+systemctl is-enabled bluetooth >/dev/null 2>&1 && pass "bluetooth enabled" || fail "bluetooth" "sudo systemctl enable --now bluetooth"
+systemctl is-active power-profiles-daemon >/dev/null 2>&1 && pass "power-profiles-daemon" || fail "power profiles" "sudo systemctl enable --now power-profiles-daemon"
+
+if lspci 2>/dev/null | grep -qi nvidia; then
+    [ -e /dev/dri/kk-igpu ] && pass "igpu symlink" || fail "no /dev/dri/kk-igpu" "sudo udevadm trigger, or reboot after install.sh"
+    for d in /sys/bus/pci/devices/*; do
+        [ "$(cat "$d/vendor" 2>/dev/null)" = "0x10de" ] || continue
+        case "$(cat "$d/class")" in 0x030000|0x030200)
+            st="$(cat "$d/power/runtime_status" 2>/dev/null)"
+            [ "$st" = "suspended" ] && pass "nvidia gpu is asleep (good for battery)" || \
+                echo "  note  nvidia gpu is '$st' — fine if something is using it (check: nvidia-smi)";;
+        esac
+    done
+fi
+
+ls "${XDG_PICTURES_DIR:-$HOME/Pictures}/wallpapers" 2>/dev/null | head -1 | grep -q . && pass "wallpaper folder has pictures" \
+    || fail "no wallpapers" "put images / gifs / videos in ~/Pictures/wallpapers, then super + w"
+
+echo; echo "  $ok fine, $bad to fix."; echo
+[ "$bad" -eq 0 ]

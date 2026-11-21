@@ -1,0 +1,4 @@
+# compiled shaders are built on install (./install.sh --shaders)
+*.qsb
+__pycache__/
+*.pyc

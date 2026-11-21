@@ -1,0 +1,6 @@
+[terminal]
+vt = 1
+
+[default_session]
+command = "tuigreet --time --time-format '%H:%M' --remember --remember-session --asterisks --greeting 'welcome back.' --theme 'border=darkgray;text=gray;prompt=white;time=gray;action=gray;button=white;container=black;input=white' --cmd kk-session"
+user = "greeter"

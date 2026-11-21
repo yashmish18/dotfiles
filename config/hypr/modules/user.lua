@@ -1,0 +1,5 @@
+-- your own overrides. install.sh never overwrites this file.
+-- examples:
+-- hl.monitor({ output = "eDP-1", mode = "preferred", position = "0x0", scale = "1.25" })
+-- hl.config({ input = { kb_layout = "us,in" } })
+-- hl.bind("SUPER + D", hl.dsp.exec_cmd("discord"))
