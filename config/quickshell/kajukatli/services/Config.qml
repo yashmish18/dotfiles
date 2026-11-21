@@ -35,6 +35,8 @@ Singleton {
             property bool videoOnBattery: false     // live wallpapers freeze to a still on battery
             property bool autoPowerProfile: true    // power-saver on battery, balanced on ac
             property bool clock24h: true
+            property bool desktopWidget: true
+            property bool naturalScroll: true
             property int nightLightTemp: 4200
             property bool lockPoetry: true
             property int notificationTimeout: 5000

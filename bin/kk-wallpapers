@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""Generate a small set of original, polished wallpapers for a fresh install."""
+from __future__ import annotations
+
+import math
+import struct
+import sys
+import zlib
+from pathlib import Path
+
+W, H = 1600, 900
+
+
+def png(out: Path, pixels: bytes) -> None:
+    def chunk(name: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + name + data + struct.pack(">I", zlib.crc32(name + data) & 0xffffffff)
+    raw = b"".join(b"\x00" + pixels[y * W * 3:(y + 1) * W * 3] for y in range(H))
+    out.write_bytes(b"\x89PNG\r\n\x1a\n" +
+                    chunk(b"IHDR", struct.pack(">IIBBBBB", W, H, 8, 2, 0, 0, 0)) +
+                    chunk(b"IDAT", zlib.compress(raw, 9)) +
+                    chunk(b"IEND", b""))
+
+
+def clamp(v: float) -> int:
+    return max(0, min(255, round(v)))
+
+
+def generate(out: Path, a: tuple[int, int, int], b: tuple[int, int, int], accent: tuple[int, int, int], mode: int) -> None:
+    data = bytearray(W * H * 3)
+    for y in range(H):
+        for x in range(W):
+            t = (x / W + y / H) * 0.5
+            glow = math.exp(-((x - W * (0.72 if mode % 2 else 0.28)) ** 2 + (y - H * 0.42) ** 2) / (2 * (H * 0.42) ** 2))
+            wave = math.sin(x * 0.018 + math.sin(y * 0.012) * 2.8) * 18
+            r = a[0] * (1-t) + b[0] * t + glow * accent[0] * 0.28 + wave
+            g = a[1] * (1-t) + b[1] * t + glow * accent[1] * 0.28 + wave
+            bl = a[2] * (1-t) + b[2] * t + glow * accent[2] * 0.28 + wave
+            if mode >= 4:
+                stripe = 18 if ((x + y * 2) // 22) % 5 == 0 else 0
+                r, g, bl = r + stripe, g + stripe * 0.7, bl + stripe
+            i = (y * W + x) * 3
+            data[i:i+3] = bytes((clamp(r), clamp(g), clamp(bl)))
+    png(out, bytes(data))
+
+
+def main() -> int:
+    out = Path(sys.argv[1]).expanduser() if len(sys.argv) > 1 else Path.home() / "Pictures/wallpapers"
+    out.mkdir(parents=True, exist_ok=True)
+    themes = [
+        ("red-signal.png", (21, 18, 22), (94, 18, 27), (255, 70, 72), 1),
+        ("green-spring.png", (12, 29, 31), (30, 74, 55), (134, 230, 170), 2),
+        ("blue-tide.png", (11, 23, 42), (38, 78, 108), (91, 176, 232), 3),
+        ("violet-orbit.png", (25, 17, 40), (82, 34, 82), (214, 112, 226), 4),
+        ("ember-lines.png", (18, 17, 16), (82, 42, 27), (240, 158, 76), 5),
+    ]
+    for name, a, b, accent, mode in themes:
+        generate(out / name, a, b, accent, mode)
+    print(out)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

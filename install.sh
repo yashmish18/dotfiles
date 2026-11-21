@@ -14,6 +14,18 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# keep a running checkout current before it builds or links anything
+if [ -d "$REPO/.git" ] && command -v git >/dev/null; then
+    branch="$(git -C "$REPO" branch --show-current 2>/dev/null || true)"
+    if [ -n "$branch" ] && [ -z "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
+        echo "  · updating dotfiles ($branch)"
+        git -C "$REPO" pull --ff-only origin "$branch" || warn "could not pull origin/$branch; using the checked-out files"
+    elif [ -n "$branch" ]; then
+        echo "  ! local changes present; skipping git pull"
+    fi
+fi
+
 CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}/kajukatli"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/kajukatli"
@@ -310,6 +322,7 @@ defaults() {
     say "first-run defaults"
     xdg-user-dirs-update 2>/dev/null || true
     mkdir -p "$HOME/Pictures/wallpapers" "$HOME/Pictures/screenshots" "$HOME/Videos/recordings" "$CONFIG/kajukatli"
+    "$BIN/kk-wallpapers" "$HOME/Pictures/wallpapers" >/dev/null
     gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' 2>/dev/null || true
     gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3-dark' 2>/dev/null || true
     gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark' 2>/dev/null || true

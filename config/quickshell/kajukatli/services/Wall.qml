@@ -32,6 +32,21 @@ Singleton {
 
     function prep(file: string, force: bool, model: string) {
         if (!file) return;
+        const ext = file.toLowerCase();
+        const previewKind = ext.endsWith(".gif") || ext.endsWith(".mp4") || ext.endsWith(".webm") || ext.endsWith(".mkv") || ext.endsWith(".mov") || ext.endsWith(".avi") || ext.endsWith(".m4v") ? "video" : "image";
+        root.apply({
+            source: file,
+            name: file.split("/").pop().replace(/\.[^.]+$/, ""),
+            kind: previewKind,
+            display: file,
+            thumb: file,
+            dir: "",
+            depth: "",
+            ink: "",
+            video: previewKind === "video" ? file : "",
+            width: 0,
+            height: 0
+        });
         if (prepProc.running) {          // last request wins
             _queued = file;
             _queuedForce = force;
@@ -159,7 +174,7 @@ Singleton {
     // let the ink finish before the video replaces it
     Timer {
         id: videoStart
-        interval: Config.s.transitionMs + 300
+        interval: 0
         onTriggered: root.startVideo()
     }
 

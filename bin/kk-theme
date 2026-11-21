@@ -167,7 +167,7 @@ def gtk(p: dict) -> None:
 
 
 def qt(p: dict) -> None:
-    """qt6ct palette (dolphin, qt apps) + kdeglobals colours for kde apps."""
+    """qt6ct palette (GTK/Qt apps) + kdeglobals colours for KDE apps."""
     a = p["accent"]
     b = BASE
     # qt6ct order: WindowText, Button, Light, Midlight, Dark, Mid, Text, BrightText, ButtonText,

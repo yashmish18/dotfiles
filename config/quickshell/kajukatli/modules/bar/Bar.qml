@@ -8,8 +8,7 @@ import qs.services
 import qs.components
 import qs.modules.panels
 
-// the bar is one pill. click a part of it and the pill grows downward into that panel;
-// the row you clicked stays where it was, so your eye never has to look for it.
+// a slim, full-width top bar. panels are anchored under their control button.
 Variants {
     model: Quickshell.screens
 
@@ -27,8 +26,8 @@ Variants {
         WlrLayershell.namespace: "kajukatli-bar"
         WlrLayershell.keyboardFocus: !open ? WlrKeyboardFocus.None : typing ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
         anchors { top: true; left: true; right: true }
-        implicitHeight: Math.round(modelData.height * 0.86)
-        exclusiveZone: Ui.barVisible ? Theme.barHeight + 8 : 0
+        implicitHeight: Theme.barHeight + 12
+        exclusiveZone: Ui.barVisible ? Theme.barHeight : 0
         color: "transparent"
         mask: Region { item: pill }
 
@@ -53,40 +52,28 @@ Variants {
         Rectangle {
             id: pill
             readonly property int pad: 14
-            readonly property real panelW: loader.item ? loader.item.implicitWidth + pad * 2 : 0
-            readonly property real panelH: loader.item ? loader.item.implicitHeight + pad : 0
-
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: (Ui.barVisible || bar.open) ? 6 : -height - 8
-            width: Math.max(row.implicitWidth + 28, bar.open ? panelW : 0)
+            readonly property real panelH: loader.item ? loader.item.implicitHeight + 20 : 0
+            anchors.left: parent.left
+            anchors.right: parent.right
+            y: Ui.barVisible ? 0 : -height
             height: Theme.barHeight + (bar.open ? panelH : 0)
-            radius: bar.open ? 14 : Theme.barHeight / 2
-            color: Theme.ink
-            border.width: 1
-            border.color: bar.open ? Theme.line : Qt.rgba(1, 1, 1, 0.06)
+            color: Qt.rgba(0.045, 0.045, 0.045, 0.94)
+            border.width: 0
             clip: true
 
             Behavior on y { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutCubic } }
-            Behavior on width { NumberAnimation { duration: Theme.slow - 60; easing.type: Easing.OutCubic } }
             Behavior on height { NumberAnimation { duration: Theme.slow; easing.type: Easing.OutCubic } }
-            Behavior on radius { NumberAnimation { duration: Theme.slow; easing.type: Easing.OutCubic } }
 
             // ------------------------------------------------------ the row
             RowLayout {
-                id: row
-                anchors.horizontalCenter: parent.horizontalCenter
+                id: leftRow
+                anchors.left: parent.left
+                anchors.leftMargin: 12
                 y: 0
                 height: Theme.barHeight
-                spacing: 14
-
-                Workspaces {
-                    monitor: bar.monitor
-                    Layout.alignment: Qt.AlignVCenter
-                }
-
+                spacing: 12
+                Workspaces { monitor: bar.monitor; Layout.alignment: Qt.AlignVCenter }
                 Sep {}
-
-                // now playing (only while something plays)
                 Item {
                     id: media
                     readonly property var player: Mpris.players.values.find(p => p.isPlaying) || null
@@ -103,25 +90,23 @@ Variants {
                         font.pixelSize: Theme.md
                         color: Ui.panel === "media" ? Theme.accent : Theme.paper
                     }
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: Ui.toggle("media")
-                    }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Ui.toggle("media") }
                 }
                 Sep { visible: media.visible }
+            }
 
-                Clock {
-                    Layout.alignment: Qt.AlignVCenter
-                }
+            Clock {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 0
+                height: Theme.barHeight
+            }
 
-                Sep {}
-
-                Status {
-                    Layout.alignment: Qt.AlignVCenter
-                }
-
-                // short-lived messages from the shell ("developing…")
+            RowLayout {
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                y: 0
+                height: Theme.barHeight
+                spacing: 12
                 Txt {
                     visible: Ui.status !== ""
                     text: Ui.status
@@ -129,13 +114,8 @@ Variants {
                     font.italic: true
                     font.pixelSize: Theme.sm
                     color: Theme.accent
-                    SequentialAnimation on opacity {
-                        running: Ui.status !== ""
-                        loops: Animation.Infinite
-                        NumberAnimation { to: 0.35; duration: 900; easing.type: Easing.InOutSine }
-                        NumberAnimation { to: 1; duration: 900; easing.type: Easing.InOutSine }
-                    }
                 }
+                Status { Layout.alignment: Qt.AlignVCenter }
             }
 
             WheelHandler {
@@ -155,7 +135,7 @@ Variants {
 
             Loader {
                 id: loader
-                x: pill.pad
+                x: (pill.width - (item ? item.implicitWidth : 384)) / 2
                 y: Theme.barHeight + 10
                 active: bar.shown !== ""
                 opacity: bar.open && status === Loader.Ready ? 1 : 0
@@ -164,6 +144,7 @@ Variants {
                 sourceComponent: {
                     switch (bar.shown) {
                     case "control": return controlC;
+                    case "settings": return settingsC;
                     case "notifications": return notifC;
                     case "calendar": return calC;
                     case "media": return mediaC;
@@ -178,6 +159,7 @@ Variants {
             }
 
             Component { id: controlC; ControlPanel {} }
+            Component { id: settingsC; SettingsPanel {} }
             Component { id: notifC; NotificationsPanel {} }
             Component { id: calC; CalendarPanel {} }
             Component { id: mediaC; MediaPanel {} }

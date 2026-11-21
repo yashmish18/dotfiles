@@ -186,7 +186,7 @@ Item {
                 spacing: 2
                 Btn { text: "screenshot"; onClicked: { Ui.panel = ""; Quickshell.execDetached(["sh", "-c", "sleep 0.35; kk-shot area"]); } }
                 Btn { text: Ui.recording ? "stop rec" : "record"; danger: Ui.recording; onClicked: { Ui.panel = ""; Quickshell.execDetached(["kk-record"]); } }
-                Btn { text: "wallpaper"; onClicked: Ui.toggleOverlay("wallpapers") }
+                Btn { text: "settings"; onClicked: Ui.open("settings") }
                 Item { Layout.fillWidth: true }
                 Btn { text: "lock"; onClicked: { Ui.panel = ""; Quickshell.execDetached(["kk-lock"]); } }
                 Btn { glyph: ""; danger: true; onClicked: Ui.open("session") }

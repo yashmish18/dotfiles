@@ -18,6 +18,7 @@ Singleton {
     property string busySsid: ""      // currently connecting to
     property string error: ""
     property string needsPassword: "" // ssid the ui should ask a password for
+    property string backend: ""
 
     readonly property bool connected: ssid !== "" || ethernet
     readonly property string label: ethernet ? "wired" : (ssid !== "" ? ssid : (wifiEnabled ? "offline" : "wi-fi off"))
@@ -42,6 +43,7 @@ Singleton {
     }
 
     function refresh() {
+        backendProc.running = true;
         if (!devProc.running) devProc.running = true;
         if (!radioProc.running) radioProc.running = true;
         if (!knownProc.running) knownProc.running = true;
@@ -53,8 +55,9 @@ Singleton {
         scanProc.running = true;
     }
     function setWifi(on: bool) {
-        Quickshell.execDetached(["nmcli", "radio", "wifi", on ? "on" : "off"]);
         wifiEnabled = on;
+        wifiProc.command = ["nmcli", "radio", "wifi", on ? "on" : "off"];
+        wifiProc.running = true;
     }
     function connectTo(name: string, password: string) {
         error = "";
@@ -80,12 +83,30 @@ Singleton {
         Quickshell.execDetached(["nm-connection-editor"]);
     }
 
+    Process {
+        id: wifiProc
+        stderr: StdioCollector { id: wifiErr }
+        onExited: code => {
+            if (code !== 0) root.error = wifiErr.text.trim() || "couldn't change wi-fi";
+            root.refresh();
+            if (root.wifiEnabled) root.rescan();
+        }
+    }
+
     Component.onCompleted: refresh()
 
     Timer {
         id: debounce
         interval: 500
         onTriggered: root.refresh()
+    }
+
+    Process {
+        id: backendProc
+        command: ["sh", "-c", "nmcli -t -f STATE general 2>/dev/null || true"]
+        stdout: StdioCollector {
+            onStreamFinished: root.backend = text.trim() === "" ? "NetworkManager unavailable" : text.trim()
+        }
     }
 
     Process {
@@ -170,10 +191,29 @@ Singleton {
 
     Process {
         id: scanProc
-        command: ["nmcli", "device", "wifi", "rescan"]
+        command: ["sh", "-c", "nmcli radio wifi on >/dev/null 2>&1 || exit 1; nmcli device wifi rescan >/dev/null 2>&1 || true; sleep 1; nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY device wifi list"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const seen = {};
+                for (const line of text.trim().split("\n")) {
+                    const f = root.splitTerse(line);
+                    if (f.length < 4 || f[1] === "") continue;
+                    const n = { ssid: f[1], signal: parseInt(f[2]) || 0, secure: f[3] !== "" && f[3] !== "--", active: f[0] === "*" };
+                    const prev = seen[n.ssid];
+                    if (!prev || n.active || (!prev.active && n.signal > prev.signal)) seen[n.ssid] = n;
+                }
+                const list = Object.values(seen);
+                for (const n of list) n.known = !!root.known[n.ssid];
+                list.sort((a, b) => (b.active - a.active) || (b.known - a.known) || (b.signal - a.signal));
+                root.networks = list;
+            }
+        }
+        stderr: StdioCollector { id: scanErr }
         onExited: {
             root.scanning = false;
-            listProc.running = true;
+            if (scanErr.text.trim() !== "") root.error = "wi-fi scan failed: " + scanErr.text.trim();
+            else root.error = "";
+            root.refresh();
         }
     }
 

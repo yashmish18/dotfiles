@@ -11,6 +11,7 @@ bind(M .. " + B",      hl.dsp.exec_cmd(KK.browser),   { description = "browser" 
 -- shell
 bind(M .. " + Space",  sh("launcher"),      { description = "launcher" })
 bind(M .. " + A",      sh("control"),       { description = "control center" })
+bind(M .. " + I",      sh("settings"),      { description = "desktop settings" })
 bind(M .. " + N",      sh("notifications"), { description = "notifications" })
 bind(M .. " + W",      sh("wallpapers"),    { description = "wallpaper picker" })
 bind(M .. " + V",      sh("clipboard"),     { description = "clipboard history" })

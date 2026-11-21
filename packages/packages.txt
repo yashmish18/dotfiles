@@ -27,6 +27,7 @@ qt6-5compat
 # --- network, bluetooth, sound, power ----------------------------------------------
 networkmanager
 network-manager-applet
+wireless_tools
 bluez
 bluez-utils
 blueman
@@ -42,7 +43,7 @@ upower
 
 # --- apps --------------------------------------------------------------------------
 kitty
-dolphin
+nautilus
 ark
 archlinux-xdg-menu
 kio-extras
@@ -78,7 +79,7 @@ fzf
 pciutils
 
 # --- look --------------------------------------------------------------------------------
-ttf-ibm-plex
+ttf-inter
 ttf-jetbrains-mono-nerd
 ttf-nerd-fonts-symbols
 noto-fonts

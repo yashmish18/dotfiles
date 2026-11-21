@@ -2,7 +2,7 @@
 KK = {
     mod      = "SUPER",
     terminal = "kitty",
-    files    = "dolphin",
+    files    = "nautilus",
     browser  = "firefox",
     -- quickshell registers global shortcuts as "kajukatli:<name>"
     shell    = "kajukatli",

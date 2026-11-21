@@ -18,6 +18,7 @@ import qs.modules.notifications
 import qs.modules.osd
 import qs.modules.overlays
 import qs.modules.lock
+import qs.modules.widgets
 
 ShellRoot {
     id: shell
@@ -28,6 +29,7 @@ ShellRoot {
     Osd {}
     Overlay {}
     Lock { id: lock }
+    DesktopWidget {}
 
     // make sure the folders the shell writes to exist
     Process {
@@ -52,6 +54,7 @@ ShellRoot {
 
     Shortcut { name: "launcher";      description: "open the launcher";        onPressed: Ui.toggle("launcher") }
     Shortcut { name: "control";       description: "control center";           onPressed: Ui.toggle("control") }
+    Shortcut { name: "settings";      description: "desktop settings";         onPressed: Ui.toggle("settings") }
     Shortcut { name: "notifications"; description: "notifications";            onPressed: Ui.toggle("notifications") }
     Shortcut { name: "clipboard";     description: "clipboard history";        onPressed: Ui.toggle("clipboard") }
     Shortcut { name: "session";       description: "power menu";               onPressed: Ui.toggle("session") }

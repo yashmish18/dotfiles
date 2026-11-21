@@ -369,20 +369,10 @@ def list_library(folder: Path) -> list[dict]:
             except (OSError, ValueError):
                 pass
         if not entry["thumb"]:
+            # Return the source itself immediately. The thumbnail cache is populated
+            # only after selection, so opening the picker is never blocked by image work.
             t = THUMBS / f"{key}.jpg"
-            if not t.exists():
-                try:
-                    if kind == "video":
-                        frame = THUMBS / f".{key}.frame.jpg"
-                        if extract_still(p, frame):
-                            make_thumb(fit_long_edge(load_rgb(frame), 1024), t)
-                            frame.unlink(missing_ok=True)
-                    else:
-                        make_thumb(fit_long_edge(load_rgb(p), 1024), t)
-                except Exception as e:
-                    log("thumbnail failed for", p.name, e)
-            if t.exists():
-                entry["thumb"] = str(t)
+            entry["thumb"] = str(t) if t.exists() else str(p)
         out.append(entry)
     try:
         INDEX.write_text(json.dumps(new_index))

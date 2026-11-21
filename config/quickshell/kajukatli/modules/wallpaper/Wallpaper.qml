@@ -70,6 +70,14 @@ Variants {
             if (target === 0) metaA = m; else metaB = m;
             pendingSlot = target;
             waitedMs = 0;
+            if (!m.ink) {
+                // source preview: make the wallpaper visible as soon as Image decodes it.
+                waiting = false;
+                progress = 1;
+                fromSlot = pendingSlot === 0 ? 1 : 0;
+                toSlot = pendingSlot;
+                return;
+            }
             waiting = true;
         }
         function settled(st) { return st === Image.Ready || st === Image.Error || st === Image.Null; }

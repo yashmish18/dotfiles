@@ -28,8 +28,8 @@ Singleton {
     Behavior on accentFaint { ColorAnimation { duration: 1600; easing.type: Easing.InOutQuad } }
 
     // type: a serif for voice, a mono for facts, a sans for everything else
-    readonly property string serif: "IBM Plex Serif"
-    readonly property string sans: "IBM Plex Sans"
+    readonly property string serif: "Noto Serif"
+    readonly property string sans: "Inter"
     readonly property string mono: "IBM Plex Mono"
     readonly property string glyph: "Symbols Nerd Font"
 

@@ -6,7 +6,7 @@ import Quickshell
 Singleton {
     id: root
 
-    property string panel: ""      // "", control, notifications, calendar, media, launcher, clipboard, session, rename
+    property string panel: ""      // "", control, settings, notifications, calendar, media, launcher, clipboard, session, rename
     property string overlay: ""    // "", overview, wallpapers, cheatsheet
     property bool barVisible: true
     property string status: ""     // short message shown in the pill ("developing…")

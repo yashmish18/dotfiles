@@ -3,7 +3,7 @@
 a desktop for arch + hyprland, in black and white.
 grain, serif italics, film-frame numbers, and one muted colour borrowed from whatever wallpaper you're looking at.
 
-- **wallpaper engine**: still pictures get a 3d depth parallax. when you change wallpaper, the subject (a character, a person, an object) is found and *drawn* first, stroke by stroke, and then ink bleeds outward from it to reveal the new picture. gifs and videos play too, and pause when they're covered or you're on battery.
+- **wallpaper engine**: the selected image or video appears immediately in the wallpaper layer. cached depth and subject processing continues in the background for 3d parallax and ink effects, so the picker never waits for AI work.
 - **one pill for a bar**: it grows into the control center, calendar, media, notifications, launcher, clipboard and power menu. no dock.
 - **control center**: wi-fi (join networks and type passwords in place), bluetooth (scan, pair, connect, battery), sound (output device and per-app volume), brightness, night light, quiet mode, stay-awake, power profile. every page links to the full app (network manager, blueman, pavucontrol).
 - **workspaces**: they appear when you go to them and disappear when they're empty. `super + tab` shows them all as frames. drag windows between them, rename them, open new ones.
@@ -71,7 +71,7 @@ dotfiles/
 │   ├── starship.toml          lowercase prompt, a small arrow
 │   ├── shell/kajukatli.sh     aliases, zoxide, fzf colours, the greeting (bash + zsh)
 │   ├── gtk-3.0/ gtk-4.0/      adw-gtk3 dark, papirus icons, plex sans
-│   ├── qt6ct/                 fusion + the generated palette (dolphin and other qt apps)
+│   ├── qt6ct/                 fusion + the generated palette (Nautilus/GTK apps and QT apps)
 │   └── kajukatli/             settings.json lives here
 │
 ├── bin/                       → linked into ~/.local/bin
@@ -143,10 +143,11 @@ if something looks off, run `kk-doctor`.
 | | |
 |---|---|
 | `super + enter` | terminal (kitty) |
-| `super + e` | files (dolphin) |
+| `super + e` | files (nautilus) |
 | `super + b` | browser |
 | `super + space` | launcher. `=` math · `>` command · `?` web search |
 | `super + a` | control center |
+| `super + i` | dedicated desktop settings |
 | `super + n` | notifications |
 | `super + v` | clipboard history |
 | `super + w` | wallpapers |
@@ -238,6 +239,27 @@ hyprland: put your own binds, monitors and options in `~/.config/hypr/modules/us
 | lock screen won't take the password | `ls ~/.config/quickshell/kajukatli/pam/password.conf`. `hyprlock` is the fallback (`super + l` runs it if the shell is down) |
 | wi-fi missing | `systemctl status NetworkManager`. iwd / dhcpcd / systemd-networkd must be off |
 | ui shows the wrong accent | `kk-theme --reapply` |
+
+## push the dotfiles to GitHub
+
+https push requires GitHub authentication. the commit is not pushed until this succeeds:
+
+1. install github cli:
+   ```sh
+   sudo pacman -S --needed github-cli
+   ```
+2. sign in from a terminal:
+   ```sh
+   gh auth login
+   ```
+3. choose `GitHub.com`, `HTTPS`, `Login with a web browser`, and confirm the one-time code.
+4. verify:
+   ```sh
+   gh auth status
+   git push origin main
+   ```
+
+to use ssh instead, add a key with `ssh-keygen -t ed25519 -C "you@example.com"`, add the public key at https://github.com/settings/keys, set `git remote set-url origin git@github.com:yashmish18/dotfiles.git`, and run `git push origin main`.
 
 ## uninstall
 

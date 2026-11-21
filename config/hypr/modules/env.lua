@@ -2,7 +2,7 @@
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XDG_SESSION_TYPE", "wayland")
 hl.env("XDG_SESSION_DESKTOP", "Hyprland")
-hl.env("XDG_MENU_PREFIX", "arch-")          -- dolphin's "open with" menu outside plasma
+hl.env("XDG_MENU_PREFIX", "arch-")
 
 hl.env("XCURSOR_THEME", "Bibata-Modern-Classic")
 hl.env("XCURSOR_SIZE", "22")
