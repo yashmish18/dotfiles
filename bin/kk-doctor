@@ -32,7 +32,11 @@ fi
 
 systemctl is-enabled NetworkManager >/dev/null 2>&1 && pass "networkmanager enabled" || fail "networkmanager" "sudo systemctl enable --now NetworkManager"
 systemctl is-enabled bluetooth >/dev/null 2>&1 && pass "bluetooth enabled" || fail "bluetooth" "sudo systemctl enable --now bluetooth"
-systemctl is-active power-profiles-daemon >/dev/null 2>&1 && pass "power-profiles-daemon" || fail "power profiles" "sudo systemctl enable --now power-profiles-daemon"
+if systemctl is-active power-profiles-daemon >/dev/null 2>&1 || systemctl is-active tuned-ppd >/dev/null 2>&1; then
+    pass "power profiles"
+else
+    fail "power profiles" "sudo systemctl enable --now power-profiles-daemon   (or: tuned tuned-ppd)"
+fi
 
 if lspci 2>/dev/null | grep -qi nvidia; then
     [ -e /dev/dri/kk-igpu ] && pass "igpu symlink" || fail "no /dev/dri/kk-igpu" "sudo udevadm trigger, or reboot after install.sh"

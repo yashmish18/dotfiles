@@ -89,6 +89,9 @@ packages() {
     local repo=() aur=()
     while read -r p; do
         [ -z "$p" ] && continue
+        # already satisfied — by the package itself or by something that provides it
+        # (e.g. tuned-ppd provides power-profiles-daemon; installing both would conflict)
+        pacman -T "$p" >/dev/null 2>&1 && continue
         if pacman -Si "$p" >/dev/null 2>&1; then repo+=("$p"); else aur+=("$p"); fi
     done < <(sed -e 's/#.*//' -e 's/[[:space:]]//g' "$REPO/packages/packages.txt")
 
@@ -96,8 +99,12 @@ packages() {
     if grep -q GenuineIntel /proc/cpuinfo; then repo+=(intel-media-driver vulkan-intel); fi
     if grep -q AuthenticAMD /proc/cpuinfo; then repo+=(vulkan-radeon); fi
 
-    note "${#repo[@]} from the official repos"
-    sudo pacman -S --needed --noconfirm "${repo[@]}"
+    if [ "${#repo[@]}" -gt 0 ]; then
+        note "${#repo[@]} to install from the official repos"
+        sudo pacman -S --needed --noconfirm "${repo[@]}"
+    else
+        note "everything from the official repos is already here"
+    fi
 
     if [ "${#aur[@]}" -gt 0 ]; then
         note "${#aur[@]} from the aur: ${aur[*]}"
@@ -275,7 +282,13 @@ services() {
             ask "$other is enabled and will fight networkmanager. disable it" y && sudo systemctl disable --now "$other" || true
         fi
     done
-    sudo systemctl enable --now NetworkManager bluetooth power-profiles-daemon
+    sudo systemctl enable --now NetworkManager bluetooth
+    # power profiles: tuned-ppd and power-profiles-daemon speak the same d-bus api; use whichever is here
+    if pacman -Qq tuned-ppd >/dev/null 2>&1; then
+        sudo systemctl enable --now tuned tuned-ppd
+    else
+        sudo systemctl enable --now power-profiles-daemon
+    fi
     systemctl --user enable --now pipewire pipewire-pulse wireplumber 2>/dev/null || true
 
     # login screen
