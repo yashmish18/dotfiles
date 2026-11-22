@@ -19,7 +19,7 @@ Item {
     readonly property real s: (screenHeight / 1080) * Math.max(0.3, Config.s.clockScale)
     readonly property bool h24: Config.s.clock24h
     property bool live: true          // false while windows cover it: no per-second redraws
-    readonly property bool needsSeconds: live && (style === "hero" || style === "serif")
+    readonly property bool needsSeconds: false      // no clock face shows seconds
 
     implicitWidth: face.item ? face.item.implicitWidth : 0
     implicitHeight: face.item ? face.item.implicitHeight : 0
@@ -146,7 +146,8 @@ Item {
                 spacing: 6 * root.s
                 Big { text: root.mm; font.pixelSize: 130 * root.s; opacity: 0.9; height: implicitHeight * 0.8 }
                 Outline {
-                    text: root.ss
+                    visible: !root.h24
+                    text: root.ap
                     size: 130 * root.s
                     stroke: 2.6 * root.s
                     opacity: 0.75
@@ -169,13 +170,6 @@ Item {
             Column {
                 y: 52 * root.s
                 spacing: 2 * root.s
-                Big {
-                    text: root.ss
-                    font.pixelSize: 82 * root.s
-                    font.weight: Font.Bold
-                    font.family: Theme.display
-                    opacity: 0.85
-                }
                 Big {
                     text: root.h24 ? Qt.formatDate(root.now, "ddd").toUpperCase() : root.ap
                     font.pixelSize: 40 * root.s

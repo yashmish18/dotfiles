@@ -96,7 +96,10 @@ Variants {
             }
             if (img.status !== Image.Ready) return;
             const m = pendingSlot === 0 ? metaA : metaB;
-            const wantInk = Config.s.transition === "ink" && !!m.ink && !Power.onBattery;
+            // a brand-new picture shows up before kk-prep has made its ink map: give the fast
+            // stage a moment (it's usually ~0.2 s) so the switch can still ink in
+            if (Config.s.transition === "ink" && !m.ink && (m.stage || 0) === 0 && waitedMs < 900) return;
+            const wantInk = Config.s.transition === "ink" && !!m.ink;
             if (wantInk && !settled(inkImg.status)) return;
             inkRun = wantInk;
             waiting = false;
@@ -109,7 +112,7 @@ Variants {
                 return;
             }
             progress = 0;
-            anim.duration = inkRun ? Config.s.transitionMs : 420;
+            anim.duration = inkRun ? Config.s.transitionMs : 700;
             anim.restart();
         }
 
@@ -250,13 +253,13 @@ Variants {
             anchors.margins: 64
             spacing: 6
             Txt {
-                text: Wall.preparing ? "developing…" : "no wallpaper yet."
+                text: ""
                 font.pixelSize: 34
                 font.weight: Font.Light
                 color: Theme.muted
             }
             Txt {
-                text: "put pictures or videos in " + Config.s.wallpaperDir + ", then super + w"
+                text: Config.s.wallpaperDir
                 font.family: Theme.mono
                 font.pixelSize: Theme.sm
                 color: Theme.faint

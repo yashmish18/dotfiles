@@ -143,13 +143,6 @@ Variants {
                             scale: area.pressed ? 0.88 : area.containsMouse ? 1.08 : 1
                             Behavior on scale { NumberAnimation { duration: Theme.fast; easing.type: Easing.OutBack } }
                         }
-                        Text {
-                            x: 2; y: 0
-                            text: (app.index + 1 < 10 ? "0" : "") + (app.index + 1)
-                            font.family: Theme.mono
-                            font.pixelSize: 7
-                            color: Theme.outline
-                        }
                         Rectangle {
                             visible: app.running
                             anchors.horizontalCenter: parent.horizontalCenter

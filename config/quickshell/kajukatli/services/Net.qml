@@ -42,6 +42,46 @@ Singleton {
         return out;
     }
 
+    // ---------------------------------------------------------------- captive portals
+    // hotel / campus wi-fi that wants you to sign in first: networkmanager reports "portal"
+    // (install.sh turns its connectivity check on). the sign-in page opens once per network.
+    property string connectivity: ""
+    property string portalShownFor: ""
+    function checkPortal() {
+        if (!portalProc.running) portalProc.running = true;
+    }
+    Process {
+        id: portalProc
+        command: ["nmcli", "networking", "connectivity", "check"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                root.connectivity = text.trim();
+                const here = root.ssid || (root.ethernet ? "wired" : "");
+                if (root.connectivity === "portal" && here !== "" && root.portalShownFor !== here) {
+                    root.portalShownFor = here;
+                    // any plain-http page gets redirected to the network's sign-in page
+                    Quickshell.execDetached(["xdg-open", "http://neverssl.com"]);
+                } else if (root.connectivity === "full") {
+                    root.portalShownFor = "";
+                }
+            }
+        }
+    }
+    // look again shortly after every change, and now and then while connected
+    Timer {
+        id: portalSoon
+        interval: 2500
+        onTriggered: root.checkPortal()
+    }
+    Timer {
+        interval: 60000
+        repeat: true
+        running: root.connected && root.connectivity !== "full"
+        onTriggered: root.checkPortal()
+    }
+    onSsidChanged: portalSoon.restart()
+    onEthernetChanged: portalSoon.restart()
+
     function refresh() {
         backendProc.running = true;
         if (!devProc.running) devProc.running = true;

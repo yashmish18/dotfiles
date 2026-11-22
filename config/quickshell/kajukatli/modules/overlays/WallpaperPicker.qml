@@ -256,13 +256,6 @@ Item {
                 color: "#ffffff"
             }
         }
-        Txt {
-            Layout.alignment: Qt.AlignHCenter
-            text: "enter  use it      ← →  browse      type  filter      ctrl r  surprise      ctrl a  re-detect subject"
-            font.family: Theme.mono
-            font.pixelSize: Theme.xs + 1
-            color: Theme.alpha("#ffffff", 0.5)
-        }
     }
 
     // nothing here yet

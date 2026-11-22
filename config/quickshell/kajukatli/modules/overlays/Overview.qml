@@ -65,17 +65,6 @@ Item {
             color: Theme.alpha("#ffffff", 0.55)
         }
         Item { Layout.fillWidth: true }
-        Repeater {
-            model: ["drag a window to move it", "middle-click closes", "right-click renames", "n  new"]
-            Rectangle {
-                required property string modelData
-                implicitWidth: hint.implicitWidth + 20
-                implicitHeight: 26
-                radius: 13
-                color: Theme.alpha("#ffffff", 0.08)
-                Txt { id: hint; anchors.centerIn: parent; text: parent.modelData; font.family: Theme.mono; font.pixelSize: Theme.xs + 1; color: Theme.alpha("#ffffff", 0.7) }
-            }
-        }
     }
 
     // ------------------------------------------------------------ the row of workspaces

@@ -415,7 +415,13 @@ services() {
             ask "$other is enabled and will fight networkmanager. disable it" y && sudo systemctl disable --now "$other" || true
         fi
     done
+    # let networkmanager notice wi-fi that wants a sign-in page (the shell then opens it)
+    if [ ! -f /etc/NetworkManager/conf.d/20-connectivity.conf ]; then
+        printf '[connectivity]\nenabled=true\nuri=http://ping.archlinux.org/nm-check.txt\ninterval=300\n' \
+            | sudo tee /etc/NetworkManager/conf.d/20-connectivity.conf >/dev/null
+    fi
     sudo systemctl enable --now NetworkManager bluetooth
+    sudo systemctl reload NetworkManager 2>/dev/null || true
     # power profiles: tuned-ppd and power-profiles-daemon speak the same d-bus api; use whichever is here
     if pacman -Qq tuned-ppd >/dev/null 2>&1; then
         sudo systemctl enable --now tuned tuned-ppd

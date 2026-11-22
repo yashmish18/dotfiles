@@ -22,7 +22,7 @@ Item {
         e.accepted = true;
     }
 
-    SystemClock { id: clock; precision: SystemClock.Seconds }
+    SystemClock { id: clock; precision: SystemClock.Minutes }
     readonly property var wall: Wall.current
     readonly property bool hasMask: wall !== null && !!wall.mask && maskImg.status === Image.Ready
     readonly property bool unlocking: ctx.phase === "ok"

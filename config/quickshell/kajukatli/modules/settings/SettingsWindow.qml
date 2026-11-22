@@ -457,6 +457,16 @@ LazyLoader {
                         Switch { on: Config.s.showCalendar; onToggled: Config.s.showCalendar = !Config.s.showCalendar } }
                     Setting { label: "System stats"
                         Switch { on: Config.s.showStats; onToggled: Config.s.showStats = !Config.s.showStats } }
+                    Setting { label: "Weather"
+                        Switch { on: Config.s.showWeather; onToggled: Config.s.showWeather = !Config.s.showWeather } }
+                    Setting { label: "Battery ring"
+                        Switch { on: Config.s.showBattery; onToggled: Config.s.showBattery = !Config.s.showBattery } }
+                    Setting { label: "Analog clock"
+                        Switch { on: Config.s.showAnalog; onToggled: Config.s.showAnalog = !Config.s.showAnalog } }
+                    Setting { label: "Note"
+                        Switch { on: Config.s.showNote; onToggled: Config.s.showNote = !Config.s.showNote } }
+                    Setting { label: "Place them"
+                        Btn { text: "Arrange"; icon: "move"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.editing = true; } } }
                     Setting { label: "Weather city"; detail: "Empty guesses from your connection (wttr.in)."
                         Field { implicitWidth: 220; size: Theme.md; placeholder: "e.g. Pune"; text: Config.s.weatherLocation; onAccepted: Config.s.weatherLocation = text.trim() } }
                     Setting { label: "Temperature in"
@@ -488,7 +498,7 @@ LazyLoader {
                 spacing: 18
                 Head { title: "Wallpaper"; about: "Switching is instant. The subject cut-out (for the clock behind it) is worked out quietly afterwards." }
                 Group {
-                    Setting { label: "Choose a wallpaper"; detail: Wall.current ? Wall.current.name : "none yet"
+                    Setting { label: "Choose a wallpaper"; detail: Wall.current ? Wall.current.name : ""
                         RowLayout { spacing: 6
                             Btn { text: "Surprise me"; icon: "shuffle"; onClicked: Wall.random() }
                             Btn { text: "Browse"; icon: "image"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.toggleOverlay("wallpapers"); } } } }

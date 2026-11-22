@@ -81,7 +81,7 @@ Item {
         Field {
             id: field
             Layout.fillWidth: true
-            placeholder: "what are we opening?"
+            placeholder: "Search"
             size: Theme.lg + 2
             Component.onCompleted: focusNow()
             onTextChanged: root.index = 0

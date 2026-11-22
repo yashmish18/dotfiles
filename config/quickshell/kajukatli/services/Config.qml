@@ -73,6 +73,11 @@ Singleton {
             property bool showCalendar: false
             property string mediaWidget: "off"      // off | lyrics | card | portrait
             property bool showStats: false
+            property bool showWeather: false
+            property bool showBattery: false
+            property bool showAnalog: false
+            property bool showNote: false
+            property string noteText: ""
             property var layout: ({ clock: { x: 0.05, y: 0.1 } })   // widget positions (settings → desktop, or drag them)
 
             // ---------------------------------------------------- dock
@@ -91,8 +96,8 @@ Singleton {
             property bool parallax: true            // depth parallax on workspace switch
             property bool cursorParallax: true      // also follow the cursor over the bare desktop
             property real parallaxStrength: 1.0     // 0.2 … 2.0
-            property string transition: "fade"     // fade (0.4 s) · ink (the drawn outline, needs the ai) · none
-            property int transitionMs: 2200         // length of the ink transition
+            property string transition: "ink"      // ink (bleeds in; draws the subject's outline when known) · fade · none
+            property int transitionMs: 2800         // length of the ink transition
             property bool aiOnBattery: false        // run the wallpaper ai unplugged too (else it waits for ac)
             property string subjectModel: "isnet-anime"   // birefnet-general-lite for photos
             property bool videoOnBattery: false     // live wallpapers freeze to a still on battery

@@ -312,7 +312,7 @@ Item {
                         Layout.bottomMargin: 6
                         password: true
                         size: Theme.md
-                        placeholder: "password for " + netRow.modelData.ssid
+                        placeholder: "Password"
                         onVisibleChanged: if (visible) focusNow()
                         onAccepted: if (text !== "") Net.connectTo(netRow.modelData.ssid, text)
                         onEscaped: Net.needsPassword = ""

@@ -32,6 +32,7 @@ Item {
 
     property alias calendarItem: calendar
     property alias mediaItem: media
+    property alias noteItem: note
 
     // widgets keep clear of the bar (both instances must agree, or the clock would jump
     // when it moves behind the subject)
@@ -107,6 +108,35 @@ Item {
             fallback: ({ x: 0.02, y: 0.7 })
             shown: !layer.behind && Config.s.showStats
             StatsWidget { live: !layer.covered }
+        }
+
+        Movable {
+            name: "weather"
+            fallback: ({ x: 0.96, y: 0.1 })
+            shown: !layer.behind && Config.s.showWeather
+            WeatherWidget {}
+        }
+
+        Movable {
+            name: "battery"
+            fallback: ({ x: 0.96, y: 0.4 })
+            shown: !layer.behind && Config.s.showBattery && Power.hasBattery
+            BatteryWidget {}
+        }
+
+        Movable {
+            name: "analog"
+            fallback: ({ x: 0.85, y: 0.6 })
+            shown: !layer.behind && Config.s.showAnalog
+            AnalogClock {}
+        }
+
+        Movable {
+            id: note
+            name: "note"
+            fallback: ({ x: 0.96, y: 0.85 })
+            shown: !layer.behind && Config.s.showNote
+            NoteWidget {}
         }
     }
 }

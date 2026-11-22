@@ -20,7 +20,7 @@ Variants {
 
         WlrLayershell.layer: Ui.editing ? WlrLayer.Top : WlrLayer.Bottom
         WlrLayershell.namespace: "kajukatli-desktop"
-        WlrLayershell.keyboardFocus: Ui.editing ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: Ui.editing || Config.s.showNote ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
@@ -31,7 +31,8 @@ Variants {
             id: widgetRegion
             regions: [
                 Region { item: layer.calendarItem },
-                Region { item: layer.mediaItem }
+                Region { item: layer.mediaItem },
+                Region { item: layer.noteItem }
             ]
         }
 
@@ -87,9 +88,9 @@ Variants {
                     RowLayout {
                         Layout.alignment: Qt.AlignHCenter
                         spacing: 8
-                        Btn { text: "widgets…"; onClicked: { Ui.editing = false; Ui.open("settings"); } }
-                        Btn { text: "reset positions"; onClicked: { const p = Looks.presets[Config.s.look]; Config.s.layout = p ? Object.assign({}, p.layout) : ({}); } }
-                        Btn { text: "done"; active: true; onClicked: Ui.editing = false }
+                        Btn { text: "Settings"; onClicked: { Ui.editing = false; Ui.open("settings"); } }
+                        Btn { text: "Reset"; onClicked: { const p = Looks.presets[Config.s.look]; Config.s.layout = p ? Object.assign({}, p.layout) : ({}); } }
+                        Btn { text: "Done"; active: true; onClicked: Ui.editing = false }
                     }
                 }
             }
