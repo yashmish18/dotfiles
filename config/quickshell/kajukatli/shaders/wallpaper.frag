@@ -3,8 +3,9 @@
 //
 // progress 0 → 1:
 //   0.00–0.45  the new picture's subject is drawn over the old one, stroke by stroke
-//   0.32–1.00  ink bleeds outward from the subject and reveals the new picture
-//   0.72–1.00  the drawn lines dry and fade
+//   0.40–1.00  then ink blooms from the subject and from a few scattered spots, the
+//              blots spreading until they meet and the new picture is revealed
+//   0.80–1.00  the drawn lines dry and fade
 // at progress 1 only the parallax path runs (one texture fetch per step, nothing else).
 //
 // depth widgets: overlayTex is the desktop clock (and friends) rendered off-screen. it is
@@ -133,16 +134,24 @@ void main() {
     float dist = ink.b;
 
     // 1 · the outline draws itself (order 0 means "no line here")
-    float drawT = smoothstep(0.0, 0.45, progress) * 1.02;
+    float drawT = smoothstep(0.02, 0.42, progress) * 1.02;
     float drawn = order > 0.002 ? stroke * (1.0 - smoothstep(drawT - 0.025, drawT, order)) : 0.0;
-    float dry = 1.0 - smoothstep(0.72, 1.0, progress);
+    float dry = 1.0 - smoothstep(0.80, 1.0, progress);
     float tooth = 0.72 + 0.28 * vnoise(uv * vec2(aspect, 1.0) * 700.0);   // paper texture in the line
 
     // 2 · ink bleeds from the subject outward, along a ragged noisy front
-    float bleed = smoothstep(0.32, 1.0, progress);
+    float bleed = smoothstep(0.40, 1.0, progress);
     vec2 nuv = vec2(uv.x * aspect, uv.y);
     float n = fbm(nuv * 3.2 + seed) * 0.65 + fbm(nuv * 13.0 - seed) * 0.35;
-    float field = dist * 0.85 + n * 0.32;
+    // a few more blots, placed by the seed so every switch is different. they start a
+    // touch after the subject's, so the ink still seems to come from the picture first
+    float blots = 9.0;
+    for (int i = 0; i < 5; i++) {
+        vec2 p = vec2(hash(vec2(seed, float(i) * 3.7)), hash(vec2(float(i) * 1.9, seed + 4.1)));
+        p = 0.12 + p * 0.76;
+        blots = min(blots, length((uv - p) * vec2(aspect, 1.0)) / max(aspect, 1.0));
+    }
+    float field = min(dist * 0.85, blots * 1.25 + 0.06) + n * 0.32;
     float front = mix(-0.05, 1.25, bleed);
     float reveal = 1.0 - smoothstep(front - 0.05, front, field);
     // the wet rim just behind the front, darker, like ink soaking into paper

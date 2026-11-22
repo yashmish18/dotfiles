@@ -19,20 +19,31 @@ Item {
     readonly property bool covered: !Ui.editing && monitor !== null && monitor.activeWorkspace !== null
                                    && monitor.activeWorkspace.toplevels.values.length > 0
 
-    readonly property bool depthOk: Wall.depthReady && !Ui.editing
+    // while you drag or arrange, everything comes to the front so you can see where it goes
+    readonly property bool depthOk: Wall.depthReady && !Ui.editing && !Ui.dragging
     readonly property bool clockBehind: Config.s.clockDepth && depthOk
     readonly property bool visBehind: Config.s.visualizerBehind && depthOk
     readonly property string vis: Config.s.visualizer
 
-    readonly property bool clockHere: Config.s.clockStyle !== "off" && clockBehind === behind
-    readonly property bool barsHere: (vis === "bars" || vis === "mirror") && visBehind === behind
-    readonly property bool waveHere: vis === "wave" && visBehind === behind
+    readonly property bool hasBars: vis === "bars" || vis === "mirror" || vis === "both"
+    readonly property bool hasWave: vis === "wave" || vis === "both"
+    // the copy in front is always there to be grabbed; it's only invisible while the one
+    // behind the subject is the one you see
+    readonly property bool clockHere: Config.s.clockStyle !== "off" && (behind ? clockBehind : true)
+    readonly property bool barsHere: hasBars && (behind ? visBehind : true)
+    readonly property bool waveHere: hasWave && visBehind === behind
     // anything to draw at all? (the wallpaper skips the composite when not)
     readonly property bool anyHere: clockHere || barsHere || waveHere
 
     property alias calendarItem: calendar
     property alias mediaItem: media
     property alias noteItem: note
+    property alias clockItem: clockM
+    property alias barsItem: barsM
+    property alias statsItem: statsM
+    property alias weatherItem: weatherM
+    property alias batteryItem: batteryM
+    property alias analogItem: analogM
 
     // widgets keep clear of the bar (both instances must agree, or the clock would jump
     // when it moves behind the subject)
@@ -63,13 +74,15 @@ Item {
         anchors.leftMargin: layer.padLeft
 
         Movable {
+            id: barsM
             name: "bars"
+            ghost: !layer.behind && layer.visBehind
             fallback: ({ x: 0.92, y: 0.04 })
             editable: !layer.behind
             shown: layer.barsHere
             Visualizer {
-                implicitWidth: layer.vis === "mirror" ? 620 : 200
-                implicitHeight: layer.vis === "mirror" ? 160 : 26
+                implicitWidth: layer.vis === "mirror" ? 620 : 320
+                implicitHeight: layer.vis === "mirror" ? 160 : 60
                 style: layer.vis === "mirror" ? "mirror" : "bars"
             active: visible && !layer.covered
                 count: layer.vis === "mirror" ? 96 : 64
@@ -80,7 +93,9 @@ Item {
         }
 
         Movable {
+            id: clockM
             name: "clock"
+            ghost: !layer.behind && layer.clockBehind
             fallback: ({ x: 0.5, y: 0.15 })
             editable: !layer.behind
             shown: layer.clockHere
@@ -104,6 +119,7 @@ Item {
         }
 
         Movable {
+            id: statsM
             name: "stats"
             fallback: ({ x: 0.02, y: 0.7 })
             shown: !layer.behind && Config.s.showStats
@@ -111,6 +127,7 @@ Item {
         }
 
         Movable {
+            id: weatherM
             name: "weather"
             fallback: ({ x: 0.96, y: 0.1 })
             shown: !layer.behind && Config.s.showWeather
@@ -118,6 +135,7 @@ Item {
         }
 
         Movable {
+            id: batteryM
             name: "battery"
             fallback: ({ x: 0.96, y: 0.4 })
             shown: !layer.behind && Config.s.showBattery && Power.hasBattery
@@ -125,6 +143,7 @@ Item {
         }
 
         Movable {
+            id: analogM
             name: "analog"
             fallback: ({ x: 0.85, y: 0.6 })
             shown: !layer.behind && Config.s.showAnalog

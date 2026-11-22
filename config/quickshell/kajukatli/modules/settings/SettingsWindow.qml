@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import Quickshell.Hyprland
 import qs.services
 import qs.components
@@ -143,7 +144,6 @@ LazyLoader {
                             { key: "looks", label: "Looks", icon: "palette" },
                             { key: "bar", label: "Bar", icon: "sliders" },
                             { key: "desktop", label: "Desktop & clock", icon: "grid" },
-                            { key: "dock", label: "Dock", icon: "apps" },
                             { key: "wallpaper", label: "Wallpaper", icon: "image" },
                             { key: "sep" },
                             { key: "display", label: "Display", icon: "screenshot" },
@@ -218,7 +218,6 @@ LazyLoader {
                         case "looks": return looksP;
                         case "bar": return barP;
                         case "desktop": return desktopP;
-                        case "dock": return dockP;
                         case "wallpaper": return wallP;
                         case "display": return displayP;
                         case "input": return inputP;
@@ -435,13 +434,15 @@ LazyLoader {
                         Switch { on: Config.s.clockDepth; onToggled: Config.s.clockDepth = !Config.s.clockDepth } }
                     Setting { label: "24-hour time"
                         Switch { on: Config.s.clock24h; onToggled: Config.s.clock24h = !Config.s.clock24h } }
-                    Setting { label: "Arrange everything by hand"; detail: "Drag the clock and widgets anywhere (super + shift + e)."
+                    Setting { label: "Put everything back"; detail: "Places and sizes, as the look had them. One widget: double-click it."
+                        Btn { text: "Reset"; icon: "restart"; onClicked: Config.resetLayout() } }
+                    Setting { label: "Moving widgets"; detail: "Drag any widget on the desktop. Ctrl + scroll on it to resize."
                         Btn { text: "Arrange"; icon: "move"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.editing = true; } } }
                 }
                 Group {
                     title: "Music visualiser"
                     Setting { label: "Style"; detail: "Wave runs along the bottom of the screen; bars and mirror are a small block you can move."
-                        Choice { options: ["off", "wave", "bars", "mirror"]; value: Config.s.visualizer; onPicked: v => Config.s.visualizer = v } }
+                        Choice { options: [{ value: "off", label: "off" }, { value: "wave", label: "wave" }, { value: "bars", label: "bars" }, { value: "both", label: "wave + bars" }, { value: "mirror", label: "mirror" }]; value: Config.s.visualizer; onPicked: v => Config.s.visualizer = v } }
                     Setting { label: "Behind the subject"; visible: Config.s.visualizer !== "off"
                         Switch { on: Config.s.visualizerBehind; onToggled: Config.s.visualizerBehind = !Config.s.visualizerBehind } }
                     Setting { label: "Detail"; visible: Config.s.visualizer !== "off"
@@ -476,21 +477,6 @@ LazyLoader {
         }
 
         // ============================================================ dock
-        Component {
-            id: dockP
-            ColumnLayout {
-                spacing: 18
-                Head { title: "Dock"; about: "Pinned and open apps along the bottom. Right-click an icon to pin or unpin it." }
-                Group {
-                    Setting { label: "Show the dock"; Switch { on: Config.s.dock; onToggled: Config.s.dock = !Config.s.dock } }
-                    Setting { label: "Hide while windows are open"; detail: "Touch the bottom edge to bring it back."
-                        Switch { on: Config.s.dockAutoHide; onToggled: Config.s.dockAutoHide = !Config.s.dockAutoHide } }
-                    Setting { label: "Now playing in the dock"
-                        Switch { on: Config.s.dockMedia; onToggled: Config.s.dockMedia = !Config.s.dockMedia } }
-                }
-            }
-        }
-
         // ============================================================ wallpaper
         Component {
             id: wallP
@@ -603,7 +589,51 @@ LazyLoader {
         // ============================================================ network · bluetooth · sound (the control center's pages)
         Component { id: netP; ColumnLayout { spacing: 18; Head { title: "Wi-Fi" } Group { ControlPanel { Layout.fillWidth: true; Layout.topMargin: 12; Layout.bottomMargin: 12; page: "wifi" } } } }
         Component { id: btP; ColumnLayout { spacing: 18; Head { title: "Bluetooth" } Group { ControlPanel { Layout.fillWidth: true; Layout.topMargin: 12; Layout.bottomMargin: 12; page: "bluetooth" } } } }
-        Component { id: soundP; ColumnLayout { spacing: 18; Head { title: "Sound" } Group { ControlPanel { Layout.fillWidth: true; Layout.topMargin: 12; Layout.bottomMargin: 12; page: "sound" } } } }
+        Component {
+            id: soundP
+            ColumnLayout {
+                id: sp
+                spacing: 18
+                property string outputName: ""
+                property int channels: 0
+                property bool passthrough: false   // e-ac-3 / truehd to an hdmi receiver
+                property bool haveEffects: false
+                Process {
+                    running: true
+                    command: ["sh", "-c", "d=$(pactl get-default-sink 2>/dev/null); pactl -f json list sinks 2>/dev/null | jq -c --arg d \"$d\" '.[] | select(.name == $d) | { desc: .description, map: .channel_map, formats: ([.formats[]?] | join(\" \")) }'; command -v easyeffects >/dev/null && echo EFFECTS"]
+                    stdout: StdioCollector {
+                        onStreamFinished: {
+                            for (const line of text.trim().split("\n")) {
+                                if (line === "EFFECTS") { sp.haveEffects = true; continue; }
+                                try {
+                                    const j = JSON.parse(line);
+                                    sp.outputName = j.desc || "";
+                                    sp.channels = (j.map || "").split(",").filter(x => x).length;
+                                    sp.passthrough = /eac3|truehd/.test(j.formats || "");
+                                } catch (e) {}
+                            }
+                        }
+                    }
+                }
+                Head { title: "Sound" }
+                Group { ControlPanel { Layout.fillWidth: true; Layout.topMargin: 12; Layout.bottomMargin: 12; page: "sound" } }
+                Group {
+                    title: "Surround & Dolby Atmos"
+                    Setting { label: "This output"; detail: sp.outputName + (sp.channels ? "  ·  " + (sp.channels === 2 ? "stereo" : sp.channels === 6 ? "5.1" : sp.channels === 8 ? "7.1" : sp.channels + " channels") : "") }
+                    Setting {
+                        label: "Dolby Atmos"
+                        detail: sp.passthrough ? "Your receiver can decode it: turn on passthrough (E-AC-3 / TrueHD) for this output in the mixer."
+                                               : "Not on this output. Linux has no Atmos decoder; a laptop's Atmos is Windows software. Effects below get close."
+                        Btn { visible: sp.passthrough; text: "Mixer"; icon: "external"; onClicked: Quickshell.execDetached(["pavucontrol", "-t", "3"]) }
+                    }
+                    Setting {
+                        label: "Effects: virtual surround, equaliser, bass"
+                        detail: sp.haveEffects ? "" : "Add the audio-effects extra: ./install.sh, then pick it."
+                        Btn { enabled: sp.haveEffects; text: "Open"; icon: "external"; onClicked: Quickshell.execDetached(["easyeffects"]) }
+                    }
+                }
+            }
+        }
 
         // ============================================================ power
         Component {

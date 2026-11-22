@@ -1,0 +1,4 @@
+# easyeffects: virtual surround, equaliser, bass boost, loudness for speakers and headphones · ~60 mb
+# default: off
+easyeffects
+lsp-plugins-lv2

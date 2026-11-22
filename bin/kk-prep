@@ -45,7 +45,7 @@ INDEX = CACHE / "index.json"
 MODELS = DATA / "models"
 VENV = DATA / "venv"
 
-BUNDLE_VERSION = 7  # bump to rebuild every cached bundle
+BUNDLE_VERSION = 8  # bump to rebuild every cached bundle
 VIDEO_EXT = {".mp4", ".webm", ".mkv", ".mov", ".avi", ".m4v", ".gif"}
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 REUSE_EXT = {".jpg", ".jpeg", ".png", ".webp"}   # shown as-is when already screen-sized
@@ -260,20 +260,37 @@ def palette(im) -> dict:
             "ink": INK_DARK if luma > 0.5 else INK_LIGHT}
 
 
-def radial_ink(size, path: Path) -> None:
-    """a first ink map, so every switch can ink in straight away: no outline yet, the ink
-    bleeds from the middle. the ai stage replaces it with one that starts at the subject.
+def radial_ink(im, path: Path) -> None:
+    """a first ink map, so every switch can ink in straight away, before (or without) the ai:
+    the picture's tonal contours are sketched first, from the middle outwards, then the ink
+    bleeds. the ai stage replaces it with one traced around the subject.
     channels match the ai's map: r = stroke, g = drawing order, b = distance."""
     import numpy as np
-    from PIL import Image
-    w, h = size
+    from PIL import Image, ImageFilter
+    w, h = im.size
     s = 640 / max(w, h)
     w, h = max(2, round(w * s)), max(2, round(h * s))
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
-    dist = np.hypot(xx - w / 2, yy - h / 2) / (np.hypot(w, h) * 0.5)
-    b = (np.clip(dist, 0, 1) * 255).astype(np.uint8)
-    z = np.zeros_like(b)
-    Image.fromarray(np.dstack([z, z, b])).save(path, "PNG")
+    dist = np.clip(np.hypot(xx - w / 2, yy - h / 2) / (np.hypot(w, h) * 0.5), 0, 1)
+    # contour lines of the picture's tones (blur, posterize, keep the borders between bands):
+    # long continuous strokes that follow the shapes, like a quick pen sketch
+    g = np.asarray(im.convert("L").resize((w, h), Image.BILINEAR).filter(ImageFilter.GaussianBlur(3.4)), dtype=np.float32) / 255
+    lo, hi = np.percentile(g, 3), np.percentile(g, 97)
+    g = np.clip((g - lo) / max(hi - lo, 1e-3), 0, 1)
+    band = np.floor(g * 4).clip(0, 3)
+    edge = np.zeros(g.shape, dtype=bool)
+    edge[:, 1:] |= band[:, 1:] != band[:, :-1]
+    edge[1:, :] |= band[1:, :] != band[:-1, :]
+    edge[:3, :] = edge[-3:, :] = False
+    edge[:, :3] = edge[:, -3:] = False
+    dens = np.asarray(Image.fromarray((edge * 255).astype(np.uint8)).filter(ImageFilter.BoxBlur(3)), dtype=np.float32)
+    line = (edge & (dens > 25)).astype(np.float32)    # drop tiny islands of contour
+    r = (line * 255).astype(np.uint8)
+    # drawing order: the middle first, with a little wobble so it doesn't look like a radar
+    wob = (np.sin(xx * 0.05) * np.cos(yy * 0.045) + 1) * 0.06
+    order = np.where(line > 0, 1 + np.clip(dist * 0.9 + wob, 0, 1) * 254, 0).astype(np.uint8)
+    b = (dist * 255).astype(np.uint8)
+    Image.fromarray(np.dstack([r, order, b])).save(path, "PNG")
 
 
 def extract_still(src: Path, out: Path) -> bool:
@@ -322,7 +339,7 @@ def stage_fast(src: Path, out: Path, key: str, args) -> dict:
                 im.save(tmp / "display.jpg", "JPEG", quality=90, optimize=False)
                 display = str(out / "display.jpg")
         ImageOps.fit(im, (384, 240)).save(tmp / "thumb.jpg", "JPEG", quality=84)
-        radial_ink(im.size, tmp / "ink.png")
+        radial_ink(im, tmp / "ink.png")
         pal = palette(im)
         (tmp / "palette.json").write_text(json.dumps(pal, indent=2))
         meta = {

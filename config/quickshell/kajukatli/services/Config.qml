@@ -24,8 +24,28 @@ Singleton {
     }
     function setPos(name: string, x: real, y: real) {
         const l = Object.assign({}, adapter.layout || {});
-        l[name] = { x: Math.round(x * 1000) / 1000, y: Math.round(y * 1000) / 1000 };
+        const was = l[name] || {};
+        l[name] = Object.assign({}, was, { x: Math.round(x * 1000) / 1000, y: Math.round(y * 1000) / 1000 });
         adapter.layout = l;
+    }
+    function setScale(name: string, s: real) {
+        const l = Object.assign({}, adapter.layout || {});
+        const was = l[name] || pos(name, null);
+        l[name] = Object.assign({}, was, { s: Math.round(s * 100) / 100 });
+        adapter.layout = l;
+    }
+    // back to where the look put it (or the widget's own default), at its normal size
+    function resetWidget(name: string) {
+        const l = Object.assign({}, adapter.layout || {});
+        const look = Looks.presets[adapter.look];
+        if (look && look.layout && look.layout[name]) l[name] = Object.assign({}, look.layout[name]);
+        else delete l[name];
+        adapter.layout = l;
+    }
+    function resetLayout() {
+        const look = Looks.presets[adapter.look];
+        adapter.layout = look && look.layout ? Object.assign({}, look.layout) : ({});
+        adapter.clockScale = look && look.clockScale ? look.clockScale : 1.0;
     }
 
     FileView {
@@ -71,14 +91,14 @@ Singleton {
             property bool visualizerBehind: true
             property int visualizerBars: 48
             property bool showCalendar: false
-            property string mediaWidget: "off"      // off | lyrics | card | portrait
+            property string mediaWidget: "card"     // off | card | lyrics | portrait (shown while music plays)
             property bool showStats: false
             property bool showWeather: false
             property bool showBattery: false
             property bool showAnalog: false
             property bool showNote: false
             property string noteText: ""
-            property var layout: ({ clock: { x: 0.05, y: 0.1 } })   // widget positions (settings → desktop, or drag them)
+            property var layout: ({ clock: { x: 0.05, y: 0.1 }, media: { x: 0.5, y: 0.97 } })   // where widgets sit: drag them, ctrl + scroll to resize
 
             // ---------------------------------------------------- dock
             property bool dock: true
@@ -97,7 +117,7 @@ Singleton {
             property bool cursorParallax: true      // also follow the cursor over the bare desktop
             property real parallaxStrength: 1.0     // 0.2 … 2.0
             property string transition: "ink"      // ink (bleeds in; draws the subject's outline when known) · fade · none
-            property int transitionMs: 2800         // length of the ink transition
+            property int transitionMs: 4200         // length of the ink transition (trace, then ink)
             property bool aiOnBattery: false        // run the wallpaper ai unplugged too (else it waits for ac)
             property string subjectModel: "isnet-anime"   // birefnet-general-lite for photos
             property bool videoOnBattery: false     // live wallpapers freeze to a still on battery

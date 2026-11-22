@@ -11,6 +11,8 @@ Singleton {
     property real panelX: -1       // screen x the panel should hang from (-1 = centre)
     property bool barVisible: true
     property bool editing: false   // desktop widgets can be dragged around
+    property bool dragging: false  // a widget is being dragged right now
+    property string controlPage: "" // open the control center straight on a page: wifi, bluetooth, sound
     property bool settingsOpen: false   // the settings window
     property string settingsPage: ""    // which page it opens on
     property string status: ""     // short message shown in the bar ("developing…")

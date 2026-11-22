@@ -2,24 +2,32 @@ import QtQuick
 import qs.services
 import qs.components
 
-// puts one desktop widget where the layout says, and lets you drag it in edit mode.
-// the position is stored as a fraction of the room the widget has to move in, so it lands in
-// the same place on any screen size and never hangs off an edge.
+// one desktop widget, placed where you left it. handle it directly:
+//   drag            move it anywhere
+//   ctrl + scroll   make it bigger or smaller
+//   double-click    put it back where it started, at its normal size
+// the position is a fraction of the room it has to move in, so it lands in the same place
+// on any screen; it also shrinks itself rather than ever hang off an edge.
 Item {
     id: root
     property string name: ""
     property var fallback: ({ x: 0.5, y: 0.5 })
-    property bool editable: true
+    property bool editable: true      // false for the copy drawn behind the subject
     property bool shown: true
+    property bool ghost: false        // invisible but still grabbable (its look is drawn elsewhere)
     default property alias content: holder.data
 
     readonly property Item item: holder.children.length > 0 ? holder.children[0] : null
-    readonly property bool editing: Ui.editing && editable && shown
     readonly property var p: Config.pos(name, fallback)
+    readonly property real iw: item ? item.implicitWidth : 0
+    readonly property real ih: item ? item.implicitHeight : 0
+    // your size, but never bigger than the screen allows
+    readonly property real fit: iw > 0 && ih > 0 && parent ? Math.min(parent.width * 0.96 / iw, parent.height * 0.96 / ih) : 1
+    readonly property real k: Math.max(0.3, Math.min(p.s !== undefined ? p.s : 1, fit))
 
     visible: shown
-    width: shown && item ? item.implicitWidth : 0
-    height: shown && item ? item.implicitHeight : 0
+    width: shown ? iw * k : 0
+    height: shown ? ih * k : 0
 
     function place() {
         x = Qt.binding(() => Math.round(Math.max(0, parent.width - width) * p.x));
@@ -29,54 +37,54 @@ Item {
 
     Item {
         id: holder
-        anchors.fill: parent
+        width: root.iw
+        height: root.ih
+        scale: root.k
+        transformOrigin: Item.TopLeft
+        opacity: root.ghost ? 0 : 1
     }
 
-    // ---------------------------------------------------------------- edit mode
+    // ---------------------------------------------------------------- handling
+    // a faint outline while you hold or hover it, so you know what you've got
     Rectangle {
-        visible: root.editing
+        visible: root.editable && (Ui.editing || drag.active || hover.hovered && hover.point.modifiers & Qt.ControlModifier)
         anchors.fill: parent
         anchors.margins: -8
         radius: Theme.radiusSmall
-        color: drag.drag.active ? Theme.alpha(Theme.primary, 0.14) : Theme.alpha(Theme.primary, 0.06)
+        color: drag.active ? Theme.alpha(Theme.primary, 0.1) : "transparent"
         border.width: 1.5
-        border.color: Theme.primary
-
-        Rectangle {
-            anchors.left: parent.left
-            anchors.bottom: parent.top
-            anchors.bottomMargin: 4
-            implicitWidth: tag.implicitWidth + 14
-            implicitHeight: 20
-            radius: 10
-            color: Theme.primary
-            Txt {
-                id: tag
-                anchors.centerIn: parent
-                text: root.name
-                font.family: Theme.mono
-                font.pixelSize: Theme.xs
-                color: Theme.primaryText
-            }
-        }
+        border.color: Theme.alpha(Theme.primary, drag.active ? 1 : 0.6)
     }
-    MouseArea {
+    HoverHandler {
+        id: hover
+        enabled: root.editable
+    }
+    DragHandler {
         id: drag
-        visible: root.editing
-        anchors.fill: parent
-        anchors.margins: -8
-        cursorShape: drag.drag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-        drag.target: root
-        drag.minimumX: 0
-        drag.minimumY: 0
-        drag.maximumX: Math.max(0, root.parent.width - root.width)
-        drag.maximumY: Math.max(0, root.parent.height - root.height)
-        drag.threshold: 2
-        onReleased: {
+        enabled: root.editable && root.shown
+        target: root
+        xAxis.minimum: 0
+        xAxis.maximum: Math.max(0, root.parent.width - root.width)
+        yAxis.minimum: 0
+        yAxis.maximum: Math.max(0, root.parent.height - root.height)
+        dragThreshold: 6
+        cursorShape: Qt.ClosedHandCursor
+        onActiveChanged: {
+            Ui.dragging = active;
+            if (active) return;
             const fx = root.parent.width - root.width > 0 ? root.x / (root.parent.width - root.width) : 0.5;
             const fy = root.parent.height - root.height > 0 ? root.y / (root.parent.height - root.height) : 0.5;
             Config.setPos(root.name, fx, fy);
             root.place();
         }
+    }
+    WheelHandler {
+        enabled: root.editable && root.shown
+        acceptedModifiers: Qt.ControlModifier
+        onWheel: e => Config.setScale(root.name, Math.max(0.3, Math.min(2.5, (root.p.s !== undefined ? root.p.s : 1) + (e.angleDelta.y > 0 ? 0.08 : -0.08))))
+    }
+    TapHandler {
+        enabled: root.editable && root.shown
+        onDoubleTapped: Config.resetWidget(root.name)
     }
 }

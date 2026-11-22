@@ -15,7 +15,18 @@ Item {
     focus: true
     Keys.onEscapePressed: page === "main" ? Ui.panel = "" : page = "main"
 
-    property string page: "main"
+    property string page: Ui.controlPage !== "" ? Ui.controlPage : "main"
+    function openWifi() {
+        if (!Net.wifiEnabled) Net.setWifi(true);
+        page = "wifi";
+        Net.rescan();
+    }
+    function openBt() {
+        if (Bt.available && !Bt.enabled) Bt.setEnabled(true);
+        page = "bluetooth";
+        Bt.setScanning(true);
+    }
+    Component.onCompleted: { if (page === "wifi") Net.rescan(); Ui.controlPage = ""; }
     Behavior on implicitHeight { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutCubic } }
 
     // a row in a list: icon, name, a little status, and the whole thing clickable
@@ -165,8 +176,10 @@ Item {
                     detail: Net.ethernet ? "connected" : Net.ssid !== "" ? Net.ssid : Net.wifiEnabled ? "not connected" : "off"
                     on: Net.wifiEnabled || Net.ethernet
                     more: true
-                    onToggled: Net.setWifi(!Net.wifiEnabled)
-                    onOpened: { root.page = "wifi"; Net.rescan(); }
+                    // a click shows the networks (and turns wi-fi on if it was off); it never
+                    // switches wi-fi off by surprise. the switch is on the page itself.
+                    onToggled: root.openWifi()
+                    onOpened: root.openWifi()
                 }
                 Toggle {
                     Layout.fillWidth: true
@@ -176,8 +189,8 @@ Item {
                     on: Bt.enabled
                     more: true
                     enabled: Bt.available
-                    onToggled: Bt.setEnabled(!Bt.enabled)
-                    onOpened: root.page = "bluetooth"
+                    onToggled: root.openBt()
+                    onOpened: root.openBt()
                 }
                 Toggle {
                     Layout.fillWidth: true

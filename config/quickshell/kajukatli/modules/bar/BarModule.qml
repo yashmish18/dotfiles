@@ -454,7 +454,7 @@ Loader {
             icon: Icons.net(Net.ethernet, Net.wifiEnabled, Net.ssid)
             level: Net.signal / 25
             iconColor: Net.connected ? Theme.surfaceTextDim : Theme.outline
-            onClicked: root.openPanel("control")
+            onClicked: { Ui.controlPage = "wifi"; root.openPanel("control"); }
         }
     }
     Component {

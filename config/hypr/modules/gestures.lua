@@ -6,8 +6,10 @@
 -- custom gestures take a lua function as their action (hyprland ≥ 0.56). the shell is
 -- reached over its ipc, which works from inside a gesture where hl.dsp.* calls don't.
 local function shell(...)
+    -- build the command now: lua can't reach `...` from inside the inner function
+    local cmd = "qs -c " .. KK.shell .. " ipc call shell " .. table.concat({ ... }, " ")
     return function()
-        hl.exec_cmd("qs -c " .. KK.shell .. " ipc call shell " .. table.concat({ ... }, " "))
+        hl.exec_cmd(cmd)
     end
 end
 

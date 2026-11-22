@@ -30,6 +30,7 @@ pipewire
 pipewire-pulse
 pipewire-alsa
 wireplumber
+libpulse
 brightnessctl
 playerctl
 power-profiles-daemon

@@ -16,7 +16,6 @@ import qs.components
 import qs.modules.wallpaper
 import qs.modules.desktop
 import qs.modules.bar
-import qs.modules.dock
 import qs.modules.settings
 import qs.modules.notifications
 import qs.modules.osd
@@ -31,7 +30,6 @@ ShellRoot {
     Wallpaper {}
     Desktop {}
     Bar {}
-    Dock {}
     SettingsWindow {}
     Popups {}
     Osd {}

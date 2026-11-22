@@ -36,9 +36,9 @@ Singleton {
             barModules: { left: ["workspaces"], center: ["clock", "notifs"], right: ["tray", "control"] },
             clockStyle: "hero", clockDepth: true, clockFont: "Syne", clockScale: 0.8,
             visualizer: "off", visualizerBehind: false, visualizerBars: 48,
-            showCalendar: false, mediaWidget: "off", showStats: false,
+            showCalendar: false, mediaWidget: "card", showStats: false,
             dock: true, dockAutoHide: true, dockMedia: true,
-            layout: { clock: { x: 0.05, y: 0.1 } }
+            layout: { clock: { x: 0.05, y: 0.1 }, media: { x: 0.5, y: 0.97 } }
         },
         tide: {
             themeScheme: "vibrant", radius: 14,
@@ -46,7 +46,7 @@ Singleton {
             barModules: { left: ["logo", "workspaces"], center: ["media", "visualizer", "clock", "weather"], right: ["tray", "brightness", "volume", "network", "battery", "power"] },
             clockStyle: "stack", clockDepth: true, clockFont: "Unbounded", clockScale: 1.0,
             visualizer: "wave", visualizerBehind: true, visualizerBars: 56,
-            showCalendar: false, mediaWidget: "off", showStats: false,
+            showCalendar: false, mediaWidget: "card", showStats: false,
             dock: true, dockAutoHide: true, dockMedia: true,
             layout: { clock: { x: 0.5, y: 0.16 } }
         },
@@ -66,7 +66,7 @@ Singleton {
             barModules: { left: ["logo", "temp", "notifs", "workspaces"], center: ["volume", "clock", "weather"], right: ["brightness", "battery", "network", "power"] },
             clockStyle: "hero", clockDepth: true, clockFont: "Syne", clockScale: 1.0,
             visualizer: "off", visualizerBehind: false, visualizerBars: 48,
-            showCalendar: true, mediaWidget: "off", showStats: false,
+            showCalendar: true, mediaWidget: "card", showStats: false,
             dock: true, dockAutoHide: true, dockMedia: true,
             layout: { clock: { x: 0.6, y: 0.08 }, calendar: { x: 0.3, y: 0.62 } }
         },
@@ -96,7 +96,7 @@ Singleton {
             barModules: { left: ["logo", "workspaces"], center: ["clock"], right: ["volume", "network", "battery", "power"] },
             clockStyle: "serif", clockDepth: true, clockFont: "Fraunces", clockScale: 1.0,
             visualizer: "off", visualizerBehind: false, visualizerBars: 48,
-            showCalendar: false, mediaWidget: "off", showStats: false,
+            showCalendar: false, mediaWidget: "card", showStats: false,
             dock: true, dockAutoHide: false, dockMedia: true,
             layout: { clock: { x: 0.04, y: 0.06 } }
         },
@@ -106,7 +106,7 @@ Singleton {
             barModules: { left: ["workspaces", "media"], center: ["clock"], right: ["tray", "volume", "network", "battery", "notifs"] },
             clockStyle: "line", clockDepth: false, clockFont: "Instrument Serif", clockScale: 0.6,
             visualizer: "off", visualizerBehind: false, visualizerBars: 32,
-            showCalendar: false, mediaWidget: "off", showStats: false,
+            showCalendar: false, mediaWidget: "card", showStats: false,
             dock: false, dockAutoHide: true, dockMedia: false,
             layout: { clock: { x: 0.03, y: 0.94 } }
         }

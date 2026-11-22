@@ -32,7 +32,13 @@ Variants {
             regions: [
                 Region { item: layer.calendarItem },
                 Region { item: layer.mediaItem },
-                Region { item: layer.noteItem }
+                Region { item: layer.noteItem },
+                Region { item: layer.clockItem },
+                Region { item: layer.barsItem },
+                Region { item: layer.statsItem },
+                Region { item: layer.weatherItem },
+                Region { item: layer.batteryItem },
+                Region { item: layer.analogItem }
             ]
         }
 
