@@ -117,7 +117,7 @@ Singleton {
             property bool clockDepth: true          // tuck the clock behind the wallpaper's subject
             property string clockFont: "Syne"       // any installed family; each look sets its own
             property string clockColor: "auto"     // auto: light or dark ink, whichever reads on the picture under it · theme
-            property bool clockPulse: false         // kept for compatibility; clocks stay motionless during music
+            property bool clockPulse: false         // unused: the clocks don't react to music (kept so old settings files load)
             property real clockScale: 0.8
             property string visualizer: "off"      // off | wave | bars | mirror
             property bool visualizerBehind: true

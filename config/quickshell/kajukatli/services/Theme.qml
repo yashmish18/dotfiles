@@ -16,6 +16,9 @@ Singleton {
     // while music plays, the accent borrows the album cover's colour (settings → look)
     readonly property bool tinted: Config.s.musicTint && Media.playing && Media.artReady
     property color primary: tinted ? Media.artTint : a.primary
+    // the wallpaper's own accent, never the album's: the desktop clock picks its colour from
+    // this, so the clock stays the same whatever is playing
+    readonly property color basePrimary: a.primary
     property color primaryText: tinted ? Media.artTintText : a.primaryText
     property color primaryContainer: a.primaryContainer
     property color primaryContainerText: a.primaryContainerText

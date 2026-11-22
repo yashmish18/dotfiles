@@ -85,12 +85,12 @@ Item {
     function colourFor(ground) {
         const gh = ground.hslHue, gs = ground.hslSaturation;
         const hueGap = h => { if (h < 0 || gh < 0 || gs < 0.18) return 1; const d = Math.abs(h - gh); return Math.min(d, 1 - d); };
-        let best = Theme.primary, gap = -1;
-        for (const c of [Theme.primary, Theme.tertiary, Theme.secondary]) {
+        let best = Theme.basePrimary, gap = -1;
+        for (const c of [Theme.basePrimary, Theme.tertiary, Theme.secondary]) {
             const d = hueGap(c.hslHue) + c.hslSaturation * 0.15;     // apart, and properly coloured
             if (d > gap) { gap = d; best = c; }
         }
-        let h = best.hslHue < 0 ? Theme.primary.hslHue : best.hslHue;
+        let h = best.hslHue < 0 ? Theme.basePrimary.hslHue : best.hslHue;
         if (h < 0) h = 0.08;
         // still the ground's own hue (a red theme on a red picture): keep the hue, soften it, and
         // let lightness carry the contrast — pale rose on deep red rather than a foreign colour
