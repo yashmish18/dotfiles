@@ -31,7 +31,7 @@ echo
 echo "found it:$on_dgpu is wired to the nvidia card, and hyprland is kept off that card"
 echo "(to save battery), so nothing is ever sent to that port."
 if [ "${1:-}" = "--fix" ]; then
-    sed -i 's|^hl.env("AQ_DRM_DEVICES", "/dev/dri/kk-igpu")|hl.env("AQ_DRM_DEVICES", "/dev/dri/kk-igpu:/dev/dri/kk-dgpu")|' "$gpu_lua"
+    "$(dirname "$(readlink -f "$0")")/kk-gpu" set both >/dev/null
     echo "done. log out and back in (or reboot); the screen works after that."
     echo "the nvidia card may now stay awake more often; kk-power-report shows whether it sleeps."
 else

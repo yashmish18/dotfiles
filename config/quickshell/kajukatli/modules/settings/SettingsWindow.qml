@@ -602,8 +602,9 @@ LazyLoader {
                         }
                     }
                     Setting {
-                        visible: gpu.chosen !== "" && gpu.info.mode !== undefined
+                        visible: gpu.info.running !== undefined && gpu.info.running !== "" && gpu.info.running !== gpu.info.mode
                         label: "Takes effect at the next login"
+                        detail: "Saved, but this session still uses " + (gpu.info.running === "both" ? "both cards." : "the integrated card only.")
                         Btn { text: "Log out now"; icon: "logout"; onClicked: Quickshell.execDetached(["sh", "-c", "command -v hyprshutdown >/dev/null && exec hyprshutdown; exec hyprctl dispatch 'hl.dsp.exit()'"]) }
                     }
                 }

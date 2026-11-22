@@ -222,7 +222,7 @@ Item {
             opacity: 0
             property real rise: 18
             transform: Translate { y: cellItem.rise }
-            Component.onCompleted: arrive.start()
+            Component.onCompleted: if (Config.s.reducedMotion) { opacity = 1; rise = 0; } else arrive.start()
             SequentialAnimation {
                 id: arrive
                 PauseAnimation { duration: Math.min(cellItem.index, 24) * 14 }

@@ -62,7 +62,7 @@ Item {
                     opacity: 0
                     property real rise: 24
                     transform: Translate { y: act.rise }
-                    Component.onCompleted: enter.start()
+                    Component.onCompleted: if (Config.s.reducedMotion) { opacity = 1; rise = 0; } else enter.start()
                     SequentialAnimation {
                         id: enter
                         PauseAnimation { duration: act.index * 35 }

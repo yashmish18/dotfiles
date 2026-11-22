@@ -24,7 +24,12 @@ case "${1:-status}" in
         mode=igpu
         grep -q 'AQ_DRM_DEVICES.*kk-dgpu' "$gpu_lua" 2>/dev/null && mode=both
         grep -q 'AQ_DRM_DEVICES' "$gpu_lua" 2>/dev/null || mode=all
-        printf '{"hybrid":%s,"mode":"%s","dgpuPorts":[%s]}\n' "$hybrid" "$mode" "$ports"
+        live=""
+        pid="$(pgrep -x Hyprland | head -n1)"
+        [ -n "$pid" ] && live="$(tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | sed -n 's/^AQ_DRM_DEVICES=//p')"
+        case "$live" in *kk-dgpu*) now=both ;; "") now=all ;; *) now=igpu ;; esac
+        [ -n "$pid" ] || now=""
+        printf '{"hybrid":%s,"mode":"%s","running":"%s","dgpuPorts":[%s]}\n' "$hybrid" "$mode" "$now" "$ports"
         ;;
     set)
         [ "$hybrid" = true ] || { echo "kk-gpu: not a hybrid (two-gpu) machine" >&2; exit 1; }
@@ -39,6 +44,10 @@ case "${1:-status}" in
         else
             printf 'hl.env("AQ_DRM_DEVICES", "%s")\n' "$devs" >> "$gpu_lua"
         fi
+        # and for kk-session, which exports it before hyprland opens the cards
+        env_file="${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli/gpu.env"
+        mkdir -p "$(dirname "$env_file")"
+        printf 'AQ_DRM_DEVICES=%s\n' "$devs" > "$env_file"
         echo "set: $devs (log out and back in to apply)"
         ;;
     *) sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;

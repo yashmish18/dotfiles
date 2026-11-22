@@ -175,7 +175,7 @@ Item {
     WeatherFx {
         anchors.fill: parent
         visible: !layer.behind && Config.s.weatherFx
-        active: visible && !layer.covered && !Power.onBattery
+        active: visible && !layer.covered && !Power.onBattery && !Config.s.reducedMotion
     }
 
     Item {

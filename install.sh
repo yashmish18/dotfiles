@@ -334,6 +334,13 @@ gpu() {
             echo "-- integrated graphics only: nothing to route."
         fi
     } > "$out"
+    # kk-session exports this before starting hyprland (see kk-gpu)
+    mkdir -p "$CONFIG/kajukatli"
+    if [ $has_nv = 1 ] && [ $has_ig = 1 ]; then
+        if [ "$use_dgpu" = 1 ]; then echo "AQ_DRM_DEVICES=/dev/dri/kk-igpu:/dev/dri/kk-dgpu"; else echo "AQ_DRM_DEVICES=/dev/dri/kk-igpu"; fi > "$CONFIG/kajukatli/gpu.env"
+    else
+        rm -f "$CONFIG/kajukatli/gpu.env"
+    fi
     ok "gpu"
 }
 

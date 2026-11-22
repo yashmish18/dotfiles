@@ -82,8 +82,16 @@ Singleton {
         Hypr.hyprEval("hl.monitor({ output = " + lua(name) + ", mode = \"" + mode + "\", position = " + lua(position) + ", scale = \""
                       + scaleOf(name) + "\" })");
     }
+    function applyMotion() {
+        Hypr.hyprEval("hl.config({ animations = { enabled = " + (Config.s.reducedMotion ? "false" : "true") + " } })");
+    }
+    Connections {
+        target: Config.s
+        function onReducedMotionChanged() { root.applyMotion(); }
+    }
     function applyAll() {
         applyInput();
+        applyMotion();
         for (const m of monitors) applyMonitor(m.name);
     }
 

@@ -99,7 +99,7 @@ Variants {
             // a brand-new picture shows up before kk-prep has made its ink map: give the fast
             // stage a moment (it's usually ~0.2 s) so the switch can still ink in
             if (!m.ink && (m.stage || 0) === 0 && waitedMs < 4000) return;
-            const wantInk = !!m.ink;
+            const wantInk = !!m.ink && !Config.s.reducedMotion;   // reduced motion: a short fade
             if (wantInk && !settled(inkImg.status)) return;
             inkRun = wantInk;
             waiting = false;
@@ -112,7 +112,7 @@ Variants {
                 return;
             }
             progress = 0;
-            anim.duration = inkRun ? Config.s.transitionMs : 700;
+            anim.duration = inkRun ? Config.s.transitionMs : Config.s.reducedMotion ? 350 : 700;
             anim.restart();
         }
 
@@ -218,7 +218,7 @@ Variants {
             property real aspect: win.height > 0 ? win.width / win.height : 1.6
             // never more than the picture's spare margin (it's drawn at 94%), or the edges smear
             readonly property real room: 0.026
-            property vector2d offset: Config.s.parallax
+            property vector2d offset: Config.s.parallax && !Config.s.reducedMotion
                 ? Qt.vector2d(Math.max(-room, Math.min(room, (win.camX * 0.8 + win.tiltX * 0.9) * win.strength)),
                               Math.max(-room, Math.min(room, win.tiltY * 0.65 * win.strength)))
                 : Qt.vector2d(0, 0)

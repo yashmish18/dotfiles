@@ -2,6 +2,13 @@
 # started by greetd. newer hyprland ships a start-hyprland watchdog; prefer it when present.
 # ~/.local/bin first, so hyprland and everything it starts can find the kk-* scripts.
 export PATH="$HOME/.local/bin:$PATH"
+# which gpus hyprland may drive screens with (settings → display → graphics, or kk-gpu).
+# set here, before hyprland starts, because that's when it opens the cards
+gpu_env="${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli/gpu.env"
+if [ -r "$gpu_env" ]; then
+    AQ_DRM_DEVICES="$(sed -n 's/^AQ_DRM_DEVICES=//p' "$gpu_env" | head -n1)"
+    [ -n "$AQ_DRM_DEVICES" ] && export AQ_DRM_DEVICES || unset AQ_DRM_DEVICES
+fi
 # --locked (the login manager's auto-login): open straight into the lock screen.
 # kk-startlock is the safety net: if the shell hasn't locked within seconds, hyprlock does.
 if [ "${1:-}" = "--locked" ]; then

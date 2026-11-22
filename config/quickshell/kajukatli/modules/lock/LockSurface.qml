@@ -42,7 +42,7 @@ Item {
     opacity: shown && !unlocking ? 1 : 0
     // unlocking: the whole scene leans towards you as it fades
     scale: unlocking ? 1.06 : 1
-    Behavior on scale { NumberAnimation { duration: 480; easing.type: Easing.InCubic } }
+    Behavior on scale { enabled: !Config.s.reducedMotion; NumberAnimation { duration: 480; easing.type: Easing.InCubic } }
 
     Behavior on opacity { NumberAnimation { duration: 450; easing.type: Easing.InOutCubic } }
 
