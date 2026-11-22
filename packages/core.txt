@@ -52,7 +52,7 @@ python
 python-pillow
 python-numpy
 
-# --- look (the shell's own typefaces are downloaded separately, ~3 mb)
+# --- look (the shell's own typefaces ship in fonts/ and are copied in)
 ttf-nerd-fonts-symbols
 noto-fonts
 noto-fonts-emoji

@@ -322,31 +322,23 @@ shaders() {
 }
 
 # ------------------------------------------------------------------ typefaces
-# the shell's type, all open-licence (ofl) from google/fonts. ~3 mb in ~/.local/share/fonts.
+# the shell's type ships in the repo (fonts/, open font licence, ~2 mb), so this needs no
+# network: some providers block the hosts fonts are usually downloaded from.
 #   bricolage grotesque  the interface      dm mono       numbers, the bar, the terminal
 #   syne · unbounded · anton · fraunces · instrument serif   the desktop clocks
-GF="https://github.com/google/fonts/raw/main/ofl"
-FONT_FILES=(
-    "bricolagegrotesque/BricolageGrotesque%5Bopsz,wdth,wght%5D.ttf"
-    "dmmono/DMMono-Light.ttf" "dmmono/DMMono-Regular.ttf" "dmmono/DMMono-Medium.ttf"
-    "syne/Syne%5Bwght%5D.ttf"
-    "unbounded/Unbounded%5Bwght%5D.ttf"
-    "anton/Anton-Regular.ttf"
-    "fraunces/Fraunces%5BSOFT,WONK,opsz,wght%5D.ttf"
-    "instrumentserif/InstrumentSerif-Regular.ttf"
-)
 fonts() {
     say "typefaces"
     mkdir -p "$FONTS"
-    local f out got=0
-    for f in "${FONT_FILES[@]}"; do
-        out="$FONTS/$(basename "$f" | sed 's/%5B/[/g; s/%5D/]/g')"
-        [ -s "$out" ] && { got=$((got+1)); continue; }
-        if curl -fsL --retry 2 --max-time 60 -o "$out.part" "$GF/$f"; then mv "$out.part" "$out"; got=$((got+1)); note "$(basename "$out")"
-        else rm -f "$out.part"; warn "couldn't fetch $(basename "$out") (the shell falls back to noto)"; fi
+    local f n=0
+    for f in "$REPO"/fonts/*.ttf "$REPO"/fonts/OFL-*.txt; do
+        [ -f "$f" ] || continue
+        install -Dm644 "$f" "$FONTS/$(basename "$f")"
+        case "$f" in *.ttf) n=$((n+1)) ;; esac
     done
+    # the old installer named downloaded files differently; drop those leftovers
+    rm -f "$FONTS"/*%5B* 2>/dev/null || true
     fc-cache -f "$FONTS" >/dev/null 2>&1 || true
-    ok "typefaces ($got of ${#FONT_FILES[@]})"
+    if fc-list | grep -qi "Bricolage Grotesque"; then ok "typefaces ($n)"; else warn "typefaces copied but fontconfig doesn't list them yet; try: fc-cache -fv"; fi
 }
 
 # ------------------------------------------------------------------ wallpapers
