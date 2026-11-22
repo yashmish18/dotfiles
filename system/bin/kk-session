@@ -2,6 +2,12 @@
 # started by greetd. newer hyprland ships a start-hyprland watchdog; prefer it when present.
 # ~/.local/bin first, so hyprland and everything it starts can find the kk-* scripts.
 export PATH="$HOME/.local/bin:$PATH"
+# --locked (the login manager's auto-login): open straight into the lock screen.
+# kk-startlock is the safety net: if the shell hasn't locked within seconds, hyprlock does.
+if [ "${1:-}" = "--locked" ]; then
+    export KK_LOCK_AT_START=1
+    : > "${XDG_RUNTIME_DIR:-/tmp}/kk-lock-guard"
+fi
 if command -v start-hyprland >/dev/null 2>&1; then
     exec start-hyprland
 fi

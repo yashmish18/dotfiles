@@ -1,0 +1,14 @@
+#!/bin/sh
+# kk-startlock — the safety net for "start in the lock screen".
+# after an auto-login the shell locks the screen as it starts. if it hasn't within ~12 s
+# (it crashed, or it's not installed), hyprlock locks instead, so the desktop is never left open.
+g="${XDG_RUNTIME_DIR:-/tmp}/kk-lock-guard"
+[ -e "$g" ] || exit 0
+rm -f "$g"
+i=0
+while [ "$i" -lt 24 ]; do
+    [ "$(qs -c kajukatli ipc call lock isLocked 2>/dev/null)" = "true" ] && exit 0
+    sleep 0.5
+    i=$((i + 1))
+done
+pidof hyprlock >/dev/null 2>&1 || exec hyprlock

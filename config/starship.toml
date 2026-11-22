@@ -1,40 +1,67 @@
-# kajukatli · starship. one line of facts then a small arrow.
-# colours are kitty palette slots 16–22, which kk-theme fills from the wallpaper.
+# kajukatli · starship
+#
+#  ( ~/dotfiles )( main )  +2 !1  py 3.12  took 4s                       12:45
+#  ❯
+#
+# the folder sits in a pill of the wallpaper's accent, git in a quieter one beside it.
+# colours are kitty palette slots that kk-theme fills from the wallpaper:
+#   16 accent · 17 second accent · 18 muted text · 19 faint text · 20 text · 21 error · 22 soft accent
+# the round pill ends are powerline glyphs from the nerd-font symbols kitty already maps.
 add_newline = true
-format = "$directory$git_branch$git_status$python$nodejs$rust$cmd_duration$jobs$line_break$character"
+format = """$username$hostname$directory$git_branch$git_state$git_status$python$nodejs$rust$golang$cmd_duration$jobs
+$character"""
 right_format = "$time"
 
 [character]
-success_symbol = "[›](16)"
-error_symbol   = "[›](21)"
-vimcmd_symbol  = "[‹](2)"
+success_symbol = "[❯](bold 16)"
+error_symbol   = "[❯](bold 21)"
+vimcmd_symbol  = "[❮](bold 17)"
+
+# only over ssh: who and where, before the folder
+[username]
+format = "[$user]($style)[@](19)"
+style_user = "bold 17"
+show_always = false
+[hostname]
+format = "[$hostname]($style) "
+style = "bold 17"
+ssh_only = true
 
 [directory]
-style = "bold 20"
-read_only = " ro"
-read_only_style = "21"
+format = "[](fg:16)[ $path ]($style)[$read_only]($read_only_style)[](fg:16) "
+style = "bold fg:0 bg:16"
+read_only = " ro "
+read_only_style = "fg:21 bg:16"
 truncation_length = 3
 truncate_to_repo = true
 truncation_symbol = "…/"
 home_symbol = "~"
 
 [git_branch]
-format = "[on](19) [$branch]($style) "
-style = "16"
+format = "[](fg:22)[ $branch ]($style)[](fg:22) "
+style = "fg:0 bg:22"
+
+[git_state]
+format = "[$state $progress_current/$progress_total]($style) "
+style = "bold 21"
 
 [git_status]
-format = "[$all_status$ahead_behind]($style) "
-style = "18"
-modified = "*"
-untracked = "?"
-staged = "+"
-deleted = "-"
-ahead = "↑"
-behind = "↓"
+format = "([$all_status$ahead_behind]($style) )"
+style = "17"
+conflicted = "≠$count "
+modified = "!$count "
+untracked = "?$count "
+staged = "+$count "
+renamed = "»$count "
+deleted = "-$count "
+stashed = "≡ "
+ahead = "↑$count "
+behind = "↓$count "
+diverged = "↕ "
 
 [cmd_duration]
 min_time = 2000
-format = "[took $duration](19) "
+format = "[took $duration](18) "
 
 [jobs]
 format = "[$number in the back](18) "
@@ -45,8 +72,10 @@ format = "[$time](19)"
 time_format = "%H:%M"
 
 [python]
-format = "[py $version](4) "
+format = "[py $version](18) "
 [nodejs]
-format = "[node $version](2) "
+format = "[node $version](18) "
 [rust]
-format = "[rust $version](21) "
+format = "[rust $version](18) "
+[golang]
+format = "[go $version](18) "

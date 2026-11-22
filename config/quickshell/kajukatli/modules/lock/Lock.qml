@@ -17,6 +17,20 @@ Scope {
     property string note: ""
     readonly property bool locked: lock.locked
 
+    // "start in the lock screen": kk-session --locked sets KK_LOCK_AT_START. lock once per
+    // login (PersistentProperties survives the shell reloading itself, so edits don't re-lock)
+    PersistentProperties {
+        id: once
+        reloadableId: "kk-lock-at-start"
+        property bool done: false
+    }
+    Component.onCompleted: {
+        if (!once.done && Quickshell.env("KK_LOCK_AT_START") === "1") {
+            once.done = true;
+            root.lockNow();
+        }
+    }
+
     function lockNow() {
         if (lock.locked) return;
         Store.s.frame = Store.s.frame + 1;

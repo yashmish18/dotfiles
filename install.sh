@@ -450,6 +450,16 @@ services() {
             sudo systemctl enable greetd.service
         fi
     fi
+    # start in the lock screen: greetd logs you in once per boot and the shell locks at once.
+    # the text login is still there after you log out.
+    if [ -f /etc/greetd/config.toml ] && grep -q "kk-session" /etc/greetd/config.toml; then
+        if grep -q '^\[initial_session\]' /etc/greetd/config.toml; then
+            note "starts in the lock screen (auto-login is on)"
+        elif ask "start straight into the kajukatli lock screen at boot (logs you in, then locks immediately; your password unlocks)" y; then
+            printf '\n[initial_session]\ncommand = "kk-session --locked"\nuser = "%s"\n' "$USER" | sudo tee -a /etc/greetd/config.toml >/dev/null
+            note "boots into the lock screen. to undo: remove [initial_session] from /etc/greetd/config.toml"
+        fi
+    fi
     ok "services"
 }
 
