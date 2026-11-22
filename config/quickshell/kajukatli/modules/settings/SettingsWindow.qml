@@ -558,6 +558,11 @@ LazyLoader {
                 Group {
                     title: "Night light"
                     Setting { label: "On"; Switch { on: Power.nightLight; onToggled: Power.nightLight = !Power.nightLight } }
+                    Setting { label: "By itself"; detail: Config.s.nightLightAuto ? "Warm from " + Config.s.nightLightFrom + " to " + Config.s.nightLightTo + ". Type a time, enter." : "Off."
+                        RowLayout { spacing: 6
+                            Field { visible: Config.s.nightLightAuto; implicitWidth: 74; size: Theme.md; mono: true; text: Config.s.nightLightFrom; onAccepted: if (/^\d{1,2}:\d\d$/.test(text.trim())) Config.s.nightLightFrom = text.trim() }
+                            Field { visible: Config.s.nightLightAuto; implicitWidth: 74; size: Theme.md; mono: true; text: Config.s.nightLightTo; onAccepted: if (/^\d{1,2}:\d\d$/.test(text.trim())) Config.s.nightLightTo = text.trim() }
+                            Switch { on: Config.s.nightLightAuto; onToggled: Config.s.nightLightAuto = !Config.s.nightLightAuto } } }
                     Setting { label: "Warmth"; detail: Config.s.nightLightTemp + " K"
                         Knob { from: 2500; to: 6000; step: 100; value: Config.s.nightLightTemp; onMoved: v => Config.s.nightLightTemp = Math.round(v) } }
                 }
@@ -679,7 +684,7 @@ LazyLoader {
                     visible: Power.hasBattery
                     Uses { service: Battery }
                     Setting { label: "Right now"; detail: Power.onBattery ? (Battery.watts > 0 ? Battery.watts.toFixed(1) + " W from the battery" : "measuring…") : "on the charger" }
-                    Setting { label: "When unplugged"; detail: "60 Hz screen, lighter blur, no shadows, no visualizer. Back to normal on the charger."
+                    Setting { label: "When unplugged"; detail: "60 Hz screen, cached blur, no shadows, a lighter visualizer. Back to normal on the charger."
                         Switch { on: Config.s.batterySaver; onToggled: Config.s.batterySaver = !Config.s.batterySaver } }
                 }
                 Group {

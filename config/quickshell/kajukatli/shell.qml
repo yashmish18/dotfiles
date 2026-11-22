@@ -74,6 +74,7 @@ ShellRoot {
         case "session": Ui.toggleOverlay("power"); break;
         case "capture": Ui.toggle("capture"); break;
         case "focus": Ui.toggleFocus(); break;
+        case "notes": Ui.toggleOverlay("notes"); break;
         case "timer": Pomo.toggle(); break;
         case "wallpapers": Ui.toggleOverlay("wallpapers"); break;
         case "overview": Ui.toggleOverlay("overview"); break;
@@ -99,7 +100,7 @@ ShellRoot {
     Variants {
         model: ["launcher", "control", "settings", "notifications", "clipboard", "session", "wallpapers",
                 "overview", "cheatsheet", "bar", "ws_next", "ws_prev", "ws_new", "ws_new_move", "ws_rename",
-                "brightness_up", "brightness_down", "close", "edit", "look_next", "capture", "focus", "timer"]
+                "brightness_up", "brightness_down", "close", "edit", "look_next", "capture", "focus", "timer", "notes"]
         GlobalShortcut {
             required property var modelData
             appid: "kajukatli"

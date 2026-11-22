@@ -1,0 +1,16 @@
+#!/bin/sh
+# kk-ocr   drag over any text on screen (a picture, a video, a pdf, an error box):
+#          it's read with tesseract and copied as text.
+set -u
+command -v tesseract >/dev/null || { notify-send -a Text "Text grab needs tesseract" "sudo pacman -S tesseract tesseract-data-eng"; exit 1; }
+geom="$(slurp -d -b '#00000066' -c '#ffffffcc' -w 1)" || exit 0
+img="${XDG_RUNTIME_DIR:-/tmp}/kk-ocr.png"
+grim -g "$geom" -s 2 "$img" 2>/dev/null || grim -g "$geom" "$img" || exit 1
+text="$(tesseract "$img" - 2>/dev/null | sed -e 's/[[:space:]]*$//' | sed -e '/./,$!d')"
+rm -f "$img"
+if [ -z "$text" ]; then
+    notify-send -a Text "No text found" "Try a bigger area, or one with clearer letters."
+    exit 0
+fi
+printf '%s' "$text" | wl-copy
+notify-send -a Text "Text copied" "$(printf '%s' "$text" | head -c 160)"

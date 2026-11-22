@@ -13,6 +13,8 @@ Singleton {
         target: Hyprland
         function onRawEvent(ev) {
             const n = ev.name || "";
+            if (n === "fullscreen") root.fullscreen = (ev.data || "").trim() === "1";
+            else if (n === "workspace" || n === "workspacev2") root.fullscreen = false;
             if (n.startsWith("workspace") || n.startsWith("createworkspace") || n.startsWith("destroyworkspace")
                 || n.startsWith("focusedmon") || n.startsWith("moveworkspace") || n.startsWith("openwindow")
                 || n.startsWith("closewindow") || n.startsWith("movewindow"))
@@ -21,9 +23,12 @@ Singleton {
     }
     Timer {
         id: again
-        interval: 40
-        onTriggered: { Hyprland.refreshWorkspaces(); Hyprland.refreshMonitors(); }
+        interval: 120          // one refresh for a burst of events (opening an app sends several)
+        onTriggered: Hyprland.refreshWorkspaces()
     }
+
+    // something is fullscreen (a video, a game): notifications wait until it isn't
+    property bool fullscreen: false
 
     readonly property var focusedWs: Hyprland.focusedWorkspace
     readonly property int focusedId: focusedWs ? focusedWs.id : 1

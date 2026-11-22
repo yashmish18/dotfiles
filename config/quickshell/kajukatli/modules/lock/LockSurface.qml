@@ -79,10 +79,11 @@ Item {
         transform: Translate { x: root.mx * 10; y: root.my * 7 }
         transformOrigin: Item.Center
 
+        // blurred (kk-prep made lock.jpg once); the subject is laid back sharp over the clock
         Image {
             id: pic
             anchors.fill: parent
-            source: root.wall ? "file://" + root.wall.display : ""
+            source: root.wall ? "file://" + (root.wall.lock || root.wall.display) : ""
             // decoded a little bigger than the screen: the drift zooms in, and it should stay sharp
             sourceSize: Qt.size(Math.round(root.width * 1.2), Math.round(root.height * 1.2))
             fillMode: Image.PreserveAspectCrop
@@ -140,10 +141,19 @@ Item {
             asynchronous: true
             layer.enabled: true
         }
+        Image {
+            id: sharp
+            anchors.fill: parent
+            visible: false
+            source: root.hasMask && root.wall ? "file://" + root.wall.display : ""
+            sourceSize: Qt.size(Math.round(root.width * 1.2), Math.round(root.height * 1.2))
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+        }
         MultiEffect {
             anchors.fill: pic
             visible: root.hasMask
-            source: pic
+            source: sharp
             maskEnabled: true
             maskSource: maskImg
             maskThresholdMin: 0.2

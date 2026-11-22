@@ -12,3 +12,5 @@ qt6-multimedia
 qt6-multimedia-ffmpeg
 gst-plugin-pipewire
 gst-plugins-good
+tesseract
+tesseract-data-eng

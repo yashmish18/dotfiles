@@ -28,6 +28,8 @@ bind(M .. " + SHIFT + B", sh("bar"),        { description = "hide / show bar" })
 bind(M .. " + SHIFT + E", sh("edit"),       { description = "arrange desktop widgets" })
 bind(M .. " + SHIFT + T", sh("look_next"),  { description = "next look (preset)" })
 bind(M .. " + Z",         sh("focus"),      { description = "focus mode" })
+bind(M .. " + SHIFT + N", sh("notes"),      { description = "quick notes" })
+bind(M .. " + SHIFT + X", hl.dsp.exec_cmd(B .. "kk-ocr"), { description = "copy the text in an area" })
 bind(M .. " + SHIFT + P", sh("timer"),      { description = "start / pause the timer" })
 
 -- windows

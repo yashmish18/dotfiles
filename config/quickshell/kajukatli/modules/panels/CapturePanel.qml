@@ -4,10 +4,11 @@ import Quickshell
 import qs.services
 import qs.components
 
-// print screen: what to capture. 1–5 or click; d cycles the delay, e toggles "edit after".
+// print screen: what to capture. 1–6 or click; d cycles the delay, e toggles "edit after".
+// "text" reads the words in an area and copies them (kk-ocr).
 Item {
     id: root
-    implicitWidth: 470
+    implicitWidth: 560
     implicitHeight: col.implicitHeight
     focus: true
 
@@ -19,6 +20,7 @@ Item {
         { key: "region", label: "Region", icon: "screenshot" },
         { key: "window", label: "Window", icon: "grid" },
         { key: "screen", label: "Screen", icon: "image" },
+        { key: "text", label: "Text", icon: "clipboard" },
         { key: "rec-region", label: "Record region", icon: "record" },
         { key: "rec-screen", label: "Record screen", icon: "record" }
     ]
@@ -28,7 +30,9 @@ Item {
         Ui.panel = "";
         // let the menu fade before the screen is captured
         const pre = "sleep 0.35; ";
-        if (k.startsWith("rec-")) {
+        if (k === "text") {
+            Quickshell.execDetached(["sh", "-c", pre + Config.bin + "kk-ocr"]);
+        } else if (k.startsWith("rec-")) {
             Quickshell.execDetached(["sh", "-c", pre + Config.bin + "kk-record " + k.slice(4)]);
         } else {
             const args = [k];

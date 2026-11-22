@@ -180,6 +180,9 @@ Singleton {
             property int repeatDelay: 280
             property var monitorScales: ({})         // { "eDP-1": 1.0 } — everything is 100% unless you say
             property int nightLightTemp: 4200
+            property bool nightLightAuto: false     // warm from nightLightFrom to nightLightTo
+            property string nightLightFrom: "19:30"
+            property string nightLightTo: "06:30"
             property bool lockPoetry: true
             property int notificationTimeout: 5000
         }

@@ -1,18 +1,42 @@
 import QtQuick
 import Quickshell
 import Quickshell.Widgets
+import Quickshell.Io
 import qs.services
 import qs.components
 
 // the apps: super + space, or tap super. type to find one, arrows to move, enter to open.
 //   = 12*7   maths (enter copies it)     > htop   run it in a terminal     ? words   search the web
+//   :fire    emoji (enter copies it)
 // with nothing typed, the ones you open most come first.
 Item {
     id: root
     focus: true
 
     readonly property string q: input.text.trim()
-    readonly property string mode: q.startsWith("=") ? "calc" : q.startsWith(">") ? "run" : q.startsWith("?") ? "web" : "apps"
+    readonly property string mode: q.startsWith("=") ? "calc" : q.startsWith(">") ? "run" : q.startsWith("?") ? "web" : q.startsWith(":") ? "emoji" : "apps"
+
+    // ---------------------------------------------------------------- emoji
+    property var emojiAll: []        // [[char, name]]
+    FileView {
+        id: emojiFile
+        path: Config.home + "/.cache/kajukatli/emoji.tsv"
+        printErrors: false
+        onLoaded: root.emojiAll = text().split("\n").filter(l => l).map(l => l.split("\t"))
+        onLoadFailed: emojiMake.running = true
+    }
+    Process { id: emojiMake; command: [Config.bin + "kk-emoji-list"]; onExited: emojiFile.reload() }
+    readonly property var emojis: {
+        if (mode !== "emoji") return [];
+        const t = q.slice(1).trim().toLowerCase();
+        const words = t.split(/\s+/).filter(w => w);
+        const out = [];
+        for (const e of emojiAll) {
+            if (words.every(w => e[1].indexOf(w) !== -1)) out.push(e);
+            if (out.length >= 80) break;
+        }
+        return out;
+    }
     readonly property var launches: Store.s.launches || ({})
     property int index: 0
 
@@ -63,14 +87,16 @@ Item {
     function accept() {
         const rest = q.slice(1).trim();
         if (mode === "apps") launch(apps[index]);
+        else if (mode === "emoji" && emojis.length) { Quickshell.execDetached(["wl-copy", emojis[Math.min(index, emojis.length - 1)][0]]); Ui.overlay = ""; }
         else if (mode === "calc" && calc !== "") { Quickshell.execDetached(["wl-copy", calc]); Ui.overlay = ""; }
         else if (mode === "run" && rest) { Ui.overlay = ""; Quickshell.execDetached(["kitty", "--hold", "sh", "-c", rest]); }
         else if (mode === "web" && rest) { Ui.overlay = ""; Qt.openUrlExternally("https://duckduckgo.com/?q=" + encodeURIComponent(rest)); }
     }
     function move(d) {
-        if (apps.length === 0) return;
-        index = Math.max(0, Math.min(apps.length - 1, index + d));
-        grid.positionViewAtIndex(index, GridView.Contain);
+        const n = mode === "emoji" ? emojis.length : apps.length;
+        if (n === 0) return;
+        index = Math.max(0, Math.min(n - 1, index + d));
+        (mode === "emoji" ? emojiGrid : grid).positionViewAtIndex(index, GridView.Contain);
     }
 
     // ------------------------------------------------------------ the search line
@@ -140,10 +166,11 @@ Item {
         anchors.top: head.bottom
         anchors.topMargin: 36
         anchors.horizontalCenter: parent.horizontalCenter
-        visible: root.mode !== "apps" || root.apps.length === 0
+        visible: (root.mode !== "apps" && root.mode !== "emoji") || (root.mode === "apps" && root.apps.length === 0) || (root.mode === "emoji" && root.emojis.length === 0)
         text: root.mode === "calc" ? (root.calc !== "" ? root.calc : "…")
             : root.mode === "run" ? "enter runs it in a terminal"
             : root.mode === "web" ? "enter searches the web"
+            : root.mode === "emoji" ? (root.q.length < 2 ? "an emoji's name: fire, heart, cat…" : "no emoji by that name")
             : "nothing called that.   > runs it,   ? searches for it"
         font.family: root.mode === "calc" ? Theme.mono : Theme.sans
         font.pixelSize: root.mode === "calc" ? 64 : Theme.md
@@ -231,11 +258,57 @@ Item {
         }
     }
 
+    GridView {
+        id: emojiGrid
+        anchors.top: head.bottom
+        anchors.topMargin: 40
+        anchors.bottom: hints.top
+        anchors.bottomMargin: 16
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(parent.width, 96 * 10)
+        cellWidth: width / Math.max(1, Math.floor(width / 96))
+        cellHeight: 104
+        clip: true
+        visible: root.mode === "emoji"
+        model: root.emojis
+        currentIndex: root.index
+        highlightMoveDuration: 120
+        highlight: Rectangle { radius: 20; color: Theme.alpha("#ffffff", 0.12) }
+        delegate: Item {
+            id: em
+            required property var modelData
+            required property int index
+            width: emojiGrid.cellWidth
+            height: emojiGrid.cellHeight
+            Column {
+                anchors.centerIn: parent
+                spacing: 6
+                Text { anchors.horizontalCenter: parent.horizontalCenter; text: em.modelData[0]; font.pixelSize: 44 }
+                Txt {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: emojiGrid.cellWidth - 10
+                    horizontalAlignment: Text.AlignHCenter
+                    elide: Text.ElideRight
+                    text: em.modelData[1]
+                    font.pixelSize: Theme.xs
+                    color: Theme.alpha("#ffffff", 0.6)
+                }
+            }
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onEntered: root.index = em.index
+                onClicked: { Quickshell.execDetached(["wl-copy", em.modelData[0]]); Ui.overlay = ""; }
+            }
+        }
+    }
+
     Txt {
         id: hints
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        text: "enter  open        =  maths        >  run        ?  web        esc  close"
+        text: "enter  open        =  maths        >  run        ?  web        :  emoji        esc  close"
         font.family: Theme.mono
         font.pixelSize: Theme.xs + 1
         color: Theme.alpha("#ffffff", 0.4)

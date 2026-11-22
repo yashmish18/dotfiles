@@ -43,6 +43,22 @@ Singleton {
 
     // night light: hyprsunset lives only while it's on, and restores gamma when it exits
     property bool nightLight: false
+    // on a schedule (settings → display): checked once a minute, and it only ever flips the
+    // switch at the two edges, so turning it on or off by hand still works in between
+    property bool scheduleWas: false
+    Timer {
+        interval: 60000
+        repeat: true
+        triggeredOnStart: true
+        running: Config.s.nightLightAuto
+        onTriggered: {
+            const m = s => { const p = s.split(":"); return parseInt(p[0]) * 60 + parseInt(p[1] || 0); };
+            const d = new Date(), now = d.getHours() * 60 + d.getMinutes();
+            const a = m(Config.s.nightLightFrom), b = m(Config.s.nightLightTo);
+            const inside = a <= b ? (now >= a && now < b) : (now >= a || now < b);
+            if (inside !== root.scheduleWas) { root.nightLight = inside; root.scheduleWas = inside; }
+        }
+    }
     Process {
         running: root.nightLight
         command: ["hyprsunset", "-t", String(Config.s.nightLightTemp)]
@@ -66,8 +82,10 @@ Singleton {
             PowerProfiles.profile = onBattery ? PowerProfile.PowerSaver : PowerProfile.Balanced;
         // the compositor's two costly effects: blur passes and shadows
         Hypr.hyprEval(saving
-            ? "hl.config({ decoration = { blur = { passes = 1 }, shadow = { enabled = false } } })"
-            : "hl.config({ decoration = { blur = { passes = 2 }, shadow = { enabled = true } } })");
+            // xray: blur only what's behind the windows on the wallpaper layer, worked out once
+            // and reused, instead of re-blurring everything under every glass window each frame
+            ? "hl.config({ decoration = { blur = { passes = 1, xray = true }, shadow = { enabled = false } } })"
+            : "hl.config({ decoration = { blur = { passes = 2, xray = false }, shadow = { enabled = true } } })");
         System.applyAll();          // the refresh rate (60 hz while saving)
     }
 

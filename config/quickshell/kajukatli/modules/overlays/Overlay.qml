@@ -58,7 +58,7 @@ LazyLoader {
             Behavior on opacity { NumberAnimation { duration: Theme.slow } }
             Behavior on y { NumberAnimation { duration: Theme.slow; easing.type: Easing.OutCubic } }
             sourceComponent: Ui.overlay === "overview" ? overviewC : Ui.overlay === "wallpapers" ? wallC : Ui.overlay === "cheatsheet" ? cheatC
-                           : Ui.overlay === "apps" ? appsC : Ui.overlay === "power" ? powerC : null
+                           : Ui.overlay === "apps" ? appsC : Ui.overlay === "power" ? powerC : Ui.overlay === "notes" ? notesC : null
             Keys.onEscapePressed: Ui.overlay = ""
         }
 
@@ -67,5 +67,6 @@ LazyLoader {
         Component { id: cheatC; Cheatsheet {} }
         Component { id: appsC; AppDrawer {} }
         Component { id: powerC; PowerMenu {} }
+        Component { id: notesC; Notes {} }
     }
 }
