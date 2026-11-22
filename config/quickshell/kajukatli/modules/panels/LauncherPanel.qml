@@ -81,7 +81,7 @@ Item {
         Field {
             id: field
             Layout.fillWidth: true
-            placeholder: "Search"
+            placeholder: "what are we opening?"
             size: Theme.lg + 2
             Component.onCompleted: focusNow()
             onTextChanged: root.index = 0
@@ -143,15 +143,24 @@ Item {
         }
 
         Txt {
-            visible: root.mode === "calc" && root.calc !== ""
+            visible: root.mode !== "apps" || root.results.length === 0
             Layout.fillWidth: true
             Layout.leftMargin: 2
-            text: root.mode === "calc" && root.calc !== "" ? "= " + root.calc
-                : ""
+            text: root.mode === "calc" ? (root.calc !== "" ? "= " + root.calc + "    enter copies it" : "keep typing…")
+                : root.mode === "run" ? "enter runs it in a terminal"
+                : root.mode === "web" ? "enter searches the web"
+                : root.q === "" ? "" : "no app by that name. try > to run it, or ? to search."
             font.family: root.mode === "calc" && root.calc !== "" ? Theme.mono : Theme.sans
             font.pixelSize: root.mode === "calc" && root.calc !== "" ? Theme.lg : Theme.sm
             color: root.mode === "calc" && root.calc !== "" ? Theme.primary : Theme.surfaceTextDim
         }
 
+        Txt {
+            text: "=  math      >  command      ?  web      ↑↓  choose"
+            font.family: Theme.mono
+            font.pixelSize: Theme.xs + 1
+            color: Theme.outline
+            Layout.topMargin: 2
+        }
     }
 }

@@ -74,16 +74,22 @@ Variants {
                     spacing: 10
                     Txt {
                         Layout.alignment: Qt.AlignHCenter
-                        text: "Arrange"
+                        text: "arrange your desktop"
                         font.pixelSize: Theme.lg
                         font.weight: Font.Medium
+                    }
+                    Txt {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: "drag any outlined widget. it remembers where you leave it."
+                        color: Theme.surfaceTextDim
+                        font.pixelSize: Theme.sm
                     }
                     RowLayout {
                         Layout.alignment: Qt.AlignHCenter
                         spacing: 8
-                        Btn { text: "Settings"; onClicked: { Ui.editing = false; Ui.open("settings"); } }
-                        Btn { text: "Reset"; onClicked: { const p = Looks.presets[Config.s.look]; Config.s.layout = p ? Object.assign({}, p.layout) : ({}); } }
-                        Btn { text: "Done"; active: true; onClicked: Ui.editing = false }
+                        Btn { text: "widgets…"; onClicked: { Ui.editing = false; Ui.open("settings"); } }
+                        Btn { text: "reset positions"; onClicked: { const p = Looks.presets[Config.s.look]; Config.s.layout = p ? Object.assign({}, p.layout) : ({}); } }
+                        Btn { text: "done"; active: true; onClicked: Ui.editing = false }
                     }
                 }
             }

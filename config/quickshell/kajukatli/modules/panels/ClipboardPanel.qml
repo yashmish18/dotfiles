@@ -55,7 +55,7 @@ Item {
         Field {
             id: field
             Layout.fillWidth: true
-            placeholder: "Search"
+            placeholder: "something you copied…"
             size: Theme.lg
             Component.onCompleted: focusNow()
             onTextChanged: root.index = 0
@@ -100,11 +100,11 @@ Item {
 
         Txt {
             visible: root.shown.length === 0
-            text: ""
+            text: root.entries.length === 0 ? "nothing copied yet." : "no match."
             color: Theme.muted
         }
         Txt {
-            text: ""
+            text: "enter copies  ·  delete forgets  ·  " + root.entries.length + " kept"
             font.family: Theme.mono
             font.pixelSize: Theme.xs
             color: Theme.faint

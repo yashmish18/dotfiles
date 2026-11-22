@@ -250,13 +250,13 @@ Variants {
             anchors.margins: 64
             spacing: 6
             Txt {
-                text: ""
+                text: Wall.preparing ? "developing…" : "no wallpaper yet."
                 font.pixelSize: 34
                 font.weight: Font.Light
                 color: Theme.muted
             }
             Txt {
-                text: Config.s.wallpaperDir
+                text: "put pictures or videos in " + Config.s.wallpaperDir + ", then super + w"
                 font.family: Theme.mono
                 font.pixelSize: Theme.sm
                 color: Theme.faint

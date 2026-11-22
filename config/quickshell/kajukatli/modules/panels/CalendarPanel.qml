@@ -65,7 +65,7 @@ Item {
                 Layout.bottomMargin: 3
             }
             Btn { icon: "left"; flat: true; onClicked: root.shift(-1) }
-            Btn { text: "Today"; visible: !root.thisMonth; onClicked: { root.year = clock.date.getFullYear(); root.month = clock.date.getMonth(); } }
+            Btn { text: "today"; visible: !root.thisMonth; onClicked: { root.year = clock.date.getFullYear(); root.month = clock.date.getMonth(); } }
             Btn { icon: "right"; flat: true; onClicked: root.shift(1) }
         }
 

@@ -54,7 +54,7 @@ Item {
         spacing: 26
 
         Txt {
-            text: "Keys"
+            text: "the keys"
             font.pixelSize: 40
             font.weight: Font.Light
         }

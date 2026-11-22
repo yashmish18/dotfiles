@@ -31,7 +31,7 @@ LazyLoader {
             Layout.bottomMargin: 6
             spacing: 4
             Txt { text: parent.title; font.pixelSize: 30; font.weight: Font.Bold }
-
+            Txt { visible: parent.about !== ""; text: parent.about; color: Theme.surfaceTextDim; wrapMode: Text.WordWrap; Layout.fillWidth: true }
         }
         // a group of settings on one card
         component Group: Rectangle {
@@ -40,21 +40,22 @@ LazyLoader {
             default property alias rows: body.data
             Layout.fillWidth: true
             implicitHeight: body.implicitHeight + (title !== "" ? 50 : 16)
-            color: "transparent"
-            Rectangle { width: parent.width; height: 1; color: Theme.alpha(Theme.outlineVariant, 0.6) }
+            radius: Theme.radius + 4
+            color: Theme.surfaceLow
             Txt {
                 visible: grp.title !== ""
-                x: 0; y: 18
-                text: grp.title
-                font.pixelSize: Theme.sm
-                font.weight: Font.DemiBold
+                x: 20; y: 16
+                text: grp.title.toUpperCase()
+                font.pixelSize: Theme.xs + 1
+                font.weight: Font.Bold
+                font.letterSpacing: 1.4
                 color: Theme.primary
             }
             ColumnLayout {
                 id: body
-                x: 0
+                x: 20
                 y: grp.title !== "" ? 42 : 8
-                width: grp.width
+                width: grp.width - 40
                 spacing: 0
             }
         }
@@ -241,23 +242,50 @@ LazyLoader {
             ColumnLayout {
                 spacing: 18
                 Head { title: "Looks"; about: "A look sets the bar, the clock and the widgets in one go. Change any single piece afterwards; it stays yours." }
-                Choice {
-                    options: Looks.names
-                    value: Config.s.look
-                    onPicked: v => Looks.apply(v)
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 3
+                    columnSpacing: 10
+                    rowSpacing: 10
+                    Repeater {
+                        model: Looks.names
+                        delegate: Rectangle {
+                            id: tile
+                            required property string modelData
+                            readonly property bool on: Config.s.look === modelData
+                            Layout.fillWidth: true
+                            implicitHeight: 92
+                            radius: Theme.radius + 2
+                            color: on ? Theme.primaryContainer : tileArea.containsMouse ? Theme.surfaceContainer : Theme.surfaceLow
+                            border.width: on ? 2 : 0
+                            border.color: Theme.primary
+                            Behavior on color { ColorAnimation { duration: Theme.fast } }
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 14
+                                spacing: 4
+                                Txt { text: tile.modelData.charAt(0).toUpperCase() + tile.modelData.slice(1); font.pixelSize: Theme.lg; font.weight: Font.Bold; color: tile.on ? Theme.primaryContainerText : Theme.surfaceText }
+                                Txt { Layout.fillWidth: true; text: Looks.blurbs[tile.modelData] || ""; font.pixelSize: Theme.sm; wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight; color: tile.on ? Theme.alpha(Theme.primaryContainerText, 0.8) : Theme.surfaceTextDim }
+                            }
+                            MouseArea { id: tileArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Looks.apply(tile.modelData) }
+                        }
+                    }
                 }
                 Group {
                     title: "Colour"
                     Setting {
                         label: "From the wallpaper"
+                        detail: "Every colour on the desktop comes from the picture: the shell, borders, terminal, apps."
                         Swatches {}
                     }
                     Setting {
                         label: "Character"
+                        detail: "Vibrant follows the picture boldly, tonal softly, mono is black and white with one accent."
                         Choice { options: ["vibrant", "tonal", "mono"]; value: Config.s.themeScheme; onPicked: v => { Config.s.themeScheme = v; Looks.retheme(); } }
                     }
                     Setting {
                         label: "Light or dark"
+                        detail: "Auto picks light for bright wallpapers."
                         Choice { options: ["dark", "light", "auto"]; value: Config.s.themeMode; onPicked: v => { Config.s.themeMode = v; Looks.retheme(); } }
                     }
                     Setting {
@@ -293,7 +321,7 @@ LazyLoader {
                 Head { title: "Bar"; about: "Its shape, where it sits, and exactly what goes in each part." }
                 Group {
                     title: "Shape"
-                    Setting { label: "Style";
+                    Setting { label: "Style"; detail: "Islands: three separate pills. Pill: one capsule. Bar: one long bar. Rail: a strip down the left."
                         Choice { options: ["islands", "pill", "bar", "rail", "none"]; value: Config.s.barStyle; onPicked: v => { Config.s.barStyle = v; Ui.barVisible = v !== "none"; } } }
                     Setting { label: "Edge"; visible: Config.s.barStyle !== "rail" && Config.s.barStyle !== "none"
                         Choice { options: ["top", "bottom"]; value: Config.s.barPosition; onPicked: v => Config.s.barPosition = v } }
@@ -380,12 +408,13 @@ LazyLoader {
                     title: "Clock"
                     Setting { label: "Face"
                         Choice { options: ["hero", "stack", "serif", "line", "day", "date", "off"]; value: Config.s.clockStyle; onPicked: v => Config.s.clockStyle = v } }
-                    Setting { label: "Typeface";
+                    Setting { label: "Typeface"; detail: "Any font installed on the system works; these come with the shell."
                         Choice { options: ["Syne", "Unbounded", "Anton", "Fraunces", "Instrument Serif", "Bricolage Grotesque", "DM Mono"]; value: Config.s.clockFont; onPicked: v => Config.s.clockFont = v } }
                     Setting { label: "Size"
                         Knob { from: 0.4; to: 1.6; step: 0.05; value: Config.s.clockScale; onMoved: v => Config.s.clockScale = Math.round(v * 100) / 100 } }
                     Setting {
                         label: "Where"
+                        detail: "Pick a spot, or drag it anywhere with “arrange”."
                         Grid {
                             columns: 3
                             spacing: 4
@@ -406,12 +435,12 @@ LazyLoader {
                         Switch { on: Config.s.clockDepth; onToggled: Config.s.clockDepth = !Config.s.clockDepth } }
                     Setting { label: "24-hour time"
                         Switch { on: Config.s.clock24h; onToggled: Config.s.clock24h = !Config.s.clock24h } }
-                    Setting { label: "Arrange everything by hand";
+                    Setting { label: "Arrange everything by hand"; detail: "Drag the clock and widgets anywhere (super + shift + e)."
                         Btn { text: "Arrange"; icon: "move"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.editing = true; } } }
                 }
                 Group {
                     title: "Music visualiser"
-                    Setting { label: "Style";
+                    Setting { label: "Style"; detail: "Wave runs along the bottom of the screen; bars and mirror are a small block you can move."
                         Choice { options: ["off", "wave", "bars", "mirror"]; value: Config.s.visualizer; onPicked: v => Config.s.visualizer = v } }
                     Setting { label: "Behind the subject"; visible: Config.s.visualizer !== "off"
                         Switch { on: Config.s.visualizerBehind; onToggled: Config.s.visualizerBehind = !Config.s.visualizerBehind } }
@@ -420,15 +449,15 @@ LazyLoader {
                 }
                 Group {
                     title: "Widgets"
-                    Setting { label: "Player";
+                    Setting { label: "Player"; detail: "Shown only while something plays."
                         Choice { options: ["off", "lyrics", "card", "portrait"]; value: Config.s.mediaWidget; onPicked: v => Config.s.mediaWidget = v } }
-                    Setting { label: "Synced lyrics";
+                    Setting { label: "Synced lyrics"; detail: "Asks lrclib.net for the words of the playing song."
                         Switch { on: Config.s.lyrics; onToggled: Config.s.lyrics = !Config.s.lyrics } }
                     Setting { label: "Calendar"
                         Switch { on: Config.s.showCalendar; onToggled: Config.s.showCalendar = !Config.s.showCalendar } }
                     Setting { label: "System stats"
                         Switch { on: Config.s.showStats; onToggled: Config.s.showStats = !Config.s.showStats } }
-                    Setting { label: "Weather city";
+                    Setting { label: "Weather city"; detail: "Empty guesses from your connection (wttr.in)."
                         Field { implicitWidth: 220; size: Theme.md; placeholder: "e.g. Pune"; text: Config.s.weatherLocation; onAccepted: Config.s.weatherLocation = text.trim() } }
                     Setting { label: "Temperature in"
                         Choice { options: [{ value: "c", label: "°C" }, { value: "f", label: "°F" }]; value: Config.s.tempUnit; onPicked: v => Config.s.tempUnit = v } }
@@ -444,7 +473,7 @@ LazyLoader {
                 Head { title: "Dock"; about: "Pinned and open apps along the bottom. Right-click an icon to pin or unpin it." }
                 Group {
                     Setting { label: "Show the dock"; Switch { on: Config.s.dock; onToggled: Config.s.dock = !Config.s.dock } }
-                    Setting { label: "Hide while windows are open";
+                    Setting { label: "Hide while windows are open"; detail: "Touch the bottom edge to bring it back."
                         Switch { on: Config.s.dockAutoHide; onToggled: Config.s.dockAutoHide = !Config.s.dockAutoHide } }
                     Setting { label: "Now playing in the dock"
                         Switch { on: Config.s.dockMedia; onToggled: Config.s.dockMedia = !Config.s.dockMedia } }
@@ -459,7 +488,7 @@ LazyLoader {
                 spacing: 18
                 Head { title: "Wallpaper"; about: "Switching is instant. The subject cut-out (for the clock behind it) is worked out quietly afterwards." }
                 Group {
-                    Setting { label: "Choose a wallpaper"; detail: Wall.current ? Wall.current.name : ""
+                    Setting { label: "Choose a wallpaper"; detail: Wall.current ? Wall.current.name : "none yet"
                         RowLayout { spacing: 6
                             Btn { text: "Surprise me"; icon: "shuffle"; onClicked: Wall.random() }
                             Btn { text: "Browse"; icon: "image"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.toggleOverlay("wallpapers"); } } } }
@@ -470,7 +499,7 @@ LazyLoader {
                 }
                 Group {
                     title: "Depth"
-                    Setting { label: "3d parallax";
+                    Setting { label: "3d parallax"; detail: "Switching workspaces moves the camera through the picture."
                         Switch { on: Config.s.parallax; onToggled: Config.s.parallax = !Config.s.parallax } }
                     Setting { label: "Follow the pointer"; visible: Config.s.parallax
                         Switch { on: Config.s.cursorParallax; onToggled: Config.s.cursorParallax = !Config.s.cursorParallax } }
@@ -480,7 +509,7 @@ LazyLoader {
                         RowLayout { spacing: 6
                             Btn { text: "Drawn art"; onClicked: Wall.redetect("isnet-anime") }
                             Btn { text: "Photo"; onClicked: Wall.redetect("birefnet-general-lite") } } }
-                    Setting { label: "Work on battery too";
+                    Setting { label: "Work on battery too"; detail: "Otherwise the subject detection waits for the charger."
                         Switch { on: Config.s.aiOnBattery; onToggled: Config.s.aiOnBattery = !Config.s.aiOnBattery } }
                     Setting { label: "Live wallpapers on battery"
                         Switch { on: Config.s.videoOnBattery; onToggled: Config.s.videoOnBattery = !Config.s.videoOnBattery } }
@@ -530,7 +559,7 @@ LazyLoader {
                 Group {
                     title: "Touchpad"
                     Setting { label: "Tap to click"; Switch { on: Config.s.tapToClick; onToggled: { Config.s.tapToClick = !Config.s.tapToClick; System.applyInput(); } } }
-                    Setting { label: "Natural scrolling";
+                    Setting { label: "Natural scrolling"; detail: "Content follows your fingers."
                         Switch { on: Config.s.naturalScroll; onToggled: { Config.s.naturalScroll = !Config.s.naturalScroll; System.applyInput(); } } }
                     Setting { label: "Two-finger click is right click"
                         Switch { on: Config.s.clickFinger; onToggled: { Config.s.clickFinger = !Config.s.clickFinger; System.applyInput(); } } }
@@ -543,13 +572,13 @@ LazyLoader {
                 }
                 Group {
                     title: "Gestures"
-                    Setting { label: "3 or 4 fingers sideways"; }
-                    Setting { label: "4 fingers up"; }
-                    Setting { label: "4 fingers down"; }
+                    Setting { label: "3 or 4 fingers sideways"; detail: "Previous / next workspace." }
+                    Setting { label: "4 fingers up"; detail: "Every workspace and its windows. Drag windows between them, or onto “new”." }
+                    Setting { label: "4 fingers down"; detail: "Close whatever is open." }
                 }
                 Group {
                     title: "Keyboard"
-                    Setting { label: "Layout";
+                    Setting { label: "Layout"; detail: "xkb names, comma separated: us, de, us,ru…"
                         Field { implicitWidth: 180; size: Theme.md; text: Config.s.kbLayout; onAccepted: { Config.s.kbLayout = text.trim() || "us"; System.applyInput(); } } }
                     Setting { label: "Repeat rate"; detail: Config.s.repeatRate + " per second"
                         Knob { from: 10; to: 60; step: 1; value: Config.s.repeatRate; onMoved: v => { Config.s.repeatRate = Math.round(v); System.applyInput(); } } }
@@ -575,9 +604,9 @@ LazyLoader {
                 Group {
                     Setting { label: "Mode"
                         Choice { options: Power.hasPerformance ? ["saver", "balanced", "performance"] : ["saver", "balanced"]; value: Power.profileName; onPicked: v => Power.setProfile(v) } }
-                    Setting { label: "Saver when unplugged";
+                    Setting { label: "Saver when unplugged"; detail: "Back to balanced on the charger."
                         Switch { on: Config.s.autoPowerProfile; onToggled: Config.s.autoPowerProfile = !Config.s.autoPowerProfile } }
-                    Setting { label: "Stay awake";
+                    Setting { label: "Stay awake"; detail: "Don't dim, lock or sleep."
                         Switch { on: Power.caffeine; onToggled: Power.caffeine = !Power.caffeine } }
                 }
             }
@@ -590,7 +619,7 @@ LazyLoader {
                 spacing: 18
                 Head { title: "Notifications"; about: Notifs.count + " waiting" }
                 Group {
-                    Setting { label: "Do not disturb";
+                    Setting { label: "Do not disturb"; detail: "Only urgent ones get through."
                         Switch { on: Notifs.dnd; onToggled: Notifs.dnd = !Notifs.dnd } }
                     Setting { label: "How long they stay"; detail: (Config.s.notificationTimeout / 1000).toFixed(1) + " s"
                         Knob { from: 2000; to: 15000; step: 500; value: Config.s.notificationTimeout; onMoved: v => Config.s.notificationTimeout = Math.round(v) } }
@@ -608,9 +637,9 @@ LazyLoader {
                 Group {
                     Setting { label: "Check that everything is in place"
                         Btn { text: "Run doctor"; onClicked: Quickshell.execDetached(["kitty", "-e", "sh", "-c", Config.bin + "kk-doctor; printf '\\npress enter '; read x"]) } }
-                    Setting { label: "Settings file";
+                    Setting { label: "Settings file"; detail: "~/.config/kajukatli/settings.json"
                         Btn { text: "Open folder"; icon: "external"; onClicked: Quickshell.execDetached(["xdg-open", Config.home + "/.config/kajukatli"]) } }
-                    Setting { label: "Restart the shell";
+                    Setting { label: "Restart the shell"; detail: "Picks up changes you made to its files."
                         Btn { text: "Restart"; icon: "restart"; onClicked: Quickshell.reload(true) } }
                 }
             }

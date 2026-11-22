@@ -1,104 +1,102 @@
 import QtQuick
 import qs.services
 
-// a thin line slider: icon on the left (click it to mute), the number on the right.
-// drag, click, or scroll.
+// a fat pill slider: the filled part is the value, the icon sits inside it (click it to mute),
+// the number lives at the far end. drag, click, or scroll.
 Item {
     id: root
     property string label: ""
     property string icon: ""
     property real value: 0          // 0..1
-    property real level: -1         // passed to meter icons; defaults to value
+    property real level: -1         // passed to meter icons (volume waves); defaults to value
     property bool muted: false
     property string valueText: ""   // shown instead of the percentage when set
     signal moved(real v)
     signal labelClicked()
 
     implicitWidth: 320
-    implicitHeight: label !== "" ? 48 : 32
-
-    readonly property real v: Math.max(0, Math.min(1, value))
+    implicitHeight: label !== "" ? 50 : 34
 
     Txt {
+        id: cap
         visible: root.label !== ""
         text: root.label
         font.pixelSize: Theme.sm
+        font.weight: Font.Medium
         color: Theme.surfaceTextDim
     }
 
-    Item {
-        id: line
+    Rectangle {
+        id: track
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 32
+        height: 34
+        radius: 17
+        color: Theme.surfaceHigh
+        clip: true
+
+        Rectangle {
+            id: fill
+            readonly property real v: Math.max(0, Math.min(1, root.value))
+            width: Math.max(height, track.width * v)
+            height: parent.height
+            radius: 17
+            color: root.muted ? Theme.outline : Theme.primary
+            Behavior on width { enabled: !drag.pressed; NumberAnimation { duration: Theme.fast; easing.type: Easing.OutCubic } }
+            Behavior on color { ColorAnimation { duration: Theme.normal } }
+            // the grip: a short bar near the end of the fill
+            Rectangle {
+                anchors.right: parent.right
+                anchors.rightMargin: 9
+                anchors.verticalCenter: parent.verticalCenter
+                width: 3
+                height: drag.pressed ? 18 : 12
+                radius: 1.5
+                visible: fill.width > 44
+                color: Theme.alpha(Theme.primaryText, 0.55)
+                Behavior on height { NumberAnimation { duration: Theme.fast } }
+            }
+        }
 
         Icon {
             id: ic
             visible: root.icon !== ""
-            x: 8
+            x: 11
             anchors.verticalCenter: parent.verticalCenter
             name: root.icon
             level: root.level >= 0 ? root.level : root.value
             size: 16
-            color: root.muted ? Theme.outline : Theme.surfaceTextDim
-            MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor; onClicked: root.labelClicked() }
+            color: fill.width > 30 ? Theme.primaryText : Theme.surfaceText
         }
+
         Txt {
-            id: num
             anchors.right: parent.right
-            anchors.rightMargin: 4
+            anchors.rightMargin: 13
             anchors.verticalCenter: parent.verticalCenter
-            width: 34
-            horizontalAlignment: Text.AlignRight
-            text: root.valueText !== "" ? root.valueText : Math.round(root.v * 100)
+            text: root.valueText !== "" ? root.valueText : Math.round(fill.v * 100)
             font.family: Theme.mono
             font.pixelSize: Theme.sm
-            color: Theme.surfaceTextDim
+            color: fill.width > track.width - 40 ? Theme.primaryText : Theme.surfaceTextDim
         }
-        Item {
-            id: track
-            anchors.left: ic.visible ? ic.right : parent.left
-            anchors.leftMargin: ic.visible ? 14 : 0
-            anchors.right: num.left
-            anchors.rightMargin: 12
+
+        MouseArea {
+            id: drag
+            anchors.fill: parent
+            anchors.leftMargin: root.icon !== "" ? 34 : 0
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            function at(x) { return Math.max(0, Math.min(1, (x + anchors.leftMargin) / track.width)); }
+            onPressed: e => root.moved(at(e.x))
+            onPositionChanged: e => { if (pressed) root.moved(at(e.x)); }
+            onWheel: e => root.moved(Math.max(0, Math.min(1, root.value + (e.angleDelta.y > 0 ? 0.05 : -0.05))))
+        }
+        MouseArea {
+            visible: root.icon !== ""
+            width: 34
             height: parent.height
-            Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width
-                height: 3
-                radius: 1.5
-                color: Theme.alpha(Theme.surfaceText, 0.14)
-            }
-            Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width * root.v
-                height: 3
-                radius: 1.5
-                color: root.muted ? Theme.outline : Theme.primary
-                Behavior on width { enabled: !drag.pressed; NumberAnimation { duration: Theme.fast; easing.type: Easing.OutCubic } }
-            }
-            Rectangle {
-                x: parent.width * root.v - width / 2
-                anchors.verticalCenter: parent.verticalCenter
-                width: drag.pressed || drag.containsMouse ? 14 : 10
-                height: width
-                radius: width / 2
-                color: root.muted ? Theme.outline : Theme.primary
-                Behavior on width { NumberAnimation { duration: Theme.fast } }
-            }
-            MouseArea {
-                id: drag
-                anchors.fill: parent
-                anchors.topMargin: -4
-                anchors.bottomMargin: -4
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                function at(x) { return Math.max(0, Math.min(1, x / width)); }
-                onPressed: e => root.moved(at(e.x))
-                onPositionChanged: e => { if (pressed) root.moved(at(e.x)); }
-                onWheel: e => root.moved(Math.max(0, Math.min(1, root.value + (e.angleDelta.y > 0 ? 0.05 : -0.05))))
-            }
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.labelClicked()
         }
     }
 }

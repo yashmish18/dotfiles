@@ -20,12 +20,12 @@ Rectangle {
 
     implicitWidth: row.implicitWidth + (text !== "" ? 24 : 0) + (text === "" ? 30 - row.implicitWidth : 0)
     implicitHeight: 30
-    radius: Theme.radiusSmall
+    radius: height / 2
     color: !enabled ? Theme.alpha(Theme.surfaceText, 0.05)
          : filled ? (danger ? Theme.error : Theme.primary)
          : danger && hovered ? Theme.alpha(Theme.error, 0.18)
-         : hovered ? Theme.alpha(Theme.surfaceText, 0.12)
-         : flat ? "transparent" : Theme.alpha(Theme.surfaceText, 0.06)
+         : hovered ? Theme.surfaceHighest
+         : flat ? "transparent" : Theme.surfaceHigh
     Behavior on color { ColorAnimation { duration: Theme.fast } }
     scale: mouse.pressed ? 0.96 : 1
     Behavior on scale { NumberAnimation { duration: 90 } }

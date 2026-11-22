@@ -112,7 +112,7 @@ Variants {
         component Shell: Rectangle {
             property bool flat: false
             color: flat ? Theme.surfaceLowest : Theme.alpha(Theme.surfaceLowest, 0.84)
-            radius: flat ? 0 : Theme.radius
+            radius: flat ? 0 : height / 2
             border.width: flat ? 0 : 1
             border.color: Theme.alpha(Theme.surfaceText, 0.08)
         }
@@ -240,7 +240,7 @@ Variants {
              : bar.atBottom ? bar.height - bar.thick - bar.edge - 10 - ch
              : bar.thick + bar.edge + 10
             visible: bar.shown !== ""
-            radius: Theme.radius
+            radius: Theme.radius + 8
             color: Theme.glassStrong
             border.width: 1
             border.color: Theme.alpha(Theme.surfaceText, 0.08)

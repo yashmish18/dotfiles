@@ -172,7 +172,7 @@ Item {
                 Txt {
                     anchors.centerIn: parent
                     visible: Media.lines.length === 0
-                    text: Media.lyricsState === "loading" ? "…" : ""
+                    text: Media.lyricsState === "loading" ? "finding the words…" : Config.s.lyrics ? "no lyrics for this one" : "lyrics are off"
                     font.pixelSize: 12
                     color: Theme.outline
                 }

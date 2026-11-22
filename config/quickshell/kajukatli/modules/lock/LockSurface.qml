@@ -160,7 +160,7 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             implicitWidth: 380
             implicitHeight: 72
-            radius: Theme.radius
+            radius: 36
             color: Theme.alpha("#000000", 0.4)
             border.width: 1
             border.color: Theme.alpha("#ffffff", 0.12)
@@ -199,7 +199,7 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             implicitWidth: 340
             implicitHeight: 56
-            radius: Theme.radius
+            radius: 28
             color: Theme.alpha("#000000", 0.45)
             border.width: 1.5
             border.color: root.ctx.phase === "wrong" ? Theme.error : root.ctx.password.length > 0 ? Theme.primary : Theme.alpha("#ffffff", 0.2)
@@ -223,7 +223,7 @@ Item {
                 id: avatar
                 x: 8
                 anchors.verticalCenter: parent.verticalCenter
-                width: 40; height: 40; radius: Theme.radiusSmall
+                width: 40; height: 40; radius: 20
                 color: Theme.primary
                 Icon { anchors.centerIn: parent; name: "lock"; size: 18; color: Theme.primaryText }
             }
@@ -250,7 +250,7 @@ Item {
                 anchors.leftMargin: 16
                 anchors.verticalCenter: parent.verticalCenter
                 visible: root.ctx.password.length === 0
-                text: root.ctx.phase === "wrong" ? "try again" : ""
+                text: root.ctx.phase === "wrong" ? root.ctx.note : "Type your password"
                 color: root.ctx.phase === "wrong" ? Theme.error : Theme.alpha("#ffffff", 0.65)
             }
             Icon {
@@ -265,5 +265,12 @@ Item {
             }
         }
 
+        Txt {
+            Layout.alignment: Qt.AlignHCenter
+            text: (Quickshell.env("USER") || "") + "  ·  enter to unlock"
+            font.family: Theme.mono
+            font.pixelSize: Theme.sm
+            color: Theme.alpha("#ffffff", 0.5)
+        }
     }
 }

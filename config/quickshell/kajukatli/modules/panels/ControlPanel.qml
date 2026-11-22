@@ -73,6 +73,8 @@ Item {
     component Caption: Txt {
         Layout.topMargin: 4
         font.pixelSize: Theme.xs + 1
+        font.weight: Font.DemiBold
+        font.letterSpacing: 1.2
         color: Theme.outline
     }
 
@@ -86,24 +88,34 @@ Item {
             spacing: 14
             Layout.alignment: Qt.AlignTop
 
-            // battery and the quick actions
+            // header: battery / power state on the left, quick actions on the right
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 2
-                Txt {
+                spacing: 8
+                ColumnLayout {
                     Layout.fillWidth: true
-                    Layout.leftMargin: 8
-                    visible: Power.hasBattery
-                    text: Power.percent + "%" + (Power.charging ? "  +" : "")
-                    font.family: Theme.mono
-                    color: Power.low ? Theme.error : Theme.surfaceTextDim
+                    spacing: 0
+                    Txt {
+                        text: Power.hasBattery ? Power.percent + "%" : "Plugged in"
+                        font.pixelSize: 22
+                        font.weight: Font.Bold
+                        color: Power.low ? Theme.error : Theme.surfaceText
+                    }
+                    Txt {
+                        Layout.fillWidth: true
+                        text: !Power.hasBattery ? Power.profileName
+                            : Power.full ? "full"
+                            : Power.charging ? "charging" + (Power.timeLeft ? " · full in " + Power.timeLeft : "")
+                            : (Power.timeLeft ? Power.timeLeft + " left" : "on battery")
+                        font.pixelSize: Theme.sm
+                        color: Theme.surfaceTextDim
+                    }
                 }
-                Item { Layout.fillWidth: true; visible: !Power.hasBattery }
-                Btn { icon: "screenshot"; flat: true; onClicked: { Ui.panel = ""; Quickshell.execDetached(["sh", "-c", "sleep 0.35; " + Config.bin + "kk-shot area"]); } }
-                Btn { icon: "record"; flat: true; active: Ui.recording; danger: Ui.recording; onClicked: { Ui.panel = ""; Quickshell.execDetached([Config.bin + "kk-record"]); } }
-                Btn { icon: "sliders"; flat: true; onClicked: Ui.open("settings") }
-                Btn { icon: "lock"; flat: true; onClicked: { Ui.panel = ""; Quickshell.execDetached([Config.bin + "kk-lock"]); } }
-                Btn { icon: "power"; flat: true; danger: true; onClicked: Ui.open("session") }
+                Btn { icon: "screenshot"; onClicked: { Ui.panel = ""; Quickshell.execDetached(["sh", "-c", "sleep 0.35; " + Config.bin + "kk-shot area"]); } }
+                Btn { icon: "record"; active: Ui.recording; danger: Ui.recording; onClicked: { Ui.panel = ""; Quickshell.execDetached([Config.bin + "kk-record"]); } }
+                Btn { icon: "sliders"; onClicked: Ui.open("settings") }
+                Btn { icon: "lock"; onClicked: { Ui.panel = ""; Quickshell.execDetached([Config.bin + "kk-lock"]); } }
+                Btn { icon: "power"; danger: true; onClicked: Ui.open("session") }
             }
 
             // sliders
@@ -140,18 +152,17 @@ Item {
                 }
             }
 
-            Hair { Layout.fillWidth: true }
-
-            // switches, one per row
-            ColumnLayout {
+            // tiles
+            GridLayout {
                 Layout.fillWidth: true
-                spacing: 0
+                columns: 2
+                columnSpacing: 8
+                rowSpacing: 8
                 Toggle {
                     Layout.fillWidth: true
                     icon: Icons.net(Net.ethernet, Net.wifiEnabled, Net.ssid)
                     title: Net.ethernet ? "Wired" : "Wi-Fi"
-                    level: Net.signal / 25
-                    detail: Net.ethernet ? "" : Net.ssid
+                    detail: Net.ethernet ? "connected" : Net.ssid !== "" ? Net.ssid : Net.wifiEnabled ? "not connected" : "off"
                     on: Net.wifiEnabled || Net.ethernet
                     more: true
                     onToggled: Net.setWifi(!Net.wifiEnabled)
@@ -161,7 +172,7 @@ Item {
                     Layout.fillWidth: true
                     icon: !Bt.enabled ? "bluetooth-off" : "bluetooth"
                     title: "Bluetooth"
-                    detail: Bt.connectedDevices.length > 0 ? Bt.label : ""
+                    detail: Bt.available ? Bt.label : "no adapter"
                     on: Bt.enabled
                     more: true
                     enabled: Bt.available
@@ -172,7 +183,7 @@ Item {
                     Layout.fillWidth: true
                     icon: Notifs.dnd ? "bell-off" : "bell"
                     title: "Do not disturb"
-                    detail: ""
+                    detail: Notifs.dnd ? "urgent only" : "off"
                     on: Notifs.dnd
                     onToggled: Notifs.dnd = !Notifs.dnd
                 }
@@ -180,7 +191,7 @@ Item {
                     Layout.fillWidth: true
                     icon: "night-light"
                     title: "Night light"
-                    detail: Power.nightLight ? Config.s.nightLightTemp + " K" : ""
+                    detail: Power.nightLight ? Config.s.nightLightTemp + " K" : "off"
                     on: Power.nightLight
                     onToggled: Power.nightLight = !Power.nightLight
                 }
@@ -188,7 +199,7 @@ Item {
                     Layout.fillWidth: true
                     icon: "coffee"
                     title: "Stay awake"
-                    detail: ""
+                    detail: Power.caffeine ? "won't sleep" : "off"
                     on: Power.caffeine
                     onToggled: Power.caffeine = !Power.caffeine
                 }
@@ -203,18 +214,19 @@ Item {
             }
 
             // now playing
-            Hair { Layout.fillWidth: true; visible: Media.active }
-            Item {
+            Rectangle {
                 visible: Media.active
                 Layout.fillWidth: true
-                implicitHeight: 56
+                implicitHeight: 64
+                radius: Theme.radius
+                color: Theme.surfaceHigh
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 4
+                    anchors.margins: 10
                     spacing: 12
                     ClippingRectangle {
-                        Layout.preferredWidth: 40
-                        Layout.preferredHeight: 40
+                        Layout.preferredWidth: 44
+                        Layout.preferredHeight: 44
                         radius: Theme.radiusSmall
                         color: Theme.surfaceHighest
                         Image {
@@ -250,7 +262,7 @@ Item {
 
             PageHead {
                 title: "Wi-Fi"
-                subtitle: Net.ssid
+                subtitle: Net.ssid !== "" ? "connected to " + Net.ssid : Net.wifiEnabled ? "not connected" : "off"
                 onBack: root.page = "main"
                 Btn { icon: "restart"; enabled: !Net.scanning && Net.wifiEnabled; onClicked: Net.rescan() }
                 Btn { icon: "power"; active: Net.wifiEnabled; onClicked: Net.setWifi(!Net.wifiEnabled) }
@@ -300,14 +312,24 @@ Item {
                         Layout.bottomMargin: 6
                         password: true
                         size: Theme.md
-                        placeholder: "Password"
+                        placeholder: "password for " + netRow.modelData.ssid
                         onVisibleChanged: if (visible) focusNow()
                         onAccepted: if (text !== "") Net.connectTo(netRow.modelData.ssid, text)
                         onEscaped: Net.needsPassword = ""
                     }
                 }
             }
-            Btn { text: "Network settings"; icon: "external"; flat: true; onClicked: { Ui.panel = ""; Net.openEditor(); } }
+            Txt {
+                visible: Net.wifiEnabled && Net.networks.length === 0
+                text: Net.scanning ? "Looking for networks…" : "Nothing nearby. Try scanning again."
+                color: Theme.surfaceTextDim
+            }
+            Txt {
+                text: "right-click a saved network to forget it"
+                font.pixelSize: Theme.xs + 1
+                color: Theme.outline
+            }
+            Btn { text: "Network settings"; icon: "external"; onClicked: { Ui.panel = ""; Net.openEditor(); } }
         }
 
         // ============================================================ bluetooth
@@ -317,7 +339,7 @@ Item {
 
             PageHead {
                 title: "Bluetooth"
-                subtitle: Bt.connectedDevices.length > 0 ? Bt.label : ""
+                subtitle: Bt.available ? Bt.label : "no adapter"
                 onBack: root.page = "main"
                 Btn { icon: "search"; active: Bt.scanning; enabled: Bt.enabled; onClicked: Bt.setScanning(!Bt.scanning) }
                 Btn { icon: "power"; active: Bt.enabled; enabled: Bt.available; onClicked: Bt.setEnabled(!Bt.enabled) }
@@ -344,7 +366,19 @@ Item {
                     onClicked: m => m.button === Qt.RightButton ? devRow.modelData.forget() : Bt.toggleDevice(devRow.modelData)
                 }
             }
-            Btn { text: "Bluetooth manager"; icon: "external"; flat: true; onClicked: { Ui.panel = ""; Bt.openManager(); } }
+            Txt {
+                visible: Bt.enabled && Bt.devices.length === 0
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: Bt.scanning ? "Looking for devices…" : "No devices yet. Scan, and put the other device in pairing mode."
+                color: Theme.surfaceTextDim
+            }
+            Txt {
+                text: "click to connect · right-click to forget"
+                font.pixelSize: Theme.xs + 1
+                color: Theme.outline
+            }
+            Btn { text: "Bluetooth manager"; icon: "external"; onClicked: { Ui.panel = ""; Bt.openManager(); } }
         }
 
         // ============================================================ sound
@@ -358,7 +392,7 @@ Item {
                 onBack: root.page = "main"
                 Btn { icon: "external"; onClicked: { Ui.panel = ""; Quickshell.execDetached(["pavucontrol"]); } }
             }
-            Caption { text: "Output" }
+            Caption { text: "OUTPUT" }
             Repeater {
                 model: Audio.sinks
                 delegate: Row2 {
@@ -369,7 +403,7 @@ Item {
                     onClicked: Audio.useSink(modelData)
                 }
             }
-            Caption { text: "Apps"; visible: Audio.streams.length > 0 }
+            Caption { text: "APPS"; visible: Audio.streams.length > 0 }
             Repeater {
                 model: Audio.streams
                 delegate: Slider {
@@ -382,6 +416,11 @@ Item {
                     onMoved: v => { if (modelData.audio) modelData.audio.volume = v; }
                     onLabelClicked: if (modelData.audio) modelData.audio.muted = !modelData.audio.muted
                 }
+            }
+            Txt {
+                visible: Audio.streams.length === 0
+                text: "Nothing is playing."
+                color: Theme.surfaceTextDim
             }
         }
     }
