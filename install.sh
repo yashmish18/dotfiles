@@ -338,7 +338,7 @@ fonts() {
     # the old installer named downloaded files differently; drop those leftovers
     rm -f "$FONTS"/*%5B* 2>/dev/null || true
     fc-cache -f "$FONTS" >/dev/null 2>&1 || true
-    if fc-list | grep -qi "Bricolage Grotesque"; then ok "typefaces ($n)"; else warn "typefaces copied but fontconfig doesn't list them yet; try: fc-cache -fv"; fi
+    if fc-list : family 2>/dev/null | grep -i "bricolage grotesque" >/dev/null; then ok "typefaces ($n)"; else warn "typefaces copied but fontconfig doesn't list them yet; try: fc-cache -fv"; fi
 }
 
 # ------------------------------------------------------------------ wallpapers
@@ -429,10 +429,23 @@ services() {
         local dm
         dm="$(basename "$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null)" 2>/dev/null || true)"
         if [ "$dm" = "greetd.service" ]; then
-            note "greetd already set up"
+            # ours from an earlier run? refresh it so the login screen gets updates too
+            if grep -q "kk-session" /etc/greetd/config.toml 2>/dev/null; then
+                sudo install -Dm644 "$REPO/system/greetd/config.toml" /etc/greetd/config.toml
+                if pacman -Qq terminus-font >/dev/null 2>&1 && ! grep -q '^FONT=' /etc/vconsole.conf 2>/dev/null; then
+                    echo 'FONT=ter-v32n' | sudo tee -a /etc/vconsole.conf >/dev/null
+                fi
+                note "login screen updated"
+            else
+                note "greetd already set up (your own config; left alone)"
+            fi
         elif ask "use greetd + tuigreet as the login screen$([ -n "$dm" ] && [ "$dm" != "display-manager.service" ] && echo " (replaces $dm)")" y; then
             [ -f /etc/greetd/config.toml ] && sudo cp /etc/greetd/config.toml "/etc/greetd/config.toml.kk-backup-$STAMP"
             sudo install -Dm644 "$REPO/system/greetd/config.toml" /etc/greetd/config.toml
+            # a sharp, larger console font for the login screen (terminus, 16x32)
+            if pacman -Qq terminus-font >/dev/null 2>&1 && ! grep -q '^FONT=' /etc/vconsole.conf 2>/dev/null; then
+                echo 'FONT=ter-v32n' | sudo tee -a /etc/vconsole.conf >/dev/null
+            fi
             [ -n "$dm" ] && [ "$dm" != "display-manager.service" ] && sudo systemctl disable "$dm" || true
             sudo systemctl enable greetd.service
         fi

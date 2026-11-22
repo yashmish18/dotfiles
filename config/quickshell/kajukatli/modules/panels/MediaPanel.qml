@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Widgets
 import qs.services
 import qs.components
+import qs.modules.desktop
 
 // now playing: the cover in full colour, the controls tinted by it.
 // space: play / pause · ← →: previous / next

@@ -12,28 +12,23 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import qs.services
-import qs.modules.wallpaper
-import qs.modules.bar
-import qs.modules.notifications
-import qs.modules.osd
-import qs.modules.overlays
-import qs.modules.lock
-import qs.modules.desktop
-import qs.modules.dock
-import qs.modules.settings
+import qs.components
 
 ShellRoot {
     id: shell
 
-    Wallpaper {}
-    Desktop {}
-    Bar {}
-    Dock {}
-    Settings {}
-    Popups {}
-    Osd {}
-    Overlay {}
-    Lock { id: lock }
+    // each part loads on its own: if one file has a mistake, only that part is missing and
+    // the error goes to the log (qs log -c kajukatli). the rest of the desktop still runs.
+    component Part: LazyLoader { active: true }
+    Part { source: Qt.resolvedUrl("modules/wallpaper/Wallpaper.qml") }
+    Part { source: Qt.resolvedUrl("modules/desktop/Desktop.qml") }
+    Part { source: Qt.resolvedUrl("modules/bar/Bar.qml") }
+    Part { source: Qt.resolvedUrl("modules/dock/Dock.qml") }
+    Part { source: Qt.resolvedUrl("modules/settings/SettingsWindow.qml") }
+    Part { source: Qt.resolvedUrl("modules/notifications/Popups.qml") }
+    Part { source: Qt.resolvedUrl("modules/osd/Osd.qml") }
+    Part { source: Qt.resolvedUrl("modules/overlays/Overlay.qml") }
+    Part { source: Qt.resolvedUrl("modules/lock/Lock.qml") }
     // apply touchpad / keyboard / scale settings at login
     readonly property var systemService: System
 

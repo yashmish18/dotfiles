@@ -2,3 +2,4 @@
 # default: on
 greetd
 greetd-tuigreet
+terminus-font

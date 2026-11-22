@@ -77,8 +77,8 @@ Item {
                     model: 5
                     Txt {
                         required property int index
-                        readonly property real top: Math.max(1024, Math.max.apply(null, Sys.netHistory.concat([1])))
-                        text: Sys.bytes(top * (4 - index) / 4) + "/s"
+                        readonly property real peak: Math.max(1024, Math.max.apply(null, Sys.netHistory.concat([1])))
+                        text: Sys.bytes(peak * (4 - index) / 4) + "/s"
                         font.pixelSize: 9
                         color: root.dim
                         height: 14

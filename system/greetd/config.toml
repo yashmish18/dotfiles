@@ -2,5 +2,5 @@
 vt = 1
 
 [default_session]
-command = "tuigreet --time --time-format '%H:%M' --remember --remember-session --asterisks --greeting 'welcome back.' --theme 'border=darkgray;text=gray;prompt=white;time=gray;action=gray;button=white;container=black;input=white' --cmd kk-session"
+command = "tuigreet --time --time-format '%A %d %B · %H:%M' --remember --remember-session --asterisks --window-padding 2 --container-padding 3 --width 56 --greeting 'kajukatli' --theme 'border=magenta;title=magenta;greet=lightmagenta;text=white;prompt=lightmagenta;input=white;time=gray;action=gray;button=magenta;container=black' --cmd kk-session"
 user = "greeter"
