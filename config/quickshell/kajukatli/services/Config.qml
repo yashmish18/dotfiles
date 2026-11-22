@@ -25,9 +25,8 @@ Singleton {
         // 5: the clock decides for itself, per wallpaper: face, spot and colour
         adapter.clockStyle = "auto";
         adapter.clockColor = "auto";
-        // 4: the wallpaper ai runs on battery too (the clock behind the subject, the 3d
-        //    parallax and the auto clock all need it, and laptops are mostly unplugged)
-        adapter.aiOnBattery = true;
+        // 4: preserve battery life by keeping expensive wallpaper AI off on battery.
+        adapter.aiOnBattery = false;
         adapter.clockDepth = true;
         adapter.parallax = true;
         adapter.transition = "ink";
@@ -118,7 +117,7 @@ Singleton {
             property bool clockDepth: true          // tuck the clock behind the wallpaper's subject
             property string clockFont: "Syne"       // any installed family; each look sets its own
             property string clockColor: "auto"     // auto: light or dark ink, whichever reads on the picture under it · theme
-            property bool clockPulse: true          // the clock swells a little on the beat while music plays
+            property bool clockPulse: false         // kept for compatibility; clocks stay motionless during music
             property real clockScale: 0.8
             property string visualizer: "off"      // off | wave | bars | mirror
             property bool visualizerBehind: true
@@ -148,6 +147,9 @@ Singleton {
 
             // ---------------------------------------------------- data
             property string weatherLocation: ""     // a city name. "" = guess from your ip (wttr.in)
+            property bool networkWeather: false      // opt in: wttr.in receives a location or IP
+            property bool networkLyrics: false       // opt in: lrclib.net receives track metadata
+            property string localLyricsDir: "~/Music/Lyrics"
             property string tempUnit: "c"           // c | f
             property bool sounds: true              // little sounds for volume, notifications, lock…
             property real soundVolume: 0.6
@@ -160,7 +162,7 @@ Singleton {
             property real parallaxStrength: 1.0     // 0.2 … 2.0
             property string transition: "ink"      // ink (bleeds in; draws the subject's outline when known) · fade · none
             property int transitionMs: 4200         // length of the ink transition (trace, then ink)
-            property bool aiOnBattery: true         // run the wallpaper ai unplugged too (else it waits for ac)
+            property bool aiOnBattery: false        // expensive wallpaper ai waits for ac on battery
             property string subjectModel: "isnet-anime"   // birefnet-general-lite for photos
             property bool videoOnBattery: false     // live wallpapers freeze to a still on battery
 
@@ -179,6 +181,11 @@ Singleton {
             property int repeatRate: 35
             property int repeatDelay: 280
             property var monitorScales: ({})         // { "eDP-1": 1.0 } — everything is 100% unless you say
+            property var monitorProfiles: ({})       // { "eDP-1": { scale, refresh, position } }
+            property bool largeText: false
+            property bool reducedMotion: false
+            property bool highContrast: false
+            property bool keyboardNavigation: true
             property int nightLightTemp: 4200
             property bool nightLightAuto: false     // warm from nightLightFrom to nightLightTo
             property string nightLightFrom: "19:30"

@@ -94,16 +94,17 @@ Singleton {
     readonly property string glyph: "Symbols Nerd Font"   // tray fallbacks only; the shell draws its own icons
     readonly property string display: Config.s.clockFont !== "" ? Config.s.clockFont : "Syne"
 
-    readonly property int xs: 10
-    readonly property int sm: 11
-    readonly property int md: 13
-    readonly property int lg: 16
-    readonly property int xl: 24
+    readonly property int textScale: Config.s.largeText ? 1 : 0
+    readonly property int xs: 10 + textScale
+    readonly property int sm: 11 + textScale
+    readonly property int md: 13 + textScale
+    readonly property int lg: 16 + textScale
+    readonly property int xl: 24 + textScale * 2
 
     // motion
-    readonly property int fast: 160
-    readonly property int normal: 280
-    readonly property int slow: 460
+    readonly property int fast: Config.s.reducedMotion ? 0 : 160
+    readonly property int normal: Config.s.reducedMotion ? 0 : 280
+    readonly property int slow: Config.s.reducedMotion ? 0 : 460
 
     // shape
     readonly property int barHeight: 36

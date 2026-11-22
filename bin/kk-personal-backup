@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Create an explicit snapshot of personal documents and account state.
+set -euo pipefail
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/kajukatli/personal-backups"
+STAMP="$(date +%Y%m%d-%H%M%S)"
+OUT="$DATA/$STAMP"
+mkdir -p "$OUT"
+
+for source in Documents Pictures Music Videos Downloads .ssh .gnupg .config/BraveSoftware .config/google-chrome .config/chromium .mozilla .thunderbird; do
+    [ -e "$HOME/$source" ] && cp -a "$HOME/$source" "$OUT/" || true
+done
+tar -C "$OUT" -czf "$DATA/kajukatli-personal-$STAMP.tar.gz" .
+rm -rf "$OUT"
+echo "$DATA/kajukatli-personal-$STAMP.tar.gz"

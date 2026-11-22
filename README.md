@@ -99,6 +99,7 @@ Press `Super + /` to show the live keybinding overlay.
 | `Super + Space` | Launcher |
 | `Super + A` | Control centre |
 | `Super + I` | Kajukatli settings |
+| `Super + .` | Emoji picker (inserts directly into the focused text field) |
 | `Super + N` | Notifications |
 | `Super + V` | Clipboard history |
 | `Super + W` | Wallpaper picker |
@@ -221,8 +222,18 @@ dotfiles/
 
 ```sh
 cd ~/dotfiles
-git pull
+./install.sh --update
 ./install.sh --links --shaders
+```
+
+Explicit maintenance modes:
+
+```sh
+./install.sh --dry-run --yes       # preview package and install actions
+./install.sh --snapshot            # snapshot configuration and personal account state
+./install.sh --restore             # restore the latest snapshot
+./install.sh --update              # update git without pulling dirty checkouts
+./uninstall.sh --dry-run           # preview links and backup restoration
 ```
 
 Run `./install.sh --ai` after changing wallpaper detection models or dependencies.

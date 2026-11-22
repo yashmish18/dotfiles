@@ -70,13 +70,13 @@ for i = 1, 10 do
     bind(M .. " + " .. key,         hl.dsp.focus({ workspace = tostring(i) }))
     bind(M .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = tostring(i) }))
 end
-bind(M .. " + period",          sh("ws_next"),     { description = "next workspace" })
 bind(M .. " + comma",           sh("ws_prev"),     { description = "previous workspace" })
 bind(M .. " + mouse_down",      sh("ws_next"))
 bind(M .. " + mouse_up",        sh("ws_prev"))
 bind(M .. " + grave",           sh("ws_new"),      { description = "new empty workspace" })
 bind(M .. " + SHIFT + grave",   sh("ws_new_move"), { description = "move window to new workspace" })
 bind(M .. " + R",               sh("ws_rename"),   { description = "rename workspace" })
+bind(M .. " + period",          sh("emoji"),       { description = "emoji picker" })
 
 -- scratchpad
 bind(M .. " + S",         hl.dsp.workspace.toggle_special("magic"),           { description = "scratchpad" })

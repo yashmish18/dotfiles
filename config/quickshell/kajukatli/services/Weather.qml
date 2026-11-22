@@ -23,6 +23,7 @@ Singleton {
     readonly property string icon: Icons.weather(code, night)   // an icon name (components/Icon.qml)
 
     function refresh() {
+        if (!Config.s.networkWeather) { ready = false; return; }
         if (proc.running) return;
         const loc = encodeURIComponent(Config.s.weatherLocation.trim());
         proc.command = ["curl", "-sfL", "--max-time", "12", "https://wttr.in/" + loc + "?format=j1"];

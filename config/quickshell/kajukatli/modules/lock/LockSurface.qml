@@ -57,8 +57,6 @@ Item {
         acceptedButtons: Qt.NoButton
         onPositionChanged: e => { root.mx = e.x / width * 2 - 1; root.my = e.y / height * 2 - 1; }
     }
-    // the clock keeps time with the music
-    Uses { service: Cava; active: Media.playing && Config.s.clockPulse }
     Behavior on opacity { NumberAnimation { duration: 450; easing.type: Easing.InOutCubic } }
 
     Rectangle { anchors.fill: parent; color: Theme.surfaceLowest }
@@ -104,8 +102,6 @@ Item {
         // the clock, in the middle of the picture: behind the subject when there is one
         Column {
             transform: Translate { x: -root.mx * 26; y: -root.my * 16 }
-            scale: 1 + (Media.playing && Config.s.clockPulse ? Cava.level * 0.05 : 0)
-            Behavior on scale { NumberAnimation { duration: 90 } }
             anchors.horizontalCenter: parent.horizontalCenter
             y: parent.height * 0.12
             spacing: -parent.height * 0.06

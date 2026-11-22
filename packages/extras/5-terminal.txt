@@ -12,3 +12,5 @@ zsh-autosuggestions
 zsh-syntax-highlighting
 zsh-completions
 bash-completion
+git-delta
+lazygit

@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "themes": [
+    {"id":"tide","version":"1","source":"built-in"},
+    {"id":"ronin","version":"1","source":"built-in"},
+    {"id":"komorebi","version":"1","source":"built-in"},
+    {"id":"currents","version":"1","source":"built-in"},
+    {"id":"dreamer","version":"1","source":"built-in"},
+    {"id":"grove","version":"1","source":"built-in"},
+    {"id":"print","version":"1","source":"built-in"}
+  ]
+}

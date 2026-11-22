@@ -38,6 +38,15 @@ Singleton {
         Config.s.monitorScales = m;
         applyMonitor(name);
     }
+    function monitorProfile(name: string): var {
+        return (Config.s.monitorProfiles || {})[name] || ({});
+    }
+    function setMonitorProfile(name: string, key: string, value: var) {
+        const profiles = Object.assign({}, Config.s.monitorProfiles || {});
+        profiles[name] = Object.assign({}, profiles[name] || {}, { [key]: value });
+        Config.s.monitorProfiles = profiles;
+        applyMonitor(name);
+    }
     // the mode for a screen: its preferred one, or the same size at ~60 hz while the battery
     // saver is on (a 120/144/165 hz panel draws noticeably more power)
     function modeFor(name: string): string {
@@ -53,8 +62,24 @@ Singleton {
         }
         return best === null ? "preferred" : size + best.toFixed(2);
     }
+    function nameModeAt(name: string, refresh: real): string {
+        const m = monitors.find(x => x.name === name);
+        const ipc = m ? m.lastIpcObject : null;
+        if (!ipc || !ipc.width || !ipc.height) return "preferred";
+        const size = ipc.width + "x" + ipc.height + "@";
+        let best = null;
+        for (const mode of (ipc.availableModes || [])) {
+            if (!mode.startsWith(size)) continue;
+            const hz = parseFloat(mode.slice(size.length));
+            if (best === null || Math.abs(hz - refresh) < Math.abs(parseFloat(best.slice(size.length)) - refresh)) best = mode;
+        }
+        return best || "preferred";
+    }
     function applyMonitor(name: string) {
-        Hypr.hyprEval("hl.monitor({ output = " + lua(name) + ", mode = \"" + modeFor(name) + "\", position = \"auto\", scale = \""
+        const profile = monitorProfile(name);
+        const position = profile.position || "auto";
+        const mode = profile.refresh ? nameModeAt(name, profile.refresh) : modeFor(name);
+        Hypr.hyprEval("hl.monitor({ output = " + lua(name) + ", mode = \"" + mode + "\", position = " + lua(position) + ", scale = \""
                       + scaleOf(name) + "\" })");
     }
     function applyAll() {

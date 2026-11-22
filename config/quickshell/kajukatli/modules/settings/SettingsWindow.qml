@@ -438,8 +438,6 @@ LazyLoader {
                         Switch { on: Config.s.clockDepth; onToggled: Config.s.clockDepth = !Config.s.clockDepth } }
                     Setting { label: "Colour"; detail: "Auto picks light or dark ink from the picture under the clock."
                         Choice { options: [{ value: "auto", label: "auto" }, { value: "theme", label: "theme" }]; value: Config.s.clockColor; onPicked: v => Config.s.clockColor = v } }
-                    Setting { label: "Moves with the music"
-                        Switch { on: Config.s.clockPulse; onToggled: Config.s.clockPulse = !Config.s.clockPulse } }
                     Setting { label: "24-hour time"
                         Switch { on: Config.s.clock24h; onToggled: Config.s.clock24h = !Config.s.clock24h } }
                     Setting { label: "Put everything back"; detail: "Places and sizes, as the look had them. One widget: double-click it."
@@ -460,8 +458,10 @@ LazyLoader {
                     title: "Widgets"
                     Setting { label: "Player"; detail: "Shown only while something plays."
                         Choice { options: ["off", "lyrics", "card", "portrait"]; value: Config.s.mediaWidget; onPicked: v => Config.s.mediaWidget = v } }
-                    Setting { label: "Synced lyrics"; detail: "Asks lrclib.net for the words of the playing song."
-                        Switch { on: Config.s.lyrics; onToggled: Config.s.lyrics = !Config.s.lyrics } }
+                    Setting { label: "Network lyrics"; detail: "Off by default. Sends track title and artist to lrclib.net."
+                        Switch { on: Config.s.networkLyrics; onToggled: Config.s.networkLyrics = !Config.s.networkLyrics } }
+                    Setting { label: "Local lyrics folder"; detail: "Place .lrc or .txt files in this folder."
+                        Field { implicitWidth: 220; size: Theme.md; text: Config.s.localLyricsDir; onAccepted: Config.s.localLyricsDir = text.trim() } }
                     Setting { label: "Calendar"
                         Switch { on: Config.s.showCalendar; onToggled: Config.s.showCalendar = !Config.s.showCalendar } }
                     Setting { label: "System stats"
@@ -486,6 +486,8 @@ LazyLoader {
                         Btn { text: "Arrange"; icon: "move"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.editing = true; } } }
                     Setting { label: "Weather city"; detail: "Empty guesses from your connection (wttr.in)."
                         Field { implicitWidth: 220; size: Theme.md; placeholder: "e.g. Pune"; text: Config.s.weatherLocation; onAccepted: Config.s.weatherLocation = text.trim() } }
+                    Setting { label: "Network weather"; detail: "Off by default. Sends the city or IP location to wttr.in."
+                        Switch { on: Config.s.networkWeather; onToggled: Config.s.networkWeather = !Config.s.networkWeather } }
                     Setting { label: "Temperature in"
                         Choice { options: [{ value: "c", label: "°C" }, { value: "f", label: "°F" }]; value: Config.s.tempUnit; onPicked: v => Config.s.tempUnit = v } }
                 }
@@ -553,6 +555,22 @@ LazyLoader {
                                 onPicked: v => System.setScale(mon.modelData.name, v)
                             }
                         }
+                        Setting {
+                            label: "Refresh"
+                            Choice {
+                                options: [{ value: 0, label: "Preferred" }, { value: 60, label: "60 Hz" }, { value: 120, label: "120 Hz" }, { value: 144, label: "144 Hz" }, { value: 165, label: "165 Hz" }, { value: 240, label: "240 Hz" }]
+                                value: System.monitorProfile(mon.modelData.name).refresh || 0
+                                onPicked: v => System.setMonitorProfile(mon.modelData.name, "refresh", v)
+                            }
+                        }
+                        Setting {
+                            label: "Position"
+                            Choice {
+                                options: [{ value: "auto", label: "Automatic" }, { value: "0x0", label: "Primary" }, { value: "1920x0", label: "Right +1920" }, { value: "-1920x0", label: "Left -1920" }]
+                                value: System.monitorProfile(mon.modelData.name).position || "auto"
+                                onPicked: v => System.setMonitorProfile(mon.modelData.name, "position", v)
+                            }
+                        }
                     }
                 }
                 Group {
@@ -565,6 +583,13 @@ LazyLoader {
                             Switch { on: Config.s.nightLightAuto; onToggled: Config.s.nightLightAuto = !Config.s.nightLightAuto } } }
                     Setting { label: "Warmth"; detail: Config.s.nightLightTemp + " K"
                         Knob { from: 2500; to: 6000; step: 100; value: Config.s.nightLightTemp; onMoved: v => Config.s.nightLightTemp = Math.round(v) } }
+                }
+                Group {
+                    title: "Accessibility"
+                    Setting { label: "Larger text"; Switch { on: Config.s.largeText; onToggled: Config.s.largeText = !Config.s.largeText } }
+                    Setting { label: "Reduced motion"; Switch { on: Config.s.reducedMotion; onToggled: Config.s.reducedMotion = !Config.s.reducedMotion } }
+                    Setting { label: "High contrast"; Switch { on: Config.s.highContrast; onToggled: Config.s.highContrast = !Config.s.highContrast } }
+                    Setting { label: "Keyboard navigation"; Switch { on: Config.s.keyboardNavigation; onToggled: Config.s.keyboardNavigation = !Config.s.keyboardNavigation } }
                 }
             }
         }

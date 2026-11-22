@@ -17,6 +17,7 @@ Singleton {
     property string settingsPage: ""    // which page it opens on
     property string status: ""     // short message shown in the bar ("developing…")
     property bool recording: false // kk-record tells us over ipc
+    property string overlayQuery: ""
     // focus: the bar and the widgets step away, notifications wait, the wallpaper dims
     property bool focusMode: false
     function toggleFocus() {
@@ -50,6 +51,11 @@ Singleton {
     function toggleOverlay(name: string) {
         panel = "";
         overlay = overlay === name ? "" : name;
+    }
+    function openEmoji() {
+        panel = "";
+        overlayQuery = ":";
+        overlay = "apps";
     }
     // open the settings window on a page: "wallpaper", "display", "input"…
     function settings(page: string) {

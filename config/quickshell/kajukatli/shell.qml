@@ -67,6 +67,7 @@ ShellRoot {
     function run(name: string) {
         switch (name) {
         case "launcher": Ui.toggleOverlay("apps"); break;
+        case "emoji": Ui.openEmoji(); break;
         case "control": Ui.toggle("control"); break;
         case "settings": Ui.toggle("settings"); break;
         case "notifications": Ui.toggle("notifications"); break;
@@ -99,7 +100,7 @@ ShellRoot {
 
     Variants {
         model: ["launcher", "control", "settings", "notifications", "clipboard", "session", "wallpapers",
-                "overview", "cheatsheet", "bar", "ws_next", "ws_prev", "ws_new", "ws_new_move", "ws_rename",
+                "overview", "cheatsheet", "emoji", "bar", "ws_next", "ws_prev", "ws_new", "ws_new_move", "ws_rename",
                 "brightness_up", "brightness_down", "close", "edit", "look_next", "capture", "focus", "timer", "notes"]
         GlobalShortcut {
             required property var modelData

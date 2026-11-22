@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+json_escape() { python3 -c 'import json,sys; print(json.dumps(sys.stdin.read())[1:-1])'; }
+check() {
+    local name="$1"; shift
+    if "$@" >/dev/null 2>&1; then printf '"%s":"ok",' "$name"; else printf '"%s":"missing",' "$name"; fi
+}
+printf '{'
+check network systemctl is-active --quiet NetworkManager
+check bluetooth systemctl is-active --quiet bluetooth
+check pipewire systemctl --user -q is-active pipewire
+check wireplumber systemctl --user -q is-active wireplumber
+check portal test -n "${XDG_DESKTOP_PORTAL:-}"
+check hyprland test -n "${HYPRLAND_INSTANCE_SIGNATURE:-}"
+check quickshell pgrep -x qs
+check pam test -f /etc/pam.d/system-auth
+check suspend systemctl hibernate --dry-run
+printf '"timestamp":"%s","disk":' "$(date -Iseconds)"
+df -B1 / | awk 'NR==2{printf "{\"used\":%s,\"size\":%s}",$3,$2}'
+printf '}\n'

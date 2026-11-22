@@ -10,6 +10,10 @@
 #   ./install.sh --fonts          only (re)download the typefaces
 #   ./install.sh --walls          only download the wallpaper pack
 #   ./install.sh --ai             only (re)build the wallpaper ai
+#   ./install.sh --dry-run        print the actions; change nothing
+#   ./install.sh --update         git-pull only after local-change checks
+#   ./install.sh --snapshot        backup Kajukatli + selected personal data
+#   ./install.sh --restore        restore the latest Kajukatli snapshot
 #
 # safe to run again: packages use --needed, links are replaced, and your own files are
 # moved to ~/.local/share/kajukatli/backup/<date>/ before anything is linked over them.
@@ -17,20 +21,6 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# keep a running checkout current before it builds or links anything
-if [ -d "$REPO/.git" ] && command -v git >/dev/null; then
-    # the installer marks scripts executable; that must never count as "local changes"
-    git -C "$REPO" config core.fileMode false 2>/dev/null || true
-    branch="$(git -C "$REPO" branch --show-current 2>/dev/null || true)"
-    if [ -n "$branch" ] && [ -z "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
-        echo "  · updating dotfiles ($branch)"
-        git -C "$REPO" pull --ff-only origin "$branch" || echo "  ! could not pull origin/$branch; using the checked-out files"
-    elif [ -n "$branch" ]; then
-        echo "  ! you have local changes in $REPO, so it isn't updating itself."
-        echo "    to get the latest: cd $REPO && git stash && git pull && ./install.sh"
-    fi
-fi
 
 CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}/kajukatli"
@@ -43,6 +33,7 @@ BACKUP="$DATA/backup/$STAMP"
 LOG="$DATA/install-$STAMP.log"
 
 YES=0; ONLY=""; MINIMAL=0; EXTRAS_ARG=""
+DRY_RUN=0; MODE=install
 for a in "$@"; do
     case "$a" in
         --yes|-y) YES=1 ;;
@@ -55,12 +46,34 @@ for a in "$@"; do
         --ai) ONLY=ai ;;
         --grub) ONLY=grub ;;
         --savings) ONLY=savings ;;
+        --dry-run) DRY_RUN=1 ;;
+        --update) MODE=update ;;
+        --snapshot) MODE=snapshot ;;
+        --restore) MODE=restore ;;
         --no-ai) EXTRAS_ARG="${EXTRAS_ARG:-default}"; NO_AI=1 ;;
         -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown option: $a (try --help)"; exit 2 ;;
     esac
 done
 NO_AI="${NO_AI:-0}"
+
+LEDGER="$DATA/transactions.jsonl"
+mkdir -p "$DATA"
+ledger_record() {
+    printf '%s\n' "$1" >>"$LEDGER"
+}
+snapshot() {
+    local dir="$DATA/snapshots/$STAMP"
+    mkdir -p "$dir"
+    cp -a "$CONFIG" "$dir/config" 2>/dev/null || true
+    cp -a "$DATA/settings.json" "$dir/" 2>/dev/null || true
+    cp -a "$DATA/transaction.jsonl" "$dir/transaction.jsonl" 2>/dev/null || true
+    cp -a "$HOME/.ssh" "$dir/ssh" 2>/dev/null || true
+    cp -a "$HOME/.gnupg" "$dir/gnupg" 2>/dev/null || true
+    cp -a "$HOME/Documents" "$HOME/Pictures" "$HOME/Music" "$dir/" 2>/dev/null || true
+    tar -C "$dir" -czf "$DATA/snapshot-$STAMP.tar.gz" .
+    echo "$DATA/snapshot-$STAMP.tar.gz"
+}
 
 # ------------------------------------------------------------------ voice
 c_acc=$'\033[38;2;233;192;139m'; c_dim=$'\033[38;2;143;138;128m'; c_bad=$'\033[38;2;226;112;100m'; c_ok=$'\033[38;2;150;200;140m'; c_b=$'\033[1m'; c_0=$'\033[0m'
@@ -78,11 +91,47 @@ ask()  { # ask "question" default(y/n)
     [[ "$r" =~ ^[Yy] ]]
 }
 
+case "$MODE" in
+    update)
+        if [ ! -d "$REPO/.git" ] || ! command -v git >/dev/null; then die "git checkout required for --update"; fi
+        git -C "$REPO" config core.fileMode false 2>/dev/null || true
+        branch="$(git -C "$REPO" branch --show-current 2>/dev/null || true)"
+        [ -n "$branch" ] || die "cannot update a detached checkout"
+        [ -z "$(git -C "$REPO" status --porcelain 2>/dev/null)" ] || die "local changes found; commit, stash, or restore them before --update"
+        git -C "$REPO" fetch --prune origin
+        git -C "$REPO" pull --ff-only origin "$branch"
+        exit $?
+        ;;
+    snapshot)
+        file="$(snapshot)"
+        ledger_record "{\"type\":\"snapshot\",\"path\":\"$file\",\"time\":\"$(date -Iseconds)\"}"
+        ok "snapshot: $file"
+        exit 0
+        ;;
+    restore)
+        latest="$(ls -1t "$DATA"/snapshot-*.tar.gz 2>/dev/null | head -n1 || true)"
+        [ -n "$latest" ] || die "no Kajukatli snapshot found"
+        restore_dir="$(mktemp -d)"
+        tar -xzf "$latest" -C "$restore_dir"
+        cp -a "$restore_dir/config/." "$CONFIG/" 2>/dev/null || true
+        cp -a "$restore_dir/ssh/." "$HOME/.ssh/" 2>/dev/null || true
+        cp -a "$restore_dir/gnupg/." "$HOME/.gnupg/" 2>/dev/null || true
+        for d in Documents Pictures Music; do [ -d "$restore_dir/$d" ] && cp -a "$restore_dir/$d/." "$HOME/$d/" 2>/dev/null || true; done
+        rm -rf "$restore_dir"
+        ok "restored snapshot: $latest"
+        exit 0
+        ;;
+esac
+
 mkdir -p "$DATA" "$STATE" "$CACHE" "$BIN"
 exec > >(tee -a "$LOG") 2>&1
 
 # ------------------------------------------------------------------ preflight
 preflight() {
+    if [ "$DRY_RUN" = 1 ]; then
+        say "dry run: no system or user changes"
+        return 0
+    fi
     [ -f /etc/arch-release ] || die "this is made for arch linux (no /etc/arch-release here)."
     [ "$(id -u)" -ne 0 ] || die "run it as your normal user, not root. it asks for sudo when it needs it."
     command -v sudo >/dev/null || die "sudo is missing: pacman -S sudo, and add yourself to wheel."
@@ -161,6 +210,12 @@ bootstrap_aur_helper() {
 
 packages() {
     say "updating the system and installing packages"
+    if [ "$DRY_RUN" = 1 ]; then
+        sed -e 's/#.*//' -e 's/[[:space:]]//g' "$REPO/packages/core.txt" | grep -v '^$' | sed 's/^/  package: /'
+        load_extras
+        ledger_record "{\"type\":\"dry-run\",\"action\":\"packages\",\"time\":\"$(date -Iseconds)\"}"
+        return 0
+    fi
     sudo pacman -Syu --noconfirm
 
     local lists=("$REPO/packages/core.txt") i
@@ -203,6 +258,7 @@ packages() {
         fi
     fi
     ok "packages"
+    ledger_record "{\"type\":\"packages\",\"core\":\"$REPO/packages/core.txt\",\"extraProfiles\":\"installed\",\"time\":\"$(date -Iseconds)\"}"
 }
 
 # ------------------------------------------------------------------ gpu
@@ -278,6 +334,7 @@ backup_and_link() { # src dst
     fi
     mkdir -p "$(dirname "$dst")"
     ln -s "$src" "$dst"
+    ledger_record "{\"type\":\"symlink\",\"src\":\"$src\",\"dst\":\"$dst\",\"time\":\"$(date -Iseconds)\"}"
 }
 
 links() {
@@ -623,6 +680,10 @@ esac
 preflight
 choose_extras
 packages
+if [ "$DRY_RUN" = 1 ]; then
+    ledger_record "{\"type\":\"dry-run\",\"action\":\"install-plan\",\"time\":\"$(date -Iseconds)\"}"
+    exit 0
+fi
 gpu
 links
 shaders

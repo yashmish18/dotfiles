@@ -7,7 +7,7 @@ import qs.components
 
 // the apps: super + space, or tap super. type to find one, arrows to move, enter to open.
 //   = 12*7   maths (enter copies it)     > htop   run it in a terminal     ? words   search the web
-//   :fire    emoji (enter copies it)
+//   :fire    emoji (enter inserts it directly)
 // with nothing typed, the ones you open most come first.
 Item {
     id: root
@@ -87,7 +87,11 @@ Item {
     function accept() {
         const rest = q.slice(1).trim();
         if (mode === "apps") launch(apps[index]);
-        else if (mode === "emoji" && emojis.length) { Quickshell.execDetached(["wl-copy", emojis[Math.min(index, emojis.length - 1)][0]]); Ui.overlay = ""; }
+        else if (mode === "emoji" && emojis.length) {
+            const emoji = emojis[Math.min(index, emojis.length - 1)][0];
+            Ui.overlay = "";
+            Quickshell.execDetached(["sh", "-c", 'sleep 0.08; exec wtype -- "$1"', "sh", emoji]);
+        }
         else if (mode === "calc" && calc !== "") { Quickshell.execDetached(["wl-copy", calc]); Ui.overlay = ""; }
         else if (mode === "run" && rest) { Ui.overlay = ""; Quickshell.execDetached(["kitty", "--hold", "sh", "-c", rest]); }
         else if (mode === "web" && rest) { Ui.overlay = ""; Qt.openUrlExternally("https://duckduckgo.com/?q=" + encodeURIComponent(rest)); }
@@ -129,7 +133,10 @@ Item {
                     NumberAnimation { to: 1; duration: 520; easing.type: Easing.OutQuad }
                 }
             }
-            Component.onCompleted: forceActiveFocus()
+            Component.onCompleted: {
+                if (Ui.overlayQuery !== "") text = Ui.overlayQuery;
+                forceActiveFocus();
+            }
             onTextChanged: { root.index = 0; grid.positionViewAtBeginning(); }
             Keys.onReturnPressed: root.accept()
             Keys.onEnterPressed: root.accept()
@@ -299,7 +306,11 @@ Item {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onEntered: root.index = em.index
-                onClicked: { Quickshell.execDetached(["wl-copy", em.modelData[0]]); Ui.overlay = ""; }
+                onClicked: {
+                    const emoji = em.modelData[0];
+                    Ui.overlay = "";
+                    Quickshell.execDetached(["sh", "-c", 'sleep 0.08; exec wtype -- "$1"', "sh", emoji]);
+                }
             }
         }
     }

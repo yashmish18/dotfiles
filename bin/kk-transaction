@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/kajukatli"
+LEDGER="$DATA/transactions.jsonl"
+case "${1:-list}" in
+    list) [ -f "$LEDGER" ] && cat "$LEDGER" || echo "no transaction ledger" ;;
+    export) [ -f "$LEDGER" ] && cp "$LEDGER" "${2:-$DATA/transactions-export.jsonl}" ;;
+    *) echo "usage: kk-transaction [list|export PATH]" >&2; exit 2 ;;
+esac

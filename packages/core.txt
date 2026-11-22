@@ -41,12 +41,19 @@ kitty
 grim
 slurp
 wl-clipboard
+wtype
 cliphist
 jq
 libnotify
 curl
 ffmpeg
 pciutils
+git
+openssh
+gnupg
+direnv
+ripgrep
+fd
 
 # --- wallpaper colours (the fast stage of kk-prep: pillow + numpy, no ai)
 python

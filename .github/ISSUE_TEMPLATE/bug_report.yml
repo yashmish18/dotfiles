@@ -1,0 +1,10 @@
+name: Bug report
+description: Report an installer or desktop-shell problem
+labels: ["bug"]
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Include steps, logs, hardware, Hyprland version, and Quickshell version.
+    validations:
+      required: true

@@ -189,6 +189,17 @@ Singleton {
         if (_cache[key] !== undefined) { useResult(_cache[key]); return; }
         lyricsState = "loading";
         lines = [];
+        localLyrics.key = key;
+        const dir = (Config.s.localLyricsDir || "").replace(/^~/, Config.home);
+        const artist = song.artist.replace(/'/g, "'\\''");
+        const track = song.title.replace(/'/g, "'\\''");
+        localLyrics.command = ["sh", "-c",
+            "d=\"$1\"; a=\"$2\"; t=\"$3\"; "
+            + "for f in \"$d/$a - $t.lrc\" \"$d/$t.lrc\" \"$d/$a - $t.txt\" \"$d/$t.txt\"; do "
+            + "[ -f \"$f\" ] && { cat \"$f\"; exit 0; }; done",
+            "sh", dir, artist, track];
+        localLyrics.running = true;
+        if (!Config.s.networkLyrics) return;
         if (lyricsProc.running) lyricsProc.running = false;
         lyricsProc.key = key;
         const args = ["curl", "-sfL", "--max-time", "8", "-G", "https://lrclib.net/api/get",
@@ -201,6 +212,28 @@ Singleton {
         lyricsProc.command = args;
         lyricsProc.searched = false;
         lyricsProc.running = true;
+    }
+
+    Process {
+        id: localLyrics
+        property string key: ""
+        stdout: StdioCollector {
+            id: localLyricsOut
+            onStreamFinished: {
+                const text = localLyricsOut.text.trim();
+                if (text === "") {
+                    if (!Config.s.networkLyrics) root._cache[localLyrics.key] = null;
+                    if (!Config.s.networkLyrics && localLyrics.key === root.trackKey) root.useResult(null);
+                    return;
+                }
+                const r = text.indexOf("[") === 0 ? { syncedLyrics: text } : { plainLyrics: text };
+                root._cache[localLyrics.key] = r;
+                if (localLyrics.key === root.trackKey) {
+                    if (lyricsProc.running) lyricsProc.running = false;
+                    root.useResult(r);
+                }
+            }
+        }
     }
 
     Process {

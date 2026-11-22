@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+mode="${1:-personal}"
+name="${2:-}"
+email="${3:-}"
+if [ -z "$name" ] || [ -z "$email" ]; then
+    echo "usage: kk-git-identity personal|work \"Name\" \"email\""
+    exit 2
+fi
+mkdir -p "$HOME/.config/git"
+include="$HOME/.config/git/identity-$mode"
+cat >"$include" <<EOF
+[user]
+    name = $name
+    email = $email
+[commit]
+    gpgsign = true
+EOF
+cat >"$HOME/.config/git/config" <<EOF
+[include]
+    path = $include
+[init]
+    defaultBranch = main
+[pull]
+    rebase = true
+[core]
+    pager = delta
+[interactive]
+    diffFilter = delta --color-only
+[delta]
+    navigate = true
+    line-numbers = true
+EOF
+echo "configured $mode identity for $name <$email>"

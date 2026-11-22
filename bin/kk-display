@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+mode="${1:-status}"
+if [ "$mode" = "status" ]; then hyprctl monitors -j | jq -r '.[] | "\(.name)\t\(.width)x\(.height)@\(.refreshRate)\tposition=\(.x)x\(.y)\tscale=\(.scale)"'; exit 0; fi
+monitors="$(hyprctl monitors -j)"
+count="$(printf '%s' "$monitors" | jq 'length')"
+[ "$count" -ge 1 ] || { echo "no monitors"; exit 1; }
+internal="$(printf '%s' "$monitors" | jq -r '.[] | select(.name|test("^(eDP|LVDS|DSI)")) | .name' | head -n1)"
+[ -n "$internal" ] || internal="$(printf '%s' "$monitors" | jq -r '.[0].name')"
+external="$(printf '%s' "$monitors" | jq -r --arg internal "$internal" '.[] | select(.name != $internal) | .name' | head -n1)"
+case "$mode" in
+    extend)
+        [ -n "$external" ] || { echo "no external display"; exit 1; }
+        hyprctl keyword monitor "$external,preferred,auto,1"
+        ;;
+    mirror)
+        [ -n "$external" ] || { echo "no external display"; exit 1; }
+        hyprctl eval "hl.monitor({ output = \"$(printf '%s' "$external" | tr -d '"')\", mode = \"preferred\", position = \"0x0\", scale = \"1\", mirror = \"$(printf '%s' "$internal" | tr -d '"')\" })"
+        ;;
+    internal) hyprctl keyword monitor "$internal,preferred,0x0,1"; [ -z "$external" ] || hyprctl keyword monitor "$external,disable" ;;
+    external)
+        [ -n "$external" ] || { echo "no external display"; exit 1; }
+        hyprctl keyword monitor "$external,preferred,0x0,1"
+        hyprctl keyword monitor "$internal,disable"
+        ;;
+    left)
+        [ -n "$external" ] || { echo "no external display"; exit 1; }
+        hyprctl keyword monitor "$external,preferred,-1920x0,1"
+        hyprctl keyword monitor "$internal,preferred,0x0,1"
+        ;;
+    *) echo "usage: kk-display status|extend|mirror|internal|external|left" >&2; exit 2 ;;
+esac
