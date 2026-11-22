@@ -39,7 +39,7 @@ Variants {
         }
 
         readonly property var monitor: Hyprland.monitorFor(modelData)
-        readonly property bool focusedScreen: Hyprland.focusedMonitor === monitor
+        readonly property bool focusedScreen: Quickshell.screens.length === 1 || Hyprland.focusedMonitor === null || Hyprland.focusedMonitor === monitor
         readonly property bool open: Ui.panel !== "" && focusedScreen
         readonly property bool typing: ["launcher", "clipboard", "rename", "session", "capture"].indexOf(Ui.panel) !== -1
 
@@ -68,7 +68,7 @@ Variants {
 
         HyprlandFocusGrab {
             windows: [bar]
-            active: bar.open
+            active: bar.open && grabArmed.armed
             onCleared: Ui.panel = ""
         }
 
@@ -83,6 +83,13 @@ Variants {
             function onPanelChanged() { if (bar.open) bar.shown = Ui.panel; }
         }
         Timer { id: unload; interval: Theme.slow; onTriggered: if (!bar.open) bar.shown = "" }
+        Timer {
+            id: grabArmed
+            property bool armed: false
+            interval: 250
+            onTriggered: armed = true
+        }
+        onShownChanged: { grabArmed.armed = false; if (shown !== "") grabArmed.restart(); }
 
         // ------------------------------------------------------------ pieces
         // (inline components can't see the window's ids, so it's all passed in)

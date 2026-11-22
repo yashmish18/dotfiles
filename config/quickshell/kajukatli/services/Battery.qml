@@ -66,7 +66,7 @@ Singleton {
     Timer {
         interval: 10 * 60 * 1000
         repeat: true
-        running: Power.hasBattery
+        running: Power.hasBattery && Store.ready
         triggeredOnStart: true
         onTriggered: {
             const now = Date.now();

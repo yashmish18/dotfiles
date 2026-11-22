@@ -37,7 +37,7 @@ dotfiles/
 │   │   │   ├── monitors.lua   "preferred, auto". put exact monitor lines in user.lua
 │   │   │   ├── look.lua       gaps, 1px borders, no blur, slow film-like animations
 │   │   │   ├── theme.lua      border colour, rewritten by kk-theme from the wallpaper
-│   │   │   ├── input.lua      keyboard, touchpad, 3-finger workspace swipe
+│   │   │   ├── input.lua      keyboard, touchpad (gestures.lua: 4-finger workspace swipe)
 │   │   │   ├── binds.lua      every key (super + / shows them on screen)
 │   │   │   ├── rules.lua      floating dialogs, picture-in-picture, idle-inhibit on fullscreen
 │   │   │   ├── autostart.lua  the shell, hypridle, clipboard history, polkit

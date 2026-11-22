@@ -294,4 +294,64 @@ Item {
             color: Theme.alpha("#ffffff", 0.5)
         }
     }
+
+    // ------------------------------------------------------------ power, bottom right
+    // sleep and hibernate go at once; restart and shut down want a second click
+    Row {
+        id: powerRow
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 36
+        spacing: 12
+        opacity: root.unlocking ? 0 : 1
+        Behavior on opacity { NumberAnimation { duration: 300 } }
+        property string armed: ""
+        Timer { id: disarm; interval: 3000; onTriggered: powerRow.armed = "" }
+
+        Repeater {
+            model: [
+                { key: "sleep", word: "Sleep", icon: "moon", cmd: ["systemctl", "suspend"], ask: false },
+                { key: "hibernate", word: "Hibernate", icon: "snow", cmd: ["systemctl", "hibernate"], ask: false },
+                { key: "reboot", word: "Restart", icon: "restart", cmd: ["systemctl", "reboot"], ask: true },
+                { key: "off", word: "Shut down", icon: "power", cmd: ["systemctl", "poweroff"], ask: true }
+            ]
+            delegate: Item {
+                id: pb
+                required property var modelData
+                readonly property bool armedHere: powerRow.armed === modelData.key
+                width: 46
+                height: 46 + 22
+                Rectangle {
+                    id: pdisc
+                    width: 46; height: 46; radius: 23
+                    color: pb.armedHere ? Theme.error : Theme.alpha("#ffffff", parea.containsMouse ? 0.22 : 0.1)
+                    border.width: 1
+                    border.color: Theme.alpha("#ffffff", 0.16)
+                    scale: parea.pressed ? 0.92 : parea.containsMouse ? 1.08 : 1
+                    Behavior on color { ColorAnimation { duration: Theme.fast } }
+                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack } }
+                    Icon { anchors.centerIn: parent; name: pb.modelData.icon; size: 19; color: pb.armedHere ? Theme.errorText : "#ffffff" }
+                }
+                Txt {
+                    anchors.top: pdisc.bottom
+                    anchors.topMargin: 6
+                    anchors.horizontalCenter: pdisc.horizontalCenter
+                    text: pb.armedHere ? "again" : pb.modelData.word
+                    visible: parea.containsMouse || pb.armedHere
+                    font.pixelSize: Theme.xs + 1
+                    color: Theme.alpha("#ffffff", 0.8)
+                }
+                MouseArea {
+                    id: parea
+                    anchors.fill: pdisc
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (pb.modelData.ask && powerRow.armed !== pb.modelData.key) { powerRow.armed = pb.modelData.key; disarm.restart(); return; }
+                        Quickshell.execDetached(pb.modelData.cmd);
+                    }
+                }
+            }
+        }
+    }
 }

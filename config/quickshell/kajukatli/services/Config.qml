@@ -74,8 +74,9 @@ Singleton {
         watchChanges: true
         printErrors: false
         onFileChanged: reload()
-        onAdapterUpdated: writeAdapter()
-        onLoaded: { root.migrate(); root.loaded = true; }
+        blockLoading: true
+        onAdapterUpdated: if (root.loaded) writeAdapter()
+        onLoaded: { root.loaded = true; root.migrate(); }
         onLoadFailed: error => {
             if (error === FileViewError.FileNotFound)
                 writeAdapter();

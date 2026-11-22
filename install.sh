@@ -206,8 +206,11 @@ packages() {
 # ------------------------------------------------------------------ gpu
 gpu() {
     local has_nv=0 has_ig=0
-    lspci -nn 2>/dev/null | grep -Ei 'vga|3d|display' | grep -qi '10de:' && has_nv=1
-    lspci -nn 2>/dev/null | grep -Ei 'vga|3d|display' | grep -qiE '8086:|1002:' && has_ig=1
+    # (no `| grep -q` here: with pipefail, grep quitting early makes the pipe "fail")
+    local gpus
+    gpus="$(lspci -nn 2>/dev/null | grep -Ei 'vga|3d|display' || true)"
+    case "$gpus" in *10de:*) has_nv=1 ;; esac
+    if printf '%s\n' "$gpus" | grep -iE '8086:|1002:' >/dev/null; then has_ig=1; fi
 
     say "graphics: $( [ $has_ig = 1 ] && echo -n "integrated " )$( [ $has_nv = 1 ] && echo -n "nvidia" )"
     sudo install -Dm644 "$REPO/system/udev/61-kajukatli-gpu.rules" /etc/udev/rules.d/61-kajukatli-gpu.rules
@@ -215,7 +218,11 @@ gpu() {
     sudo install -Dm644 "$REPO/system/udev/62-kajukatli-battery.rules" /etc/udev/rules.d/62-kajukatli-battery.rules
 
     if [ $has_nv = 1 ]; then
-        if ! pacman -Qq | grep -qE '^nvidia(-open)?(-dkms)?$|^nvidia-[0-9]+xx'; then
+        # any nvidia kernel driver already there (nvidia, nvidia-open, -dkms, -lts, 580xx…)? keep it:
+        # adding nvidia-open-dkms next to nvidia-open is a package conflict
+        local have_drv
+        have_drv="$(pacman -Qq 2>/dev/null | grep -E '^nvidia(-open)?(-dkms|-lts)?$|^nvidia-[0-9]+xx' || true)"
+        if [ -z "$have_drv" ]; then
             if ask "install the nvidia driver (nvidia-open; for gtx 10-series and older pick no and install nvidia-580xx-dkms from the aur yourself)" y; then
                 local heads=()
                 for k in linux linux-lts linux-zen linux-hardened; do pacman -Q "$k" >/dev/null 2>&1 && heads+=("$k-headers"); done

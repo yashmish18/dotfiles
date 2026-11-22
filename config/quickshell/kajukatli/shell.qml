@@ -66,12 +66,12 @@ ShellRoot {
     // the global shortcuts below are the same actions for anything that prefers those.
     function run(name: string) {
         switch (name) {
-        case "launcher": Ui.toggle("launcher"); break;
+        case "launcher": Ui.toggleOverlay("apps"); break;
         case "control": Ui.toggle("control"); break;
         case "settings": Ui.toggle("settings"); break;
         case "notifications": Ui.toggle("notifications"); break;
         case "clipboard": Ui.toggle("clipboard"); break;
-        case "session": Ui.toggle("session"); break;
+        case "session": Ui.toggleOverlay("power"); break;
         case "capture": Ui.toggle("capture"); break;
         case "focus": Ui.toggleFocus(); break;
         case "timer": Pomo.toggle(); break;

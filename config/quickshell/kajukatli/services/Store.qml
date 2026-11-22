@@ -14,7 +14,8 @@ Singleton {
         id: file
         path: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/kajukatli/state.json"
         printErrors: false
-        onAdapterUpdated: writeAdapter()
+        blockLoading: true
+        onAdapterUpdated: if (root.ready) writeAdapter()
         onLoaded: root.ready = true
         onLoadFailed: error => {
             writeAdapter();

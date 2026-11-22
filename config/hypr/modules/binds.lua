@@ -11,7 +11,10 @@ bind(M .. " + E",      hl.dsp.exec_cmd(KK.files),     { description = "files" })
 bind(M .. " + B",      hl.dsp.exec_cmd(KK.browser),   { description = "browser" })
 
 -- shell
-bind(M .. " + Space",  sh("launcher"),      { description = "launcher" })
+bind(M .. " + Space",  sh("launcher"),      { description = "apps" })
+-- tap super on its own: the apps too (on key-up, and only if nothing else was pressed).
+-- in pcall, so a hyprland that doesn't know release binds just skips it
+pcall(bind, M .. " + SUPER_L", sh("launcher"), { release = true, description = "apps (tap super)" })
 bind(M .. " + A",      sh("control"),       { description = "control center" })
 bind(M .. " + I",      sh("settings"),      { description = "desktop settings" })
 bind(M .. " + N",      sh("notifications"), { description = "notifications" })

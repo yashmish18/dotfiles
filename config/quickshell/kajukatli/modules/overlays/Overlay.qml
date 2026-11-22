@@ -27,7 +27,7 @@ LazyLoader {
         Rectangle {
             id: dim
             anchors.fill: parent
-            color: Theme.alpha("#000000", Ui.overlay === "wallpapers" ? 0.55 : 0.72)   // a dark scrim in light mode too: overlay text is white
+            color: Theme.alpha("#000000", Ui.overlay === "wallpapers" ? 0.55 : Ui.overlay === "apps" ? 0.6 : 0.72)   // a dark scrim in light mode too: overlay text is white
             opacity: 0
             Component.onCompleted: opacity = 1
             Behavior on opacity { NumberAnimation { duration: Theme.normal } }
@@ -57,12 +57,15 @@ LazyLoader {
             Component.onCompleted: { opacity = 1; y = 0; }
             Behavior on opacity { NumberAnimation { duration: Theme.slow } }
             Behavior on y { NumberAnimation { duration: Theme.slow; easing.type: Easing.OutCubic } }
-            sourceComponent: Ui.overlay === "overview" ? overviewC : Ui.overlay === "wallpapers" ? wallC : Ui.overlay === "cheatsheet" ? cheatC : null
+            sourceComponent: Ui.overlay === "overview" ? overviewC : Ui.overlay === "wallpapers" ? wallC : Ui.overlay === "cheatsheet" ? cheatC
+                           : Ui.overlay === "apps" ? appsC : Ui.overlay === "power" ? powerC : null
             Keys.onEscapePressed: Ui.overlay = ""
         }
 
         Component { id: overviewC; Overview { screen: win.screen } }
         Component { id: wallC; WallpaperPicker {} }
         Component { id: cheatC; Cheatsheet {} }
+        Component { id: appsC; AppDrawer {} }
+        Component { id: powerC; PowerMenu {} }
     }
 }

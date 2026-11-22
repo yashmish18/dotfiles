@@ -180,13 +180,14 @@ Singleton {
     // restore the last wallpaper on login (cached, so this is instant)
     Connections {
         target: Store
-        function onReadyChanged() {
-            if (Store.ready && Store.s.wallpaper !== "" && root.current === null)
-                root.set(Store.s.wallpaper);
-        }
+        function onReadyChanged() { root.restore(); }
     }
-    Component.onCompleted: {
-        if (Store.ready && Store.s.wallpaper !== "") set(Store.s.wallpaper);
+    Component.onCompleted: restore()
+    // the last one; if that's gone (or nothing was saved), any from the folder: never a blank screen
+    function restore() {
+        if (!Store.ready || root.current !== null) return;
+        if (Store.s.wallpaper !== "") set(Store.s.wallpaper);
+        else random();
     }
 
     function lastJson(text: string) {

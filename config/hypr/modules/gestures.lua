@@ -1,5 +1,6 @@
 -- touchpad gestures.
---   3 fingers sideways   previous / next workspace (past the last one makes a new one)
+--   4 fingers sideways   previous / next workspace (past the last one makes a new one,
+--                        even from an empty workspace)
 --   4 fingers up         every workspace and its windows (the shell's overview)
 --   4 fingers down       close whatever the shell has open
 --
@@ -13,12 +14,13 @@ local function shell(...)
     end
 end
 
-hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+hl.gesture({ fingers = 4, direction = "horizontal", action = "workspace" })
 hl.gesture({ fingers = 4, direction = "up", action = shell("overlay", "overview") })
 hl.gesture({ fingers = 4, direction = "down", action = shell("close") })
 
 hl.config({
     gestures = {
         workspace_swipe_create_new = true,   -- swiping past the last workspace opens a new one
+        workspace_swipe_use_r = true,        -- count empty workspaces too, so a swipe from one works
     },
 })
