@@ -38,8 +38,23 @@ Singleton {
         Config.s.monitorScales = m;
         applyMonitor(name);
     }
+    // the mode for a screen: its preferred one, or the same size at ~60 hz while the battery
+    // saver is on (a 120/144/165 hz panel draws noticeably more power)
+    function modeFor(name: string): string {
+        const m = monitors.find(x => x.name === name);
+        const ipc = m ? m.lastIpcObject : null;
+        if (!Power.saving || !ipc || !ipc.refreshRate || ipc.refreshRate < 65) return "preferred";
+        const size = ipc.width + "x" + ipc.height + "@";
+        let best = null;
+        for (const mode of (ipc.availableModes || [])) {
+            if (!mode.startsWith(size)) continue;
+            const hz = parseFloat(mode.slice(size.length));
+            if (hz >= 47 && hz <= 65 && (best === null || Math.abs(hz - 60) < Math.abs(best - 60))) best = hz;
+        }
+        return best === null ? "preferred" : size + best.toFixed(2);
+    }
     function applyMonitor(name: string) {
-        Hypr.hyprEval("hl.monitor({ output = " + lua(name) + ", mode = \"preferred\", position = \"auto\", scale = \""
+        Hypr.hyprEval("hl.monitor({ output = " + lua(name) + ", mode = \"" + modeFor(name) + "\", position = \"auto\", scale = \""
                       + scaleOf(name) + "\" })");
     }
     function applyAll() {

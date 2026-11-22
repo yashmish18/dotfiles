@@ -12,7 +12,8 @@ Singleton {
     property int consumers: 0           // visualisers on screen register themselves
     readonly property int bars: Math.max(8, Math.min(128, Config.s.visualizerBars))
     readonly property int fps: Power.onBattery ? 24 : 45
-    readonly property bool wanted: consumers > 0 && Media.playing
+    // (the battery saver stops it: cava is the shell's biggest steady cpu user)
+    readonly property bool wanted: consumers > 0 && Media.playing && !Power.saving
     property var values: []             // 0..1, `bars` long
     property real level: 0              // overall loudness, 0..1
 

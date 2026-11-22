@@ -406,7 +406,7 @@ LazyLoader {
                 Group {
                     title: "Clock"
                     Setting { label: "Face"
-                        Choice { options: ["hero", "stack", "serif", "line", "day", "date", "off"]; value: Config.s.clockStyle; onPicked: v => Config.s.clockStyle = v } }
+                        Choice { options: ["auto", "hero", "stack", "serif", "line", "day", "date", "off"]; value: Config.s.clockStyle; onPicked: v => Config.s.clockStyle = v } }
                     Setting { label: "Typeface"; detail: "Any font installed on the system works; these come with the shell."
                         Choice { options: ["Syne", "Unbounded", "Anton", "Fraunces", "Instrument Serif", "Bricolage Grotesque", "DM Mono"]; value: Config.s.clockFont; onPicked: v => Config.s.clockFont = v } }
                     Setting { label: "Size"
@@ -673,6 +673,14 @@ LazyLoader {
                         Switch { on: Config.s.autoPowerProfile; onToggled: Config.s.autoPowerProfile = !Config.s.autoPowerProfile } }
                     Setting { label: "Stay awake"; detail: "Don't dim, lock or sleep."
                         Switch { on: Power.caffeine; onToggled: Power.caffeine = !Power.caffeine } }
+                }
+                Group {
+                    title: "Battery saver"
+                    visible: Power.hasBattery
+                    Uses { service: Battery }
+                    Setting { label: "Right now"; detail: Power.onBattery ? (Battery.watts > 0 ? Battery.watts.toFixed(1) + " W from the battery" : "measuring…") : "on the charger" }
+                    Setting { label: "When unplugged"; detail: "60 Hz screen, lighter blur, no shadows, no visualizer. Back to normal on the charger."
+                        Switch { on: Config.s.batterySaver; onToggled: Config.s.batterySaver = !Config.s.batterySaver } }
                 }
                 Group {
                     title: "Battery"

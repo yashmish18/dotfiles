@@ -12,4 +12,7 @@ if [ -n "${KITTY_WINDOW_ID:-}" ] && [ -f "$cut" ] && [ -n "${KK_HELLO_FIGURE:-}"
     [ "$cols" -gt 36 ] && cols=36
     exec fastfetch --logo-type kitty-direct --logo "$cut" --logo-width "$cols" --logo-height "$rows" "$@"
 fi
+# the kitty: drawn once per theme (kk-theme redraws it); make it if it isn't there yet
+logo="${XDG_CACHE_HOME:-$HOME/.cache}/kajukatli/hello-logo.txt"
+[ -s "$logo" ] || "$(dirname "$(readlink -f "$0")")/kk-hello-art" 2>/dev/null
 exec fastfetch "$@"

@@ -54,6 +54,7 @@ for a in "$@"; do
         --walls) ONLY=walls ;;
         --ai) ONLY=ai ;;
         --grub) ONLY=grub ;;
+        --savings) ONLY=savings ;;
         --no-ai) EXTRAS_ARG="${EXTRAS_ARG:-default}"; NO_AI=1 ;;
         -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown option: $a (try --help)"; exit 2 ;;
@@ -427,8 +428,8 @@ ai_env() {
 
     local py="$DATA/venv/bin/python"
     [ -x "$py" ] || python3 -m venv --system-site-packages "$DATA/venv"
-    "$py" -m pip install --quiet --upgrade pip
-    "$py" -m pip install --quiet onnxruntime opencv-python-headless
+    "$py" -m pip install --quiet --no-cache-dir --upgrade pip
+    "$py" -m pip install --quiet --no-cache-dir onnxruntime opencv-python-headless
     # rembg (and its ~700 mb of numba / scipy / scikit-image) is no longer needed
     "$py" -m pip uninstall -y --quiet rembg pymatting numba llvmlite scikit-image scipy 2>/dev/null || true
     note "fetching the model(s) now so the first wallpaper doesn't wait"
@@ -547,6 +548,37 @@ defaults() {
     ok "defaults"
 }
 
+# ------------------------------------------------------------------ battery, ram, disk
+# the safe laptop tunables (powertop's list minus usb autosuspend, which breaks some mice),
+# compressed swap in ram, and caps on the things that grow: logs and the package cache.
+savings() {
+    ask "apply the battery, memory and disk savings (recommended on a laptop)" y || return 0
+    say "savings"
+    sudo install -Dm644 "$REPO/system/sysctl/90-kajukatli-power.conf" /etc/sysctl.d/90-kajukatli-power.conf
+    sudo install -Dm644 "$REPO/system/modprobe/kajukatli-power.conf" /etc/modprobe.d/kajukatli-power.conf
+    sudo install -Dm644 "$REPO/system/udev/63-kajukatli-pci-pm.rules" /etc/udev/rules.d/63-kajukatli-pci-pm.rules
+    sudo install -Dm644 "$REPO/system/networkmanager/30-kajukatli-wifi-powersave.conf" /etc/NetworkManager/conf.d/30-kajukatli-wifi-powersave.conf
+    sudo install -Dm644 "$REPO/system/journald/kajukatli.conf" /etc/systemd/journald.conf.d/kajukatli.conf
+    sudo sysctl --system >/dev/null 2>&1 || true
+    sudo systemctl restart systemd-journald 2>/dev/null || true
+    sudo journalctl --vacuum-size=200M >/dev/null 2>&1 || true
+    # zram: only if there's no swap set up already (keeps hibernation setups alone)
+    if [ ! -f /etc/systemd/zram-generator.conf ] && ! swapon --show=NAME --noheadings 2>/dev/null | grep -v zram >/dev/null; then
+        sudo install -Dm644 "$REPO/system/zram/zram-generator.conf" /etc/systemd/zram-generator.conf
+        sudo systemctl daemon-reload && sudo systemctl start systemd-zram-setup@zram0.service 2>/dev/null || true
+    fi
+    # the package cache: keep only the newest version of each package, weekly
+    if command -v paccache >/dev/null; then
+        echo "PACCACHE_ARGS='-k1'" | sudo tee /etc/conf.d/pacman-contrib >/dev/null
+        sudo systemctl enable --now paccache.timer >/dev/null 2>&1 || true
+        sudo paccache -rk1 >/dev/null 2>&1 || true
+        sudo paccache -ruk0 >/dev/null 2>&1 || true
+    fi
+    # pip's download cache from setting up the wallpaper ai is never needed again
+    rm -rf "$HOME/.cache/pip"
+    ok "savings (kk-power-report shows what's drawing power)"
+}
+
 # ------------------------------------------------------------------ grub
 # the boot menu in the desktop's colours, over your wallpaper (bin/kk-grub). only for grub.
 grub_theme() {
@@ -585,6 +617,7 @@ case "$ONLY" in
     walls)   wallpapers; exit 0 ;;
     ai)      ai_env; exit 0 ;;
     grub)    grub_theme; exit 0 ;;
+    savings) savings; exit 0 ;;
 esac
 
 preflight
@@ -599,6 +632,7 @@ extra_chosen wallpaper-ai && ai_env || note "no wallpaper ai: wallpapers and col
 services
 extra_chosen terminal && terminal || true
 defaults
+savings || true
 grub_theme || true
 
 echo

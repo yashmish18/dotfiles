@@ -1,0 +1,27 @@
+#!/bin/sh
+# kk-power-report   what's using your battery right now. send the output when asking for help.
+b=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -n1)
+echo "== battery"
+if [ -n "$b" ]; then
+    st=$(cat "$b/status" 2>/dev/null)
+    if [ -r "$b/power_now" ]; then w=$(awk '{printf "%.1f", $1/1e6}' "$b/power_now")
+    else w=$(awk -v c="$(cat "$b/current_now" 2>/dev/null || echo 0)" -v v="$(cat "$b/voltage_now" 2>/dev/null || echo 0)" 'BEGIN{printf "%.1f", c*v/1e12}'); fi
+    echo "  $(cat "$b/capacity")% · $st · drawing ${w} W"
+fi
+echo "  profile: $(powerprofilesctl get 2>/dev/null || echo unknown)"
+echo "== screen"
+hyprctl monitors -j 2>/dev/null | jq -r '.[] | "  \(.name) \(.width)x\(.height) @ \(.refreshRate|floor) hz"' 2>/dev/null
+echo "== graphics"
+for d in /sys/bus/pci/devices/*; do
+    case "$(cat "$d/class" 2>/dev/null)" in 0x03*)
+        v=$(cat "$d/vendor"); n=intel; [ "$v" = 0x10de ] && n=nvidia; [ "$v" = 0x1002 ] && n=amd
+        echo "  $n: $(cat "$d/power/runtime_status" 2>/dev/null)   (nvidia should say suspended when nothing uses it)" ;;
+    esac
+done
+echo "== busiest processes (cpu %)"
+ps -eo pcpu,rss,comm --sort=-pcpu | awk 'NR==1{next} NR<=9 {printf "  %5s%%  %6.0f MB  %s\n", $1, $2/1024, $3}'
+echo "== memory"
+free -h | awk 'NR<=2{print "  " $0}'
+echo "== disk used by kajukatli"
+du -sh "${XDG_CACHE_HOME:-$HOME/.cache}/kajukatli" "${XDG_DATA_HOME:-$HOME/.local/share}/kajukatli" 2>/dev/null | sed 's/^/  /'
+echo "  pacman cache: $(du -sh /var/cache/pacman/pkg 2>/dev/null | cut -f1)"

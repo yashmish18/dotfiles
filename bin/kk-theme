@@ -487,6 +487,8 @@ def main() -> int:
             step(scheme)
         except Exception as e:  # one broken target must never stop the others
             print(f"kk-theme: {step.__name__}: {e}", file=sys.stderr)
+    # the terminal greeting's kitty, in the new colours
+    quiet([str(Path(__file__).resolve().parent / "kk-hello-art")])
     if meta:
         try:
             current_link(meta)

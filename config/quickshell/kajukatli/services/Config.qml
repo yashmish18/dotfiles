@@ -21,7 +21,10 @@ Singleton {
     // a settings file from an older version keeps the old defaults it saved. bring those
     // forward once (only things whose meaning changed, never your own choices)
     function migrate() {
-        if (adapter.configVersion >= 4) return;
+        if (adapter.configVersion >= 5) return;
+        // 5: the clock decides for itself, per wallpaper: face, spot and colour
+        adapter.clockStyle = "auto";
+        adapter.clockColor = "auto";
         // 4: the wallpaper ai runs on battery too (the clock behind the subject, the 3d
         //    parallax and the auto clock all need it, and laptops are mostly unplugged)
         adapter.aiOnBattery = true;
@@ -32,7 +35,7 @@ Singleton {
         const l = Object.assign({}, adapter.layout || {});
         l.clock = Object.assign({}, l.clock || {}, { auto: true });
         adapter.layout = l;
-        adapter.configVersion = 4;
+        adapter.configVersion = 5;
     }
 
     // where a desktop widget sits, as a fraction of the room it has to move in (0..1 each way)
@@ -91,7 +94,7 @@ Singleton {
         JsonAdapter {
             id: adapter
 
-            property int configVersion: 4           // settings written by older versions get updated once
+            property int configVersion: 5           // settings written by older versions get updated once
 
             // ---------------------------------------------------- look
             property string look: "studio"          // the preset last applied (see Looks.qml)
@@ -111,7 +114,7 @@ Singleton {
             })
 
             // ---------------------------------------------------- desktop
-            property string clockStyle: "hero"      // stack | hero | serif | line | day | date | off
+            property string clockStyle: "auto"      // stack | hero | serif | line | day | date | off
             property bool clockDepth: true          // tuck the clock behind the wallpaper's subject
             property string clockFont: "Syne"       // any installed family; each look sets its own
             property string clockColor: "auto"     // auto: light or dark ink, whichever reads on the picture under it · theme
@@ -163,6 +166,7 @@ Singleton {
 
             // ---------------------------------------------------- system
             property bool autoPowerProfile: true    // power-saver on battery, balanced on ac
+            property bool batterySaver: true        // unplugged: 60 hz, lighter blur, no shadows, no visualizer
             property int chargeLimit: 100           // stop charging here (80 keeps the battery young); 100 = off
             property bool clock24h: true
             property bool naturalScroll: true

@@ -55,10 +55,20 @@ Singleton {
         command: ["systemd-inhibit", "--what=idle", "--who=kajukatli", "--why=caffeine", "--mode=block", "sleep", "infinity"]
     }
 
-    // unplugged: quieter profile. plugged in: back to normal.
-    onOnBatteryChanged: {
-        if (!Config.s.autoPowerProfile) return;
-        PowerProfiles.profile = onBattery ? PowerProfile.PowerSaver : PowerProfile.Balanced;
+    // unplugged: quieter profile, and the battery saver. plugged in: back to normal.
+    // (also once at login: booting on battery is the common case, and there's no "change" then)
+    readonly property bool saving: onBattery && Config.s.batterySaver
+    onOnBatteryChanged: applyPower()
+    onSavingChanged: applyPower()
+    Timer { id: atLogin; interval: 2500; running: true; onTriggered: root.applyPower() }
+    function applyPower() {
+        if (Config.s.autoPowerProfile)
+            PowerProfiles.profile = onBattery ? PowerProfile.PowerSaver : PowerProfile.Balanced;
+        // the compositor's two costly effects: blur passes and shadows
+        Hypr.hyprEval(saving
+            ? "hl.config({ decoration = { blur = { passes = 1 }, shadow = { enabled = false } } })"
+            : "hl.config({ decoration = { blur = { passes = 2 }, shadow = { enabled = true } } })");
+        System.applyAll();          // the refresh rate (60 hz while saving)
     }
 
     onChargingChanged: if (charging) Sounds.play("plug", 2000)

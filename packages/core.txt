@@ -61,3 +61,5 @@ papirus-icon-theme
 adw-gtk-theme
 qt6ct
 bibata-cursor-theme-bin
+pacman-contrib
+zram-generator

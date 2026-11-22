@@ -1,0 +1,2 @@
+# kajukatli · let idle pci devices (wi-fi, card reader, controllers) power down on their own
+ACTION=="add", SUBSYSTEM=="pci", ATTR{power/control}="auto"

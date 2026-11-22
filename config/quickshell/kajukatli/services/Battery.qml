@@ -12,6 +12,23 @@ Singleton {
     property int limitNow: 100           // what the battery is set to right now
     property real health: -1             // 0..1, -1 = unknown
     property int cycles: -1
+    // what the laptop draws right now, in watts (read only while something shows it)
+    property int consumers: 0
+    property real watts: 0
+    Timer {
+        interval: 4000
+        repeat: true
+        triggeredOnStart: true
+        running: root.consumers > 0 && Power.hasBattery
+        onTriggered: if (!wattProc.running) wattProc.running = true
+    }
+    Process {
+        id: wattProc
+        command: ["sh", "-c", 'b=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -n1); '
+            + 'if [ -r "$b/power_now" ]; then cat "$b/power_now"; '
+            + 'else echo $(( $(cat "$b/current_now" 2>/dev/null || echo 0) / 1000 * $(cat "$b/voltage_now" 2>/dev/null || echo 0) / 1000 )); fi']
+        stdout: StdioCollector { onStreamFinished: root.watts = Math.abs(parseInt(text.trim()) || 0) / 1e6 }
+    }
     property var history: Store.s.batteryLog || []   // [{ t: ms, p: percent, c: charging }]
 
     readonly property string probeCmd: 'b=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -n1); [ -n "$b" ] || exit 0; '

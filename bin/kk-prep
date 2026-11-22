@@ -527,6 +527,47 @@ def clock_anchor(mask_png: Path) -> list:
     return [round(float(xs.mean()) / w, 4), round(top / h, 4)]
 
 
+def clock_auto(meta: dict, out: Path) -> dict:
+    """the clock's face and spot for this picture.
+    with a subject: behind its solid top. a narrow figure gets the tall stacked face, a wide one
+    (or a head close to the top edge) the wide hero face.
+    without one: the calmest part of the picture (least detail), wide band → hero, tall
+    column → stack. x, y are picture fractions; "behind" means y is where the subject starts."""
+    import numpy as np
+    from PIL import Image
+    if meta.get("mask") and (out / "mask.png").exists():
+        with Image.open(out / "mask.png") as m:
+            a = m.split()[-1]
+            a.thumbnail((256, 256))
+            arr = np.asarray(a) > 127
+        h, w = arr.shape
+        rows = arr.sum(1)
+        if rows.size and rows.max() >= 0.03 * w:
+            top = int(np.argmax(rows >= 0.4 * rows.max()))
+            band = arr[top:top + max(2, int(0.12 * h))]
+            ys, xs = np.nonzero(band)
+            if len(xs):
+                width = float(band.sum(1).mean()) / w          # how wide the head is
+                style = "hero" if width > 0.3 or top / h < 0.2 else "stack"
+                return {"mode": "behind", "style": style, "x": round(float(xs.mean()) / w, 4), "y": round(top / h, 4)}
+    # no subject: find the quiet part
+    with Image.open(meta["display"]) as im:
+        im.draft("L", (480, 480))
+        g = np.asarray(im.convert("L").resize((161, 89)), dtype=np.float32)   # edges: 88 × 160
+    edge = np.abs(np.diff(g, axis=0))[:, :-1] + np.abs(np.diff(g, axis=1))[:-1, :]
+    cells = edge[:88, :160].reshape(8, 11, 16, 10).mean(axis=(1, 3))      # 8 rows × 16 columns
+    cells = cells / max(1e-6, cells.max())
+    best = None
+    for style, cw, ch in (("hero", 7, 2), ("stack", 4, 4)):
+        for r in range(1, 8 - ch + 1):            # row 0 sits under the bar
+            for c in range(0, 16 - cw + 1):
+                score = cells[r:r + ch, c:c + cw].mean() * (1.0 if style == "hero" else 1.15)
+                if best is None or score < best[0]:
+                    best = (score, style, (c + cw / 2) / 16, (r + ch / 2) / 8)
+    _, style, x, y = best
+    return {"mode": "free", "style": style, "x": round(x, 4), "y": round(y, 4)}
+
+
 def enrich(meta: dict) -> dict:
     """cheap extras added to any bundle (old ones too) without rebuilding it:
     grid         16×9 average colours of the picture: the clock picks ink that reads on it
@@ -544,6 +585,9 @@ def enrich(meta: dict) -> dict:
         changed = True
     if "clock_anchor" not in meta and meta.get("mask") and (out / "mask.png").exists():
         meta["clock_anchor"] = clock_anchor(out / "mask.png")
+        changed = True
+    if "clock_auto" not in meta and Path(meta.get("display", "")).exists() and meta.get("kind") != "video":
+        meta["clock_auto"] = clock_auto(meta, out)
         changed = True
     if changed:
         tmp = out / ".meta.json"
@@ -598,6 +642,7 @@ def stage_ai(meta: dict, args) -> dict:
             os.replace(out / ".depth.png", out / "depth.png")
             has_depth = True
     meta.pop("clock_anchor", None)
+    meta.pop("clock_auto", None)
     log(f"finding the subject ({args.model})…")
     mask, soft = subject_mask(work, args.model)
     ink, has_subject = build_ink(work, mask)
@@ -637,6 +682,42 @@ def stage_ai(meta: dict, args) -> dict:
 
 
 # ---------------------------------------------------------------- library (for the picker)
+
+def prune() -> int:
+    """bundles of pictures that no longer exist (gone for a week: not just being moved),
+    and thumbnails nobody points at. returns the bytes freed."""
+    import shutil
+    import time
+    freed, week = 0, 7 * 86400
+    now = time.time()
+    if WALLS.is_dir():
+        for d in WALLS.iterdir():
+            meta = d / "meta.json"
+            try:
+                src = json.loads(meta.read_text()).get("source", "")
+            except (OSError, ValueError):
+                src = ""
+            if src and Path(src).exists():
+                continue
+            try:
+                if now - d.stat().st_mtime < week:
+                    continue
+                freed += sum(f.stat().st_size for f in d.rglob("*") if f.is_file())
+                shutil.rmtree(d)
+            except OSError:
+                pass
+    if THUMBS.is_dir():
+        keys = {p.name for p in WALLS.iterdir()} if WALLS.is_dir() else set()
+        try:
+            indexed = {v["key"] for v in json.loads(INDEX.read_text()).values()}
+        except (OSError, ValueError, KeyError, TypeError):
+            indexed = set()
+        for t in THUMBS.glob("*.jpg"):
+            if t.stem not in keys and t.stem not in indexed and now - t.stat().st_mtime > week:
+                freed += t.stat().st_size
+                t.unlink(missing_ok=True)
+    return freed
+
 
 def list_library(folder: Path) -> list[dict]:
     """every wallpaper in the folder with a thumbnail. cheap after the first run:
@@ -681,6 +762,15 @@ def list_library(folder: Path) -> list[dict]:
         out.append(entry)
     try:
         INDEX.write_text(json.dumps(new_index))
+    except OSError:
+        pass
+    # tidy up now and then (listing happens at login and when the picker opens)
+    stamp = CACHE / ".pruned"
+    try:
+        import time
+        if not stamp.exists() or time.time() - stamp.stat().st_mtime > 86400:
+            stamp.touch()
+            prune()
     except OSError:
         pass
     return out

@@ -141,6 +141,7 @@ Variants {
             onFinished: {
                 // free the old picture's video memory
                 if (win.fromSlot === 0) win.metaA = null; else win.metaB = null;
+                gc();       // the old picture's textures can go now
             }
         }
 

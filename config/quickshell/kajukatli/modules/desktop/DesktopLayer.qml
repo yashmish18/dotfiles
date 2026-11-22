@@ -91,12 +91,19 @@ Item {
     // the subject's top, so the person stands in front of the numbers
     function autoClock(w, h, W, H) {
         const m = Wall.current;
-        if (!m || !m.subject_box || m.subject_box.length < 4 || !m.width || !m.height || W <= w || H <= h) return null;
+        if (!m || !m.width || !m.height || W <= w || H <= h) return null;
+        if (!(m.clock_auto && m.clock_auto.mode === "free") && (!m.subject_box || m.subject_box.length < 4)) return null;
         const c = coverOf(m);
         const toX = u => ((u - 0.5) / c.x + 0.5) * layer.width - area.x;
         const toY = v => ((v - 0.5) / c.y + 0.5) * layer.height - area.y;
+        // no subject: the calm part of the picture kk-prep found, centred on it
+        const ca = m.clock_auto;
+        if (ca && ca.mode === "free") {
+            const fx = toX(ca.x) - w / 2, fy = toY(ca.y) - h / 2;
+            return { x: Math.max(0, Math.min(1, fx / (W - w))), y: Math.max(0, Math.min(1, fy / (H - h))) };
+        }
         // the subject's solid top (kk-prep's clock_anchor); the box's top edge as a fallback
-        const a = m.clock_anchor && m.clock_anchor.length >= 2 ? m.clock_anchor : null;
+        const a = ca && ca.mode === "behind" ? [ca.x, ca.y] : m.clock_anchor && m.clock_anchor.length >= 2 ? m.clock_anchor : null;
         const b = m.subject_box;
         const midX = toX(a ? a[0] : (b[0] + b[2]) / 2), top = toY(a ? a[1] : b[1]);
         const x = midX - w / 2;

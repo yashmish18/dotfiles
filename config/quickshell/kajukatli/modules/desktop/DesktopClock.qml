@@ -14,7 +14,11 @@ import qs.components
 // sizes follow the screen height, times Config.s.clockScale.
 Item {
     id: root
-    property string style: Config.s.clockStyle
+    // "auto": the face kk-prep picked for this wallpaper (stack for a narrow figure or a calm
+    // column, hero for a wide one or a calm band)
+    property string style: Config.s.clockStyle === "auto"
+        ? (Wall.current && Wall.current.clock_auto ? Wall.current.clock_auto.style : "stack")
+        : Config.s.clockStyle
     property real screenHeight: 1080
     readonly property real s: (screenHeight / 1080) * Math.max(0.3, Config.s.clockScale)
     readonly property bool h24: Config.s.clock24h
