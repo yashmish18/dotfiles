@@ -574,6 +574,40 @@ LazyLoader {
                     }
                 }
                 Group {
+                    title: "Graphics"
+                    visible: gpu.info.hybrid === true
+                    // which gpus hyprland may drive screens with (kk-gpu); applies at the next login
+                    QtObject {
+                        id: gpu
+                        property var info: ({})
+                        property string chosen: ""
+                        readonly property string ports: (info.dgpuPorts || []).join(", ")
+                    }
+                    Process {
+                        id: gpuRead
+                        running: true
+                        command: [Config.bin + "kk-gpu", "status"]
+                        stdout: StdioCollector { onStreamFinished: { try { gpu.info = JSON.parse(text.trim()); } catch (e) {} } }
+                    }
+                    Process { id: gpuSet; onExited: gpuRead.running = true }
+                    Setting {
+                        label: "Screens use"
+                        detail: gpu.ports !== ""
+                            ? "Ports wired to the NVIDIA card: " + gpu.ports + ". With the integrated card only, they stay dark; with both, they work and the NVIDIA card wakes more often."
+                            : "Every external port is on the integrated card, so it alone is enough."
+                        Choice {
+                            options: [{ value: "igpu", label: "integrated only" }, { value: "both", label: "integrated + nvidia" }]
+                            value: gpu.chosen !== "" ? gpu.chosen : (gpu.info.mode || "igpu")
+                            onPicked: v => { gpu.chosen = v; gpuSet.command = [Config.bin + "kk-gpu", "set", v]; gpuSet.running = true; }
+                        }
+                    }
+                    Setting {
+                        visible: gpu.chosen !== "" && gpu.info.mode !== undefined
+                        label: "Takes effect at the next login"
+                        Btn { text: "Log out now"; icon: "logout"; onClicked: Quickshell.execDetached(["sh", "-c", "command -v hyprshutdown >/dev/null && exec hyprshutdown; exec hyprctl dispatch 'hl.dsp.exit()'"]) }
+                    }
+                }
+                Group {
                     title: "Night light"
                     Setting { label: "On"; Switch { on: Power.nightLight; onToggled: Power.nightLight = !Power.nightLight } }
                     Setting { label: "By itself"; detail: Config.s.nightLightAuto ? "Warm from " + Config.s.nightLightFrom + " to " + Config.s.nightLightTo + ". Type a time, enter." : "Off."

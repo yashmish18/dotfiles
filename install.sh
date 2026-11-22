@@ -299,18 +299,30 @@ gpu() {
         case "${p#*-}" in eDP*|LVDS*|DSI*|Writeback*) continue ;; esac
         if [ "$v" = 0x10de ]; then nv_ports="$nv_ports ${p#*-}"; fi
     done
+    # your call, not ours: battery, or every port working
+    local use_dgpu=0
+    if [ $has_nv = 1 ] && [ $has_ig = 1 ]; then
+        if [ -n "$nv_ports" ]; then
+            note "these ports are wired to the nvidia card:$nv_ports"
+            ask "let screens use the nvidia card too (hdmi works; the card wakes more often)" y && use_dgpu=1
+        else
+            ask "let screens use the nvidia card too (every port already works without it; costs battery)" n && use_dgpu=1
+        fi
+        note "you can change this any time: settings → display → graphics"
+    fi
     local out="$CONFIG/hypr/modules/gpu.lua"
     mkdir -p "$(dirname "$out")"
     [ -L "$out" ] && rm -f "$out"
     {
         echo "-- written by install.sh for this machine. safe to edit; rerunning install.sh rewrites it."
-        if [ $has_nv = 1 ] && [ $has_ig = 1 ] && [ -n "$nv_ports" ]; then
+        if [ $has_nv = 1 ] && [ $has_ig = 1 ] && [ "$use_dgpu" = 1 ]; then
             echo "-- hybrid laptop: draw on the integrated gpu. the nvidia card is listed second only"
             echo "-- because these ports are wired to it:$nv_ports (without it they show \"no signal\")"
             echo "hl.env(\"AQ_DRM_DEVICES\", \"/dev/dri/kk-igpu:/dev/dri/kk-dgpu\")"
         elif [ $has_nv = 1 ] && [ $has_ig = 1 ]; then
             echo "-- hybrid laptop: draw on the integrated gpu so the nvidia card can sleep."
-            echo "-- (every external port is on the integrated gpu; kk-hdmi checks this again)"
+            echo "-- ports on the nvidia card (if any:$nv_ports) stay dark. change it in settings → display,"
+            echo "-- or: kk-gpu set both"
             echo "hl.env(\"AQ_DRM_DEVICES\", \"/dev/dri/kk-igpu\")"
         elif [ $has_nv = 1 ]; then
             echo "-- nvidia only"

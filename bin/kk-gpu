@@ -1,0 +1,45 @@
+#!/bin/sh
+# kk-gpu status          one line of json: { hybrid, mode, dgpuPorts }
+# kk-gpu set igpu|both   which gpus hyprland may drive screens with (in hypr/modules/gpu.lua):
+#   igpu   the integrated one only: best battery; ports wired to the nvidia card stay dark
+#   both   integrated first, nvidia too: every port works; the nvidia card wakes more often
+# takes effect at the next login.
+set -u
+gpu_lua="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/modules/gpu.lua"
+
+ports=""
+for c in /sys/class/drm/card*-*; do
+    [ -e "$c/status" ] || continue
+    n="${c##*/}"
+    case "${n#*-}" in eDP*|LVDS*|DSI*|Writeback*) continue ;; esac
+    if [ "$(cat "/sys/class/drm/${n%%-*}/device/vendor" 2>/dev/null)" = 0x10de ]; then
+        ports="$ports${ports:+,}\"${n#*-}\""
+    fi
+done
+hybrid=false
+[ -e /dev/dri/kk-igpu ] && [ -e /dev/dri/kk-dgpu ] && hybrid=true
+
+case "${1:-status}" in
+    status)
+        mode=igpu
+        grep -q 'AQ_DRM_DEVICES.*kk-dgpu' "$gpu_lua" 2>/dev/null && mode=both
+        grep -q 'AQ_DRM_DEVICES' "$gpu_lua" 2>/dev/null || mode=all
+        printf '{"hybrid":%s,"mode":"%s","dgpuPorts":[%s]}\n' "$hybrid" "$mode" "$ports"
+        ;;
+    set)
+        [ "$hybrid" = true ] || { echo "kk-gpu: not a hybrid (two-gpu) machine" >&2; exit 1; }
+        case "${2:-}" in
+            igpu) devs="/dev/dri/kk-igpu" ;;
+            both) devs="/dev/dri/kk-igpu:/dev/dri/kk-dgpu" ;;
+            *) echo "usage: kk-gpu set igpu|both" >&2; exit 2 ;;
+        esac
+        mkdir -p "$(dirname "$gpu_lua")"
+        if grep -q 'AQ_DRM_DEVICES' "$gpu_lua" 2>/dev/null; then
+            sed -i "s|^hl.env(\"AQ_DRM_DEVICES\".*|hl.env(\"AQ_DRM_DEVICES\", \"$devs\")|" "$gpu_lua"
+        else
+            printf 'hl.env("AQ_DRM_DEVICES", "%s")\n' "$devs" >> "$gpu_lua"
+        fi
+        echo "set: $devs (log out and back in to apply)"
+        ;;
+    *) sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+esac
