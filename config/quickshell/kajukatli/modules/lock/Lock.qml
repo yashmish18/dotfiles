@@ -32,6 +32,7 @@ Scope {
     }
 
     function lockNow() {
+        if (!lock.locked) Sounds.play("lock", 500);
         if (lock.locked) return;
         Store.s.frame = Store.s.frame + 1;
         password = "";
@@ -57,6 +58,7 @@ Scope {
         if (!pam.start()) fail("couldn't ask pam. is the shell's pam file there?");
     }
     function fail(msg: string) {
+        Sounds.play("error", 300);
         attempts++;
         phase = "wrong";
         password = "";
@@ -74,6 +76,7 @@ Scope {
             if (result === PamResult.Success) {
                 root.phase = "ok";
                 root.note = "";
+                Sounds.play("unlock", 500);
                 release.start();
             } else {
                 root.fail(result === PamResult.MaxTries ? "too many tries. wait a little." : "");

@@ -58,34 +58,47 @@ ShellRoot {
 
     // ------------------------------------------------------------- shortcuts
     // bound in hyprland as hl.dsp.global("kajukatli:<name>")
-    component Shortcut: GlobalShortcut { appid: "kajukatli" }
-
-    Shortcut { name: "launcher";      description: "open the launcher";        onPressed: Ui.toggle("launcher") }
-    Shortcut { name: "control";       description: "control center";           onPressed: Ui.toggle("control") }
-    Shortcut { name: "settings";      description: "desktop settings";         onPressed: Ui.toggle("settings") }
-    Shortcut { name: "notifications"; description: "notifications";            onPressed: Ui.toggle("notifications") }
-    Shortcut { name: "clipboard";     description: "clipboard history";        onPressed: Ui.toggle("clipboard") }
-    Shortcut { name: "session";       description: "power menu";               onPressed: Ui.toggle("session") }
-    Shortcut { name: "wallpapers";    description: "wallpaper picker";         onPressed: Ui.toggleOverlay("wallpapers") }
-    Shortcut { name: "overview";      description: "workspace overview";       onPressed: Ui.toggleOverlay("overview") }
-    Shortcut { name: "cheatsheet";    description: "keybind cheatsheet";       onPressed: Ui.toggleOverlay("cheatsheet") }
-    Shortcut { name: "bar";           description: "hide or show the bar";     onPressed: Ui.barVisible = !Ui.barVisible }
-    Shortcut { name: "ws_next";       description: "next workspace";           onPressed: Hypr.step(1) }
-    Shortcut { name: "ws_prev";       description: "previous workspace";       onPressed: Hypr.step(-1) }
-    Shortcut { name: "ws_new";        description: "new workspace";            onPressed: Hypr.newWorkspace(false) }
-    Shortcut { name: "ws_new_move";   description: "window to new workspace";  onPressed: Hypr.newWorkspace(true) }
-    Shortcut { name: "ws_rename";     description: "rename workspace";         onPressed: Ui.open("rename") }
-    Shortcut { name: "brightness_up";   description: "brighter";               onPressed: Bright.up() }
-    Shortcut { name: "brightness_down"; description: "dimmer";                 onPressed: Bright.down() }
-    Shortcut { name: "close";         description: "close panels and overlays"; onPressed: Ui.closeAll() }
-    Shortcut { name: "edit";          description: "arrange desktop widgets";  onPressed: { Ui.panel = ""; Ui.editing = !Ui.editing; } }
-    Shortcut {
-        name: "look_next"
-        description: "next look"
-        onPressed: {
+    // every shell action, by name. hyprland's binds reach these through `qs ipc call shell
+    // run <name>` (see hypr/modules/vars.lua), which works however hyprland was set up;
+    // the global shortcuts below are the same actions for anything that prefers those.
+    function run(name: string) {
+        switch (name) {
+        case "launcher": Ui.toggle("launcher"); break;
+        case "control": Ui.toggle("control"); break;
+        case "settings": Ui.toggle("settings"); break;
+        case "notifications": Ui.toggle("notifications"); break;
+        case "clipboard": Ui.toggle("clipboard"); break;
+        case "session": Ui.toggle("session"); break;
+        case "wallpapers": Ui.toggleOverlay("wallpapers"); break;
+        case "overview": Ui.toggleOverlay("overview"); break;
+        case "cheatsheet": Ui.toggleOverlay("cheatsheet"); break;
+        case "bar": Ui.barVisible = !Ui.barVisible; break;
+        case "ws_next": Hypr.step(1); break;
+        case "ws_prev": Hypr.step(-1); break;
+        case "ws_new": Hypr.newWorkspace(false); break;
+        case "ws_new_move": Hypr.newWorkspace(true); break;
+        case "ws_rename": Ui.open("rename"); break;
+        case "brightness_up": Bright.up(); break;
+        case "brightness_down": Bright.down(); break;
+        case "close": Ui.closeAll(); break;
+        case "edit": Ui.panel = ""; Ui.editing = !Ui.editing; break;
+        case "look_next": {
             const n = Looks.names;
             Looks.apply(n[(n.indexOf(Config.s.look) + 1) % n.length]);
-            Quickshell.execDetached(["notify-send", "-a", "looks", "-t", "1800", Config.s.look, Looks.blurbs[Config.s.look] || ""]);
+            break;
+        }
+        }
+    }
+
+    Variants {
+        model: ["launcher", "control", "settings", "notifications", "clipboard", "session", "wallpapers",
+                "overview", "cheatsheet", "bar", "ws_next", "ws_prev", "ws_new", "ws_new_move", "ws_rename",
+                "brightness_up", "brightness_down", "close", "edit", "look_next"]
+        GlobalShortcut {
+            required property var modelData
+            appid: "kajukatli"
+            name: modelData
+            onPressed: shell.run(modelData)
         }
     }
 
@@ -93,6 +106,7 @@ ShellRoot {
     IpcHandler {
         target: "shell"
         function toggle(panel: string): void { Ui.toggle(panel); }
+        function run(name: string): void { shell.run(name); }
         function settings(page: string): void { Ui.settings(page); }
         function overlay(name: string): void { Ui.toggleOverlay(name); }
         function close(): void { Ui.closeAll(); }

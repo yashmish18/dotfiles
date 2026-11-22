@@ -22,6 +22,12 @@ Item {
     readonly property bool needsSeconds: false      // no clock face shows seconds
 
     implicitWidth: face.item ? face.item.implicitWidth : 0
+    // a slight swell on the beat while music plays (settings → desktop → clock)
+    readonly property bool pulsing: Config.s.clockPulse && Media.playing && live
+    Uses { service: Cava; active: root.pulsing }
+    transformOrigin: Item.Center
+    scale: 1 + (pulsing ? Cava.level * 0.04 : 0)
+    Behavior on scale { NumberAnimation { duration: 90 } }
     implicitHeight: face.item ? face.item.implicitHeight : 0
 
     SystemClock { id: clock; precision: root.needsSeconds ? SystemClock.Seconds : SystemClock.Minutes }

@@ -39,6 +39,23 @@ Item {
     property alias mediaItem: media
     property alias noteItem: note
     property alias clockItem: clockM
+
+    // the clock's "auto" spot: centred on the wallpaper's subject, its lower part tucked behind
+    // the subject's top, so the person stands in front of the numbers
+    function autoClock(w, h, W, H) {
+        const m = Wall.current;
+        if (!m || !m.subject_box || m.subject_box.length < 4 || !m.width || !m.height || W <= w || H <= h) return null;
+        const S = layer.width / Math.max(1, layer.height), I = m.width / m.height;
+        const zoom = Config.s.parallax ? 0.94 : 1.0;
+        const cx = S > I ? zoom : zoom * S / I, cy = S > I ? zoom * I / S : zoom;
+        const toX = u => ((u - 0.5) / cx + 0.5) * layer.width - area.x;
+        const toY = v => ((v - 0.5) / cy + 0.5) * layer.height - area.y;
+        const b = m.subject_box;
+        const midX = toX((b[0] + b[2]) / 2), top = toY(b[1]);
+        const x = midX - w / 2;
+        const y = Math.max(0, top - h * 0.55);
+        return { x: Math.max(0, Math.min(1, x / (W - w))), y: Math.max(0, Math.min(1, y / (H - h))) };
+    }
     property alias barsItem: barsM
     property alias statsItem: statsM
     property alias weatherItem: weatherM
@@ -95,6 +112,7 @@ Item {
         Movable {
             id: clockM
             name: "clock"
+            autoPlace: layer.autoClock
             ghost: !layer.behind && layer.clockBehind
             fallback: ({ x: 0.5, y: 0.15 })
             editable: !layer.behind

@@ -109,8 +109,10 @@ Item {
                             anchors.margins: -5
                             radius: 21
                             color: "transparent"
-                            border.width: frame.active ? 3 : drop.containsDrag ? 2 : 0
-                            border.color: Theme.primary
+                            // the one you're on: the accent. the one you're pointing at (or picked with
+                            // the arrows): a white ring, so it's clear where a click or enter goes
+                            border.width: frame.active ? 3 : (drop.containsDrag || root.sel === frame.index) ? 2.5 : 0
+                            border.color: frame.active ? Theme.primary : Theme.alpha("#ffffff", 0.85)
                         }
                         ClippingRectangle {
                             id: card

@@ -414,24 +414,30 @@ LazyLoader {
                     Setting {
                         label: "Where"
                         detail: "Pick a spot, or drag it anywhere with “arrange”."
-                        Grid {
-                            columns: 3
-                            spacing: 4
-                            Repeater {
-                                model: [[0.04, 0.06], [0.5, 0.06], [0.96, 0.06], [0.04, 0.5], [0.5, 0.45], [0.96, 0.5], [0.04, 0.94], [0.5, 0.92], [0.96, 0.94]]
-                                Rectangle {
-                                    required property var modelData
-                                    readonly property var cur: Config.pos("clock", { x: 0.05, y: 0.1 })
-                                    readonly property bool on: Math.abs(cur.x - modelData[0]) < 0.08 && Math.abs(cur.y - modelData[1]) < 0.1
-                                    width: 34; height: 22; radius: 6
-                                    color: on ? Theme.primary : spot.containsMouse ? Theme.surfaceHighest : Theme.surfaceHigh
-                                    MouseArea { id: spot; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Config.setPos("clock", parent.modelData[0], parent.modelData[1]) }
+                        Row {
+                            spacing: 12
+                            Grid {
+                                columns: 3
+                                spacing: 4
+                                Repeater {
+                                    model: [[0.04, 0.06], [0.5, 0.06], [0.96, 0.06], [0.04, 0.5], [0.5, 0.45], [0.96, 0.5], [0.04, 0.94], [0.5, 0.92], [0.96, 0.94]]
+                                    Rectangle {
+                                        required property var modelData
+                                        readonly property var cur: Config.pos("clock", { x: 0.05, y: 0.1 })
+                                        readonly property bool on: !cur.auto && Math.abs(cur.x - modelData[0]) < 0.08 && Math.abs(cur.y - modelData[1]) < 0.1
+                                        width: 34; height: 22; radius: 6
+                                        color: on ? Theme.primary : spot.containsMouse ? Theme.surfaceHighest : Theme.surfaceHigh
+                                        MouseArea { id: spot; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Config.setPos("clock", parent.modelData[0], parent.modelData[1]) }
+                                    }
                                 }
                             }
+                            Btn { anchors.verticalCenter: parent.verticalCenter; text: "Auto"; active: !!Config.pos("clock", {}).auto; onClicked: Config.setAuto("clock") }
                         }
                     }
                     Setting { label: "Behind the subject"; detail: Wall.depthReady ? "This wallpaper has a subject, so the clock can tuck behind it." : "Needs the wallpaper ai and a picture with a clear figure."
                         Switch { on: Config.s.clockDepth; onToggled: Config.s.clockDepth = !Config.s.clockDepth } }
+                    Setting { label: "Moves with the music"
+                        Switch { on: Config.s.clockPulse; onToggled: Config.s.clockPulse = !Config.s.clockPulse } }
                     Setting { label: "24-hour time"
                         Switch { on: Config.s.clock24h; onToggled: Config.s.clock24h = !Config.s.clock24h } }
                     Setting { label: "Put everything back"; detail: "Places and sizes, as the look had them. One widget: double-click it."
@@ -501,7 +507,8 @@ LazyLoader {
                         Switch { on: Config.s.cursorParallax; onToggled: Config.s.cursorParallax = !Config.s.cursorParallax } }
                     Setting { label: "How much it moves"; visible: Config.s.parallax
                         Knob { from: 0.2; to: 2; step: 0.1; value: Config.s.parallaxStrength; onMoved: v => Config.s.parallaxStrength = v } }
-                    Setting { label: "Find the subject again"; detail: Wall.aiMissing ? "The wallpaper ai isn't installed (./install.sh --ai)." : Wall.preparing ? "working…" : "If the clock hides behind the wrong thing."
+                    Setting { label: "Subject in this wallpaper"; detail: Wall.subjectStatus + (Wall.aiMissing ? " · ./install.sh --ai" : "") }
+                    Setting { label: "Find the subject again"; detail: "If the clock hides behind the wrong thing."
                         RowLayout { spacing: 6
                             Btn { text: "Drawn art"; onClicked: Wall.redetect("isnet-anime") }
                             Btn { text: "Photo"; onClicked: Wall.redetect("birefnet-general-lite") } } }
@@ -617,6 +624,13 @@ LazyLoader {
                 }
                 Head { title: "Sound" }
                 Group { ControlPanel { Layout.fillWidth: true; Layout.topMargin: 12; Layout.bottomMargin: 12; page: "sound" } }
+                Group {
+                    title: "Desktop sounds"
+                    Setting { label: "Little sounds"; detail: "Volume, notifications, lock, screenshots, a new wallpaper."
+                        Switch { on: Config.s.sounds; onToggled: { Config.s.sounds = !Config.s.sounds; if (Config.s.sounds) Sounds.play("notify", 0); } } }
+                    Setting { label: "How loud"; visible: Config.s.sounds
+                        Knob { from: 0.1; to: 1; step: 0.05; value: Config.s.soundVolume; onMoved: v => { Config.s.soundVolume = v; Sounds.play("tick", 120); } } }
+                }
                 Group {
                     title: "Surround & Dolby Atmos"
                     Setting { label: "This output"; detail: sp.outputName + (sp.channels ? "  ·  " + (sp.channels === 2 ? "stereo" : sp.channels === 6 ? "5.1" : sp.channels === 8 ? "7.1" : sp.channels + " channels") : "") }

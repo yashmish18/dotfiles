@@ -26,6 +26,13 @@ Singleton {
         const l = Object.assign({}, adapter.layout || {});
         const was = l[name] || {};
         l[name] = Object.assign({}, was, { x: Math.round(x * 1000) / 1000, y: Math.round(y * 1000) / 1000 });
+        delete l[name].auto;      // you put it somewhere yourself: that's where it stays
+        adapter.layout = l;
+    }
+    // let the shell pick the spot (the clock: right behind the wallpaper's subject)
+    function setAuto(name: string) {
+        const l = Object.assign({}, adapter.layout || {});
+        l[name] = Object.assign({}, l[name] || pos(name, null), { auto: true });
         adapter.layout = l;
     }
     function setScale(name: string, s: real) {
@@ -86,6 +93,7 @@ Singleton {
             property string clockStyle: "hero"      // stack | hero | serif | line | day | date | off
             property bool clockDepth: true          // tuck the clock behind the wallpaper's subject
             property string clockFont: "Syne"       // any installed family; each look sets its own
+            property bool clockPulse: true          // the clock swells a little on the beat while music plays
             property real clockScale: 0.8
             property string visualizer: "off"      // off | wave | bars | mirror
             property bool visualizerBehind: true
@@ -98,7 +106,7 @@ Singleton {
             property bool showAnalog: false
             property bool showNote: false
             property string noteText: ""
-            property var layout: ({ clock: { x: 0.05, y: 0.1 }, media: { x: 0.5, y: 0.97 } })   // where widgets sit: drag them, ctrl + scroll to resize
+            property var layout: ({ clock: { x: 0.05, y: 0.1, auto: true }, media: { x: 0.5, y: 0.97 } })   // where widgets sit: drag them, ctrl + scroll to resize
 
             // ---------------------------------------------------- dock
             property bool dock: true
@@ -109,6 +117,8 @@ Singleton {
             // ---------------------------------------------------- data
             property string weatherLocation: ""     // a city name. "" = guess from your ip (wttr.in)
             property string tempUnit: "c"           // c | f
+            property bool sounds: true              // little sounds for volume, notifications, lock…
+            property real soundVolume: 0.6
             property bool lyrics: true              // fetch synced lyrics from lrclib.net
 
             // ---------------------------------------------------- wallpaper

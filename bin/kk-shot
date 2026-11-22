@@ -22,6 +22,11 @@ esac
 
 [ -s "$file" ] || exit 1
 wl-copy --type image/png < "$file"
+# the shutter sound, unless sounds are off in settings
+snd="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/kajukatli/sounds/shutter.wav"
+if [ -f "$snd" ] && ! grep -q '"sounds": *false' "${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli/settings.json" 2>/dev/null; then
+    pw-play --volume 0.6 "$snd" >/dev/null 2>&1 &
+fi
 action="$(notify-send -a screenshot -i "$file" --action=edit=edit --action=open=folder \
     "kept it." "$(basename "$file") · copied to clipboard")"
 case "$action" in

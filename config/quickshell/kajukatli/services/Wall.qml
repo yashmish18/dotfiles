@@ -19,6 +19,17 @@ Singleton {
     signal refined()                    // same wallpaper, more detail (cut-out, depth)
     property bool preparing: false      // the ai stage is working
     property bool aiMissing: false      // kk-prep said the ai isn't installed
+    property string aiError: ""         // the last thing that went wrong in the ai stage
+    // one line for settings: what the subject detection is doing for this wallpaper
+    readonly property string subjectStatus:
+        aiMissing ? "not installed"
+        : preparing ? "looking…"
+        : current === null ? ""
+        : current.mask ? "found"
+        : (current.stage || 0) >= 2 ? "none in this picture"
+        : aiPending !== "" ? "waiting for the charger"
+        : aiError !== "" ? aiError
+        : "not yet"
     property string error: ""
     property var library: []            // picker contents, from `kk-prep --list`
     property bool listing: false
@@ -56,6 +67,7 @@ Singleton {
     }
 
     function show(meta) {
+        if (current !== null) Sounds.play("swoosh", 800);   // not at login, only on a real switch
         stopVideo();
         current = meta;
         generation++;
@@ -193,8 +205,11 @@ Singleton {
             running = true;
         }
         stdout: StdioCollector { id: aiOut }
+        stderr: StdioCollector { id: aiErr }
         onExited: code => {
             root.preparing = false;
+            const lines = aiErr.text.trim().split("\n");
+            root.aiError = code !== 0 && code !== 3 ? (lines[lines.length - 1] || "failed").replace(/^kk-prep:\s*(failed:\s*)?/, "") : "";
             if (code === 3) root.aiMissing = true;
             else if (code === 0) {
                 const meta = root.lastJson(aiOut.text);

@@ -155,6 +155,22 @@ Singleton {
         }
     }
 
+    // youtube & co. in a browser report the video's title ("Artist - Song (Official Video)")
+    // and the channel ("ArtistVEVO") instead of song and artist. clean that up for the search.
+    readonly property bool fromBrowser: player !== null && /firefox|chrom|brave|vivaldi|edge|opera|zen|youtube/i.test((player.identity || "") + " " + (player.desktopEntry || ""))
+    readonly property var song: {
+        let t = title || "", a = artist || "";
+        const junk = /\s*[\(\[][^\)\]]*(official|lyric|audio|video|visuali[sz]er|music|mv|m\/v|hd|hq|4k|remaster|live|explicit|clean|full|version|edit)[^\)\]]*[\)\]]/gi;
+        t = t.replace(junk, "").replace(/\s*\|.*$/, "").replace(/\s+(ft\.?|feat\.?|featuring)\s.*$/i, "");
+        a = a.replace(/vevo$/i, "").replace(/\s*-\s*topic$/i, "").replace(/\s*official$/i, "").trim();
+        const m = /^(.+?)\s+[-–—]\s+(.+)$/.exec(t);
+        if (m && (fromBrowser || a === "" || m[1].toLowerCase().indexOf(a.toLowerCase()) !== -1 || a.toLowerCase().indexOf(m[1].toLowerCase()) !== -1)) {
+            a = m[1].replace(/\s+(ft\.?|feat\.?|&|x)\s.*$/i, "");
+            t = m[2];
+        }
+        return { title: t.replace(/["“”]/g, "").trim(), artist: a.trim() };
+    }
+
     function fetchLyrics() {
         if (!Config.s.lyrics || lyricsUsers <= 0 || title === "") {
             lines = [];
@@ -169,10 +185,11 @@ Singleton {
         lyricsProc.key = key;
         const args = ["curl", "-sfL", "--max-time", "8", "-G", "https://lrclib.net/api/get",
                       "-H", "User-Agent: desktop-shell/1.0",
-                      "--data-urlencode", "track_name=" + title,
-                      "--data-urlencode", "artist_name=" + artist];
-        if (album !== "") args.push("--data-urlencode", "album_name=" + album);
-        if (length > 0) args.push("--data-urlencode", "duration=" + Math.round(length));
+                      "--data-urlencode", "track_name=" + song.title,
+                      "--data-urlencode", "artist_name=" + song.artist];
+        // a video's length includes intros and outros: only trust it from music players
+        if (!fromBrowser && album !== "") args.push("--data-urlencode", "album_name=" + album);
+        if (!fromBrowser && length > 0) args.push("--data-urlencode", "duration=" + Math.round(length));
         lyricsProc.command = args;
         lyricsProc.searched = false;
         lyricsProc.running = true;
@@ -192,7 +209,7 @@ Singleton {
                 searched = true;
                 command = ["curl", "-sfL", "--max-time", "8", "-G", "https://lrclib.net/api/search",
                            "-H", "User-Agent: desktop-shell/1.0",
-                           "--data-urlencode", "q=" + root.artist + " " + root.title];
+                           "--data-urlencode", "q=" + root.song.artist + " " + root.song.title];
                 Qt.callLater(() => lyricsProc.running = true);
                 return;
             }

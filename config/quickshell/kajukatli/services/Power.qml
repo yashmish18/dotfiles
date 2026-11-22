@@ -61,6 +61,8 @@ Singleton {
         PowerProfiles.profile = onBattery ? PowerProfile.PowerSaver : PowerProfile.Balanced;
     }
 
+    onChargingChanged: if (charging) Sounds.play("plug", 2000)
+
     // warn once when low, and once more when critical
     property int warned: 100
     onPercentChanged: {

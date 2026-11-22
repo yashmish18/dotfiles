@@ -43,7 +43,7 @@ PanelWindow {
 
     Connections {
         target: Audio.ready ? Audio.sink.audio : null
-        function onVolumeChanged() { if (win.armed) win.show("sound", Audio.volume, Audio.muted); }
+        function onVolumeChanged() { if (win.armed) { win.show("sound", Audio.volume, Audio.muted); Sounds.play("tick", 70); } }
         function onMutedChanged() { if (win.armed) win.show("sound", Audio.volume, Audio.muted); }
     }
     Connections {

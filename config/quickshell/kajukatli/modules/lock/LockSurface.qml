@@ -31,6 +31,23 @@ Item {
     property bool shown: false
     Component.onCompleted: { shown = true; forceActiveFocus(); }
     opacity: shown && !unlocking ? 1 : 0
+    // unlocking: the whole scene leans towards you as it fades
+    scale: unlocking ? 1.06 : 1
+    Behavior on scale { NumberAnimation { duration: 480; easing.type: Easing.InCubic } }
+
+    // the pointer tilts the scene: the clock floats on its own plane, the picture behind it
+    property real mx: 0
+    property real my: 0
+    Behavior on mx { SmoothedAnimation { velocity: 0.9 } }
+    Behavior on my { SmoothedAnimation { velocity: 0.9 } }
+    MouseArea {
+        anchors.fill: parent
+        hoverEnabled: !Power.onBattery
+        acceptedButtons: Qt.NoButton
+        onPositionChanged: e => { root.mx = e.x / width * 2 - 1; root.my = e.y / height * 2 - 1; }
+    }
+    // the clock keeps time with the music
+    Uses { service: Cava; active: Media.playing && Config.s.clockPulse }
     Behavior on opacity { NumberAnimation { duration: 450; easing.type: Easing.InOutCubic } }
 
     Rectangle { anchors.fill: parent; color: Theme.surfaceLowest }
@@ -48,6 +65,7 @@ Item {
             NumberAnimation { from: 1; to: 0; duration: 40000; easing.type: Easing.InOutSine }
         }
         scale: 1.04 + stage.drift * 0.05
+        transform: Translate { x: root.mx * 10; y: root.my * 7 }
         transformOrigin: Item.Center
 
         Image {
@@ -70,6 +88,9 @@ Item {
 
         // the clock, in the middle of the picture: behind the subject when there is one
         Column {
+            transform: Translate { x: -root.mx * 26; y: -root.my * 16 }
+            scale: 1 + (Media.playing && Config.s.clockPulse ? Cava.level * 0.05 : 0)
+            Behavior on scale { NumberAnimation { duration: 90 } }
             anchors.horizontalCenter: parent.horizontalCenter
             y: parent.height * 0.12
             spacing: -parent.height * 0.06

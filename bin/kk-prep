@@ -45,7 +45,7 @@ INDEX = CACHE / "index.json"
 MODELS = DATA / "models"
 VENV = DATA / "venv"
 
-BUNDLE_VERSION = 8  # bump to rebuild every cached bundle
+BUNDLE_VERSION = 9  # bump to rebuild every cached bundle
 VIDEO_EXT = {".mp4", ".webm", ".mkv", ".mov", ".avi", ".m4v", ".gif"}
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 REUSE_EXT = {".jpg", ".jpeg", ".png", ".webp"}   # shown as-is when already screen-sized
@@ -404,7 +404,9 @@ def subject_mask(rgb, model_name: str):
     fname, size, mean, std, post = spec
     model = download(REMBG + fname, MODELS / fname, f"subject model {model_name}")
     if model is None:
-        return None, None
+        # not "no subject": we simply couldn't look. the bundle stays unfinished so the shell
+        # tries again next time (offline, dns trouble, …)
+        raise RuntimeError(f"couldn't download the subject model {model_name}")
     try:
         sess = ort_session(model)
         x = cv2.resize(rgb, (size, size), interpolation=cv2.INTER_AREA).astype(np.float32)
@@ -534,7 +536,15 @@ def stage_ai(meta: dict, args) -> dict:
         os.replace(out / ".mask.png", out / "mask.png")
     elif (out / "mask.png").exists():
         (out / "mask.png").unlink()
+    # where the subject is (0..1 of the picture): the clock's "auto" spot sits behind it
+    box = []
+    if mask is not None:
+        ys, xs = np.nonzero(mask)
+        if len(xs):
+            hh, ww = mask.shape[:2]
+            box = [round(xs.min() / ww, 4), round(ys.min() / hh, 4), round(xs.max() / ww, 4), round(ys.max() / hh, 4)]
     meta.update({
+        "subject_box": box,
         "stage": 2,
         "ai_model": args.model,
         "depth": str(out / "depth.png") if has_depth else "",

@@ -357,6 +357,16 @@ WALLS=(
     "shalott.jpg|John_William_Waterhouse_-_The_Lady_of_Shalott_-_Google_Art_Project_edit.jpg"
     "the-kiss.jpg|The_Kiss_-_Gustav_Klimt_-_Google_Cultural_Institute.jpg"
     "moon-pine.jpg|100_views_edo_089.jpg"
+    # strong outlines and a clear figure: the best ones for the line tracing and the clock
+    "mucha-job.jpg|Alfons_mucha,_job,_litografia,_1896.jpg"
+    "mucha-summer.jpg|Alfons_Mucha_-_The_Seasons_-_Summer_(1896).jpg"
+    "mucha-hyacinth.jpg|Alfons_Mucha_-_Princess_Hyacinth,_1911.jpg"
+    "mucha-zodiac.jpg|Alphonse_Mucha_-_Zodiac,_1869.jpg"
+    "mucha-reverie.jpg|Reverie_1897.jpg"
+    "utamaro-three-beauties.jpg|Utamaro_(1793)_Three_Beauties_of_the_Present_Time,_MFAB_21.6382.jpg"
+    "sharaku-oniji.jpg|Toshusai_Sharaku-_Otani_Oniji,_1794.jpg"
+    "kuniyoshi-skeleton.jpg|Takiyasha_the_Witch_and_the_Skeleton_Spectre,_by_Utagawa_Kuniyoshi.jpg"
+    "hiroshige-shower.jpg|Hiroshige,_Sudden_shower_over_Shin-Ohashi_bridge_and_Atake,_1857_expanded.jpg"
 )
 wallpapers() {
     say "wallpaper pack"
@@ -365,13 +375,13 @@ wallpapers() {
     for w in "${WALLS[@]}"; do
         name="${w%%|*}"; file="${w#*|}"
         [ -s "$dir/$name" ] && { got=$((got+1)); continue; }
-        if curl -fsL --retry 3 --retry-delay 2 --max-time 90 -A "kajukatli-installer/1.0 (arch linux dotfiles)" \
+        if curl -fsL --retry 6 --retry-delay 5 --max-time 120 -A "kajukatli-installer/1.0 (arch linux dotfiles)" \
                 -o "$dir/$name.part" "https://commons.wikimedia.org/wiki/Special:FilePath/$file?width=2560"; then
             mv "$dir/$name.part" "$dir/$name"; got=$((got+1)); note "$name"
         else
             rm -f "$dir/$name.part"; warn "couldn't fetch $name"
         fi
-        sleep 1   # wikimedia asks scripts to go gently
+        sleep 2   # wikimedia asks scripts to go gently (it rate-limits picture scaling)
     done
     ok "wallpapers ($got in ~/Pictures/wallpapers/paintings)"
 }

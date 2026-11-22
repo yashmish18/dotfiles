@@ -15,15 +15,25 @@ Item {
     property bool editable: true      // false for the copy drawn behind the subject
     property bool shown: true
     property bool ghost: false        // invisible but still grabbable (its look is drawn elsewhere)
+    // "auto" placement: a function (w, h, areaW, areaH) → { x, y } as fractions, or null
+    property var autoPlace: null
     default property alias content: holder.data
 
     readonly property Item item: holder.children.length > 0 ? holder.children[0] : null
-    readonly property var p: Config.pos(name, fallback)
+    readonly property var saved: Config.pos(name, fallback)
+    readonly property var p: {
+        if (saved.auto && autoPlace && parent) {
+            const a = autoPlace(iw * k0, ih * k0, parent.width, parent.height);
+            if (a) return Object.assign({}, saved, a);
+        }
+        return saved;
+    }
+    readonly property real k0: Math.max(0.3, Math.min(saved.s !== undefined ? saved.s : 1, fit))
     readonly property real iw: item ? item.implicitWidth : 0
     readonly property real ih: item ? item.implicitHeight : 0
     // your size, but never bigger than the screen allows
     readonly property real fit: iw > 0 && ih > 0 && parent ? Math.min(parent.width * 0.96 / iw, parent.height * 0.96 / ih) : 1
-    readonly property real k: Math.max(0.3, Math.min(p.s !== undefined ? p.s : 1, fit))
+    readonly property real k: k0
 
     visible: shown
     width: shown ? iw * k : 0
@@ -81,7 +91,7 @@ Item {
     WheelHandler {
         enabled: root.editable && root.shown
         acceptedModifiers: Qt.ControlModifier
-        onWheel: e => Config.setScale(root.name, Math.max(0.3, Math.min(2.5, (root.p.s !== undefined ? root.p.s : 1) + (e.angleDelta.y > 0 ? 0.08 : -0.08))))
+        onWheel: e => Config.setScale(root.name, Math.max(0.3, Math.min(2.5, (root.saved.s !== undefined ? root.saved.s : 1) + (e.angleDelta.y > 0 ? 0.08 : -0.08))))
     }
     TapHandler {
         enabled: root.editable && root.shown

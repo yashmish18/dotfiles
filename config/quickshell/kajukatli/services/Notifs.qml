@@ -36,6 +36,7 @@ Singleton {
             if (root.dnd && n.urgency !== NotificationUrgency.Critical) return;
             if (Ui.panel === "notifications") return; // you're already looking at them
             root.popups = [n].concat(root.popups.filter(p => p)).slice(0, 4);
+            Sounds.play("notify", 400);
         }
     }
 }
