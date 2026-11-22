@@ -598,16 +598,17 @@ def enrich(meta: dict) -> dict:
         meta["depth_soft"] = True
         changed = True
     # the lock screen's picture, blurred once here instead of on the gpu every frame
-    if not meta.get("lock") and Path(meta.get("display", "")).exists():
+    if meta.get("lock_v") != 2 and Path(meta.get("display", "")).exists():
         from PIL import ImageFilter
         with Image.open(meta["display"]) as im:
             im.draft("RGB", (1600, 1600))
             pic = im.convert("RGB")
             pic.thumbnail((1600, 1600))
-        pic = pic.filter(ImageFilter.GaussianBlur(max(6, pic.width // 90)))
+        pic = pic.filter(ImageFilter.GaussianBlur(max(18, pic.width // 34)))   # heavy: shapes and colour only
         pic.save(out / ".lock.jpg", "JPEG", quality=86)
         os.replace(out / ".lock.jpg", out / "lock.jpg")
         meta["lock"] = str(out / "lock.jpg")
+        meta["lock_v"] = 2
         changed = True
     if "clock_auto" not in meta and Path(meta.get("display", "")).exists() and meta.get("kind") != "video":
         meta["clock_auto"] = clock_auto(meta, out)

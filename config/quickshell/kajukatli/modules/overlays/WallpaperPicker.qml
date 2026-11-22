@@ -134,6 +134,7 @@ Item {
         snapMode: ListView.SnapToItem
         boundsBehavior: Flickable.StopAtBounds
         readonly property real cardW: Math.min(560, root.width * 0.42)
+        reuseItems: true
         readonly property real cardH: cardW * 10 / 16
 
         WheelHandler {
@@ -145,6 +146,7 @@ Item {
             required property var modelData
             required property int index
             readonly property bool focused: ListView.isCurrentItem
+            onFocusedChanged: if (!focused) sharp.wanted = false
             readonly property bool current: Wall.current && Wall.current.source === modelData.path
             width: strip.cardW
             height: strip.height
@@ -171,12 +173,18 @@ Item {
                         sourceSize: Qt.size(400, 250)
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
+                        cache: true
                     }
-                    // the one in the middle gets a sharp preview on top
+                    // the one in the middle gets a sharp preview on top: the prepared screen-size
+                    // copy (not the original, which can be a huge png), and only once the strip
+                    // has settled, so scrolling never waits on a decode
+                    Timer { id: settle; interval: 220; running: card.focused; onTriggered: sharp.wanted = true }
                     Image {
+                        id: sharp
+                        property bool wanted: false
                         anchors.fill: parent
-                        visible: card.focused && card.modelData.kind === "image"
-                        source: visible ? "file://" + card.modelData.path : ""
+                        visible: card.focused && wanted && card.modelData.kind === "image"
+                        source: visible ? "file://" + (card.modelData.meta && card.modelData.meta.display ? card.modelData.meta.display : card.modelData.path) : ""
                         sourceSize: Qt.size(strip.cardW * 1.5, strip.cardH * 1.5)
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true

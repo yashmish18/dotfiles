@@ -1,32 +1,53 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# kk-display status|extend|left|mirror|internal|external
+#   status    every screen, its mode and place
+#   extend    the external screen to the right of the laptop (left: to its left)
+#   mirror    the external screen shows the laptop's
+#   internal  only the laptop screen          external   only the external one
+# hyprland's lua config takes monitor changes as `hyprctl eval 'hl.monitor({...})'`; the old
+# `hyprctl keyword monitor` is used only if eval isn't there (a hyprlang setup).
+set -uo pipefail
 mode="${1:-status}"
-if [ "$mode" = "status" ]; then hyprctl monitors -j | jq -r '.[] | "\(.name)\t\(.width)x\(.height)@\(.refreshRate)\tposition=\(.x)x\(.y)\tscale=\(.scale)"'; exit 0; fi
-monitors="$(hyprctl monitors -j)"
-count="$(printf '%s' "$monitors" | jq 'length')"
-[ "$count" -ge 1 ] || { echo "no monitors"; exit 1; }
-internal="$(printf '%s' "$monitors" | jq -r '.[] | select(.name|test("^(eDP|LVDS|DSI)")) | .name' | head -n1)"
-[ -n "$internal" ] || internal="$(printf '%s' "$monitors" | jq -r '.[0].name')"
-external="$(printf '%s' "$monitors" | jq -r --arg internal "$internal" '.[] | select(.name != $internal) | .name' | head -n1)"
+all="$(hyprctl monitors all -j 2>/dev/null)" || { echo "kk-display: hyprland isn't answering" >&2; exit 1; }
+if [ "$mode" = status ]; then
+    printf '%s' "$all" | jq -r '.[] | "\(.name)\t\(if .disabled then "off" else "\(.width)x\(.height)@\(.refreshRate|floor)" end)\tat \(.x)x\(.y)\tscale \(.scale)"'
+    exit 0
+fi
+
+internal="$(printf '%s' "$all" | jq -r '[.[] | select(.name|test("^(eDP|LVDS|DSI)"))][0].name // empty')"
+[ -n "$internal" ] || internal="$(printf '%s' "$all" | jq -r '.[0].name // empty')"
+external="$(printf '%s' "$all" | jq -r --arg i "$internal" '[.[] | select(.name != $i)][0].name // empty')"
+
+lua_ok=0
+if out="$(hyprctl eval 'return 1' 2>&1)"; then
+    case "$out" in *nknown*|*nvalid*) ;; *) lua_ok=1 ;; esac
+fi
+# mon NAME "field = value, ..."   (lua fields; translated for hyprlang when needed)
+mon() {
+    local name="$1" fields="$2"
+    if [ "$lua_ok" = 1 ]; then
+        hyprctl eval "hl.monitor({ output = \"$name\", $fields })" >/dev/null
+    else
+        case "$fields" in
+            *disabled*) hyprctl keyword monitor "$name,disable" >/dev/null ;;
+            *mirror*) hyprctl keyword monitor "$name,preferred,auto,1,mirror,$internal" >/dev/null ;;
+            *auto-left*) hyprctl keyword monitor "$name,preferred,auto-left,1" >/dev/null ;;
+            *) hyprctl keyword monitor "$name,preferred,auto-right,1" >/dev/null ;;
+        esac
+    fi
+}
+need_external() { [ -n "$external" ] || { notify-send -a Display "No external screen" "Is the cable in? Run kk-hdmi to check the port." 2>/dev/null; echo "no external screen" >&2; exit 1; }; }
+
 case "$mode" in
-    extend)
-        [ -n "$external" ] || { echo "no external display"; exit 1; }
-        hyprctl keyword monitor "$external,preferred,auto,1"
-        ;;
-    mirror)
-        [ -n "$external" ] || { echo "no external display"; exit 1; }
-        hyprctl keyword monitor "$external,preferred,0x0,1,mirror,$internal"
-        ;;
-    internal) hyprctl keyword monitor "$internal,preferred,0x0,1"; [ -z "$external" ] || hyprctl keyword monitor "$external,disable" ;;
-    external)
-        [ -n "$external" ] || { echo "no external display"; exit 1; }
-        hyprctl keyword monitor "$external,preferred,0x0,1"
-        hyprctl keyword monitor "$internal,disable"
-        ;;
-    left)
-        [ -n "$external" ] || { echo "no external display"; exit 1; }
-        hyprctl keyword monitor "$external,preferred,-1920x0,1"
-        hyprctl keyword monitor "$internal,preferred,0x0,1"
-        ;;
-    *) echo "usage: kk-display status|extend|mirror|internal|external|left" >&2; exit 2 ;;
+    extend)   need_external; mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
+              mon "$external" 'mode = "preferred", position = "auto-right", scale = "1"' ;;
+    left)     need_external; mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
+              mon "$external" 'mode = "preferred", position = "auto-left", scale = "1"' ;;
+    mirror)   need_external; mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
+              mon "$external" "mode = \"preferred\", position = \"auto\", scale = \"1\", mirror = \"$internal\"" ;;
+    internal) mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
+              [ -z "$external" ] || mon "$external" 'disabled = true' ;;
+    external) need_external; mon "$external" 'mode = "preferred", position = "0x0", scale = "1"'
+              mon "$internal" 'disabled = true' ;;
+    *) echo "usage: kk-display status|extend|left|mirror|internal|external" >&2; exit 2 ;;
 esac

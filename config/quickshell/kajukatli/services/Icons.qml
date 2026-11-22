@@ -17,6 +17,10 @@ Singleton {
         // status
         "wifi-off": { d: "M12 19.2v.4 M8.6 15.4a4.8 4.8 0 0 1 3.9-1.4 M5.6 12.4a9 9 0 0 1 4-2.3 M2.6 9.3a13.3 13.3 0 0 1 4.2-2.8 M3.5 3.5l17 17" },
         "ethernet": { d: "M4.5 6h15v9.5h-15z M9 15.5v3.5h6v-3.5 M8 9v3 M11 9v3 M14 9v3 M17 9v3" },
+        "laptop": { d: "M5 6.5h14v9H5z M3 18.5h18" },
+        "monitor": { d: "M3.5 5h17v11h-17z M9 20h6 M12 16v4" },
+        "extend": { d: "M2.5 7h9v7h-9z M12.5 7h9v7h-9z M5 17.5h14" },
+        "mirror": { d: "M3 6h8v6H3z M13 12h8v6h-8z M11 9h4.5v3 M13 15H8.5v-3" },
         "bluetooth": { d: "M7 7.5l10 9-5 4.5V3l5 4.5-10 9" },
         "bluetooth-on": { d: "M7 7.5l10 9-5 4.5V3l5 4.5-10 9 M3.5 12h.01 M20.5 12h.01" },
         "bluetooth-off": { d: "M7 7.5l10 9-5 4.5V3l5 4.5-10 9 M3.5 3.5l17 17" },

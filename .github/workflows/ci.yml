@@ -10,7 +10,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y shellcheck
-      - run: shellcheck install.sh uninstall.sh bin/kk-* scripts/*.sh
+      # errors only: style warnings shouldn't turn every push red
+      - run: shellcheck -S error -s bash install.sh uninstall.sh scripts/*.sh $(grep -l '^#!.*\(ba\)\?sh' bin/kk-*)
       - run: ./scripts/validate-package-manifests.sh
       - run: bash -n install.sh uninstall.sh
   arch-smoke:

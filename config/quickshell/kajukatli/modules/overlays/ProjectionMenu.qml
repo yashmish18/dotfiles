@@ -87,9 +87,9 @@ Item {
                     model: [
                         { mode: "internal", icon: "laptop", title: "Laptop", detail: "Only the built-in screen" },
                         { mode: "external", icon: "monitor", title: "External", detail: "Only the HDMI/DP screen" },
-                        { mode: "extend", icon: "desktop", title: "Extend", detail: "Add screen to the right" },
-                        { mode: "mirror", icon: "copy", title: "Duplicate", detail: "Mirror the laptop screen" },
-                        { mode: "left", icon: "arrow-left", title: "Extend left", detail: "Place HDMI/DP on the left" }
+                        { mode: "extend", icon: "extend", title: "Extend", detail: "Another screen, to the right" },
+                        { mode: "mirror", icon: "mirror", title: "Duplicate", detail: "Mirror the laptop screen" },
+                        { mode: "left", icon: "left", title: "Extend left", detail: "Place HDMI/DP on the left" }
                     ]
                     delegate: Rectangle {
                         required property var modelData
@@ -127,7 +127,7 @@ Item {
                         anchors.centerIn: parent
                         width: parent.width - 24
                         spacing: 8
-                        Icon { Layout.alignment: Qt.AlignHCenter; name: "refresh"; size: 34; color: Theme.primary }
+                        Icon { Layout.alignment: Qt.AlignHCenter; name: "restart"; size: 34; color: Theme.primary }
                         Txt { Layout.alignment: Qt.AlignHCenter; text: "Rescan"; font.weight: Font.Bold }
                         Txt { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: "Detect a newly connected cable"; font.pixelSize: Theme.xs; color: Theme.surfaceTextDim; wrapMode: Text.Wrap }
                     }

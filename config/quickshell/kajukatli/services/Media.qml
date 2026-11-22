@@ -191,8 +191,9 @@ Singleton {
         lines = [];
         localLyrics.key = key;
         const dir = (Config.s.localLyricsDir || "").replace(/^~/, Config.home);
-        const artist = song.artist.replace(/'/g, "'\\''");
-        const track = song.title.replace(/'/g, "'\\''");
+        // passed as separate arguments, so no quoting is needed (escaping here broke "Don't")
+        const artist = song.artist.replace(/\//g, "-");
+        const track = song.title.replace(/\//g, "-");
         localLyrics.command = ["sh", "-c",
             "d=\"$1\"; a=\"$2\"; t=\"$3\"; "
             + "for f in \"$d/$a - $t.lrc\" \"$d/$t.lrc\" \"$d/$a - $t.txt\" \"$d/$t.txt\"; do "

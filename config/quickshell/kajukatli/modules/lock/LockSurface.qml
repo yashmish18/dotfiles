@@ -6,9 +6,8 @@ import Quickshell.Widgets
 import qs.services
 import qs.components
 
-// the lock screen. your wallpaper, slowly drifting, with a huge clock tucked behind its
-// subject (when the wallpaper has one), the date, what's playing, and a glass pill for the
-// password. type to unlock; esc clears; enter checks.
+// the lock screen. your wallpaper, heavily blurred and still, a huge clock, the date, what's
+// playing, and a glass pill for the password. type to unlock; esc clears; enter checks.
 Item {
     id: root
     required property var ctx
@@ -24,7 +23,6 @@ Item {
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
     readonly property var wall: Wall.current
-    readonly property bool hasMask: wall !== null && !!wall.mask && maskImg.status === Image.Ready
     readonly property bool unlocking: ctx.phase === "ok"
 
     // fade in on lock, out on unlock
@@ -46,62 +44,47 @@ Item {
     scale: unlocking ? 1.06 : 1
     Behavior on scale { NumberAnimation { duration: 480; easing.type: Easing.InCubic } }
 
-    // the pointer tilts the scene: the clock floats on its own plane, the picture behind it
-    property real mx: 0
-    property real my: 0
-    Behavior on mx { SmoothedAnimation { velocity: 0.9 } }
-    Behavior on my { SmoothedAnimation { velocity: 0.9 } }
-    MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
-        acceptedButtons: Qt.NoButton
-        onPositionChanged: e => { root.mx = e.x / width * 2 - 1; root.my = e.y / height * 2 - 1; }
-    }
     Behavior on opacity { NumberAnimation { duration: 450; easing.type: Easing.InOutCubic } }
 
     Rectangle { anchors.fill: parent; color: Theme.surfaceLowest }
 
-    // ------------------------------------------------------------ the picture, drifting
+    // ------------------------------------------------------------ the picture: blurred, still
+    // kk-prep blurs it once (lock.jpg), so the lock screen draws one image and nothing moves:
+    // no pointer tilt, no slow zoom, no subject cut-out. as light on the battery as a lock gets.
     Item {
         id: stage
         anchors.fill: parent
-        property real drift: 0
-        // a slow push-in (stops on battery)
-        SequentialAnimation on drift {
-            running: !Power.onBattery
-            loops: Animation.Infinite
-            NumberAnimation { from: 0; to: 1; duration: 40000; easing.type: Easing.InOutSine }
-            NumberAnimation { from: 1; to: 0; duration: 40000; easing.type: Easing.InOutSine }
-        }
-        scale: 1.04 + stage.drift * 0.05
-        transform: Translate { x: root.mx * 10; y: root.my * 7 }
-        transformOrigin: Item.Center
 
-        // blurred (kk-prep made lock.jpg once); the subject is laid back sharp over the clock
         Image {
             id: pic
             anchors.fill: parent
             source: root.wall ? "file://" + (root.wall.lock || root.wall.display) : ""
-            // decoded a little bigger than the screen: the drift zooms in, and it should stay sharp
-            sourceSize: Qt.size(Math.round(root.width * 1.2), Math.round(root.height * 1.2))
+            sourceSize: Qt.size(Math.round(root.width / 2), Math.round(root.height / 2))   // it's blurred: half size is plenty
             fillMode: Image.PreserveAspectCrop
             smooth: true
-            mipmap: true
             asynchronous: true
+        }
+        // not prepared yet (no lock.jpg): blur it here instead, once
+        MultiEffect {
+            anchors.fill: pic
+            source: pic
+            visible: root.wall !== null && !root.wall.lock
+            blurEnabled: true
+            blur: 1
+            blurMax: 64
         }
         // a darker floor and ceiling so the text always reads
         Rectangle {
             anchors.fill: parent
             gradient: Gradient {
                 GradientStop { position: 0.0; color: Theme.alpha("#000000", 0.35) }
-                GradientStop { position: 0.45; color: Theme.alpha("#000000", 0.05) }
+                GradientStop { position: 0.45; color: Theme.alpha("#000000", 0.12) }
                 GradientStop { position: 1.0; color: Theme.alpha("#000000", 0.6) }
             }
         }
 
-        // the clock, in the middle of the picture: behind the subject when there is one
+        // the clock, in the middle
         Column {
-            transform: Translate { x: -root.mx * 26; y: -root.my * 16 }
             anchors.horizontalCenter: parent.horizontalCenter
             y: parent.height * 0.12
             spacing: -parent.height * 0.06
@@ -111,7 +94,7 @@ Item {
                 font.family: Theme.display
                 font.pixelSize: root.height * 0.3
                 font.weight: Font.Black
-                color: Theme.wallText
+                color: "#ffffff"
                 renderType: Text.QtRendering
                 opacity: 0.95
             }
@@ -121,39 +104,10 @@ Item {
                 font.family: Theme.display
                 font.pixelSize: root.height * 0.3
                 font.weight: Font.Black
-                color: Theme.wallText
+                color: Theme.alpha("#ffffff", 0.82)
                 renderType: Text.QtRendering
                 opacity: 0.95
             }
-        }
-
-        // the subject, laid back over the clock
-        Image {
-            id: maskImg
-            anchors.fill: parent
-            visible: false
-            source: root.wall && root.wall.mask ? "file://" + root.wall.mask : ""
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: true
-            layer.enabled: true
-        }
-        Image {
-            id: sharp
-            anchors.fill: parent
-            visible: false
-            source: root.hasMask && root.wall ? "file://" + root.wall.display : ""
-            sourceSize: Qt.size(Math.round(root.width * 1.2), Math.round(root.height * 1.2))
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: true
-        }
-        MultiEffect {
-            anchors.fill: pic
-            visible: root.hasMask
-            source: sharp
-            maskEnabled: true
-            maskSource: maskImg
-            maskThresholdMin: 0.2
-            maskSpreadAtMin: 0.6
         }
     }
 

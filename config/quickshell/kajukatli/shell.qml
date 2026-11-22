@@ -35,6 +35,7 @@ ShellRoot {
     Osd {}
     Overlay {}
     HotCorners {}
+    EmojiPicker {}
     Lock { id: lock }
     // apply touchpad / keyboard / scale settings at login
     readonly property var systemService: System

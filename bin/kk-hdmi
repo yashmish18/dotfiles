@@ -1,0 +1,39 @@
+#!/bin/sh
+# kk-hdmi         why does the external screen say "no signal"? lists every port, which gpu
+#                 drives it, and whether hyprland is allowed to use that gpu.
+# kk-hdmi --fix   if a port is on the nvidia card and hyprland is kept off it, let hyprland
+#                 use it (in ~/.config/hypr/modules/gpu.lua). log out and back in after.
+set -u
+gpu_lua="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/modules/gpu.lua"
+on_dgpu=""
+echo "ports:"
+for c in /sys/class/drm/card*-*; do
+    [ -e "$c/status" ] || continue
+    name="${c##*/}"; card="${name%%-*}"; port="${name#*-}"
+    case "$port" in eDP*|LVDS*|DSI*|Writeback*) continue ;; esac
+    v="$(cat "/sys/class/drm/$card/device/vendor" 2>/dev/null)"
+    case "$v" in 0x10de) gpu=nvidia ;; 0x8086) gpu=intel ;; 0x1002) gpu=amd ;; *) gpu="$v" ;; esac
+    printf '  %-12s on %-7s %s\n' "$port" "$gpu" "$(cat "$c/status")"
+    [ "$gpu" = nvidia ] && on_dgpu="$on_dgpu $port"
+done
+devs="$(grep -o 'AQ_DRM_DEVICES", *"[^"]*' "$gpu_lua" 2>/dev/null | sed 's/.*"//')"
+echo "hyprland may use: ${devs:-every gpu (no AQ_DRM_DEVICES set)}"
+
+if [ -z "$on_dgpu" ]; then
+    echo "every external port is on the integrated gpu: routing isn't the problem."
+    echo "try another cable or input on the screen, then: kk-display extend"
+    exit 0
+fi
+case "$devs" in
+    ""|*kk-dgpu*) echo "the nvidia card is allowed: routing is fine. try: kk-display extend"; exit 0 ;;
+esac
+echo
+echo "found it:$on_dgpu is wired to the nvidia card, and hyprland is kept off that card"
+echo "(to save battery), so nothing is ever sent to that port."
+if [ "${1:-}" = "--fix" ]; then
+    sed -i 's|^hl.env("AQ_DRM_DEVICES", "/dev/dri/kk-igpu")|hl.env("AQ_DRM_DEVICES", "/dev/dri/kk-igpu:/dev/dri/kk-dgpu")|' "$gpu_lua"
+    echo "done. log out and back in (or reboot); the screen works after that."
+    echo "the nvidia card may now stay awake more often; kk-power-report shows whether it sleeps."
+else
+    echo "fix it with:  kk-hdmi --fix"
+fi

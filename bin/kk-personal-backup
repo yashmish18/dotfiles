@@ -1,14 +1,40 @@
 #!/usr/bin/env bash
-# Create an explicit snapshot of personal documents and account state.
+# kk-personal-backup [DESTINATION]
+#   a tar of your documents and account state, streamed straight into DESTINATION (an
+#   external drive is the point of a backup; default: ~/.local/share/kajukatli/personal-backups).
+#   readable only by you. ssh / gpg keys and browser profiles go in only with --with-secrets,
+#   and then the archive is encrypted with a passphrase (gpg --symmetric).
+#   KK_BACKUP_MEDIA=1 also includes Pictures, Music and Videos (big).
 set -euo pipefail
-DATA="${XDG_DATA_HOME:-$HOME/.local/share}/kajukatli/personal-backups"
-STAMP="$(date +%Y%m%d-%H%M%S)"
-OUT="$DATA/$STAMP"
-mkdir -p "$OUT"
-
-for source in Documents Pictures Music Videos Downloads .ssh .gnupg .config/BraveSoftware .config/google-chrome .config/chromium .mozilla .thunderbird; do
-    [ -e "$HOME/$source" ] && cp -a "$HOME/$source" "$OUT/" || true
+umask 077
+secrets=0
+dest=""
+for a in "$@"; do
+    case "$a" in
+        --with-secrets) secrets=1 ;;
+        -h|--help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) dest="$a" ;;
+    esac
 done
-tar -C "$OUT" -czf "$DATA/kajukatli-personal-$STAMP.tar.gz" .
-rm -rf "$OUT"
-echo "$DATA/kajukatli-personal-$STAMP.tar.gz"
+dest="${dest:-${XDG_DATA_HOME:-$HOME/.local/share}/kajukatli/personal-backups}"
+mkdir -p "$dest"
+stamp="$(date +%Y%m%d-%H%M%S)"
+
+paths=(Documents .config/kajukatli)
+[ "${KK_BACKUP_MEDIA:-0}" = 1 ] && paths+=(Pictures Music Videos)
+[ "$secrets" = 1 ] && paths+=(.ssh .gnupg .mozilla .config/BraveSoftware .config/google-chrome .config/chromium .thunderbird)
+have=()
+for p in "${paths[@]}"; do [ -e "$HOME/$p" ] && have+=("$p"); done
+[ "${#have[@]}" -gt 0 ] || { echo "nothing to back up" >&2; exit 1; }
+
+# browsers' caches are big and worthless in a backup
+excl=(--exclude='*/Cache' --exclude='*/Code Cache' --exclude='*/GPUCache' --exclude='*/cache2' --exclude='*/Service Worker/CacheStorage')
+if [ "$secrets" = 1 ]; then
+    command -v gpg >/dev/null || { echo "--with-secrets needs gpg (pacman -S gnupg)" >&2; exit 1; }
+    out="$dest/kajukatli-personal-$stamp.tar.gz.gpg"
+    tar -C "$HOME" "${excl[@]}" -czf - "${have[@]}" | gpg --symmetric --cipher-algo AES256 -o "$out"
+else
+    out="$dest/kajukatli-personal-$stamp.tar.gz"
+    tar -C "$HOME" "${excl[@]}" -czf "$out" "${have[@]}"
+fi
+echo "$out"

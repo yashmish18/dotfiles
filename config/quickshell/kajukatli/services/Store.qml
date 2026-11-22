@@ -30,6 +30,7 @@ Singleton {
             property var launches: ({})       // how often each app is opened (the launcher's "recent")
             property var clipPins: []         // pinned clipboard texts
             property real rotatedAt: 0        // when the wallpaper last changed by itself
+            property var recentEmojis: []     // the emoji picker's first tab
             property var wallMeta: ({})       // the current wallpaper's bundle: back instantly after a restart
         }
     }

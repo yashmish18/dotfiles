@@ -566,7 +566,7 @@ LazyLoader {
                         Setting {
                             label: "Position"
                             Choice {
-                                options: [{ value: "auto", label: "Automatic" }, { value: "0x0", label: "Primary" }, { value: "1920x0", label: "Right +1920" }, { value: "-1920x0", label: "Left -1920" }]
+                                options: [{ value: "auto", label: "Automatic" }, { value: "0x0", label: "Primary" }, { value: "auto-right", label: "Right" }, { value: "auto-left", label: "Left" }]
                                 value: System.monitorProfile(mon.modelData.name).position || "auto"
                                 onPicked: v => System.setMonitorProfile(mon.modelData.name, "position", v)
                             }
@@ -589,7 +589,6 @@ LazyLoader {
                     Setting { label: "Larger text"; Switch { on: Config.s.largeText; onToggled: Config.s.largeText = !Config.s.largeText } }
                     Setting { label: "Reduced motion"; Switch { on: Config.s.reducedMotion; onToggled: Config.s.reducedMotion = !Config.s.reducedMotion } }
                     Setting { label: "High contrast"; Switch { on: Config.s.highContrast; onToggled: Config.s.highContrast = !Config.s.highContrast } }
-                    Setting { label: "Keyboard navigation"; Switch { on: Config.s.keyboardNavigation; onToggled: Config.s.keyboardNavigation = !Config.s.keyboardNavigation } }
                 }
             }
         }

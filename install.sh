@@ -12,7 +12,7 @@
 #   ./install.sh --ai             only (re)build the wallpaper ai
 #   ./install.sh --dry-run        print the actions; change nothing
 #   ./install.sh --update         git-pull only after local-change checks
-#   ./install.sh --snapshot        backup Kajukatli + selected personal data
+#   ./install.sh --snapshot       back up kajukatli's settings and state (kk-personal-backup: your files)
 #   ./install.sh --restore        restore the latest Kajukatli snapshot
 #
 # safe to run again: packages use --needed, links are replaced, and your own files are
@@ -62,17 +62,15 @@ mkdir -p "$DATA"
 ledger_record() {
     printf '%s\n' "$1" >>"$LEDGER"
 }
+# kajukatli's own state: settings, your hypr overrides, the shell's memory. personal files
+# and keys are kk-personal-backup's job (encrypted, and best on another drive).
 snapshot() {
-    local dir="$DATA/snapshots/$STAMP"
-    mkdir -p "$dir"
-    cp -a "$CONFIG" "$dir/config" 2>/dev/null || true
-    cp -a "$DATA/settings.json" "$dir/" 2>/dev/null || true
-    cp -a "$DATA/transaction.jsonl" "$dir/transaction.jsonl" 2>/dev/null || true
-    cp -a "$HOME/.ssh" "$dir/ssh" 2>/dev/null || true
-    cp -a "$HOME/.gnupg" "$dir/gnupg" 2>/dev/null || true
-    cp -a "$HOME/Documents" "$HOME/Pictures" "$HOME/Music" "$dir/" 2>/dev/null || true
-    tar -C "$dir" -czf "$DATA/snapshot-$STAMP.tar.gz" .
-    echo "$DATA/snapshot-$STAMP.tar.gz"
+    local out="$DATA/snapshot-$STAMP.tar.gz" p have=()
+    for p in .config/kajukatli .config/hypr/modules/user.lua .config/hypr/modules/gpu.lua              .local/state/kajukatli .local/share/kajukatli/transactions.jsonl .local/share/kajukatli/ai.conf; do
+        [ -e "$HOME/$p" ] && have+=("$p")
+    done
+    (umask 077; tar -C "$HOME" -czf "$out" "${have[@]}")
+    echo "$out"
 }
 
 # ------------------------------------------------------------------ voice
@@ -111,13 +109,7 @@ case "$MODE" in
     restore)
         latest="$(ls -1t "$DATA"/snapshot-*.tar.gz 2>/dev/null | head -n1 || true)"
         [ -n "$latest" ] || die "no Kajukatli snapshot found"
-        restore_dir="$(mktemp -d)"
-        tar -xzf "$latest" -C "$restore_dir"
-        cp -a "$restore_dir/config/." "$CONFIG/" 2>/dev/null || true
-        cp -a "$restore_dir/ssh/." "$HOME/.ssh/" 2>/dev/null || true
-        cp -a "$restore_dir/gnupg/." "$HOME/.gnupg/" 2>/dev/null || true
-        for d in Documents Pictures Music; do [ -d "$restore_dir/$d" ] && cp -a "$restore_dir/$d/." "$HOME/$d/" 2>/dev/null || true; done
-        rm -rf "$restore_dir"
+        tar -xzf "$latest" -C "$HOME"
         ok "restored snapshot: $latest"
         exit 0
         ;;
@@ -298,16 +290,27 @@ gpu() {
     sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=drm || true
     sudo udevadm trigger --subsystem-match=power_supply --action=add 2>/dev/null || true
 
-    # route hyprland to the integrated gpu on hybrid laptops
+    # route hyprland to the integrated gpu on hybrid laptops. external ports wired to the
+    # nvidia card (common for hdmi on gaming laptops) only work if hyprland may use that card
+    local nv_ports="" c v p
+    for c in /sys/class/drm/card*-*; do
+        [ -e "$c/status" ] || continue
+        p="${c##*/}"; v="$(cat "/sys/class/drm/${p%%-*}/device/vendor" 2>/dev/null || true)"
+        case "${p#*-}" in eDP*|LVDS*|DSI*|Writeback*) continue ;; esac
+        if [ "$v" = 0x10de ]; then nv_ports="$nv_ports ${p#*-}"; fi
+    done
     local out="$CONFIG/hypr/modules/gpu.lua"
     mkdir -p "$(dirname "$out")"
     [ -L "$out" ] && rm -f "$out"
     {
         echo "-- written by install.sh for this machine. safe to edit; rerunning install.sh rewrites it."
-        if [ $has_nv = 1 ] && [ $has_ig = 1 ]; then
+        if [ $has_nv = 1 ] && [ $has_ig = 1 ] && [ -n "$nv_ports" ]; then
+            echo "-- hybrid laptop: draw on the integrated gpu. the nvidia card is listed second only"
+            echo "-- because these ports are wired to it:$nv_ports (without it they show \"no signal\")"
+            echo "hl.env(\"AQ_DRM_DEVICES\", \"/dev/dri/kk-igpu:/dev/dri/kk-dgpu\")"
+        elif [ $has_nv = 1 ] && [ $has_ig = 1 ]; then
             echo "-- hybrid laptop: draw on the integrated gpu so the nvidia card can sleep."
-            echo "-- an hdmi port wired to the nvidia card needs it listed too:"
-            echo "--   hl.env(\"AQ_DRM_DEVICES\", \"/dev/dri/kk-igpu:/dev/dri/kk-dgpu\")"
+            echo "-- (every external port is on the integrated gpu; kk-hdmi checks this again)"
             echo "hl.env(\"AQ_DRM_DEVICES\", \"/dev/dri/kk-igpu\")"
         elif [ $has_nv = 1 ]; then
             echo "-- nvidia only"

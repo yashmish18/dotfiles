@@ -2,7 +2,6 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
-import qs.services
 
 // thin helpers over hyprland ipc. works with the lua config and the old hyprlang one.
 Singleton {

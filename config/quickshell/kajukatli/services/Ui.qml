@@ -53,10 +53,12 @@ Singleton {
         panel = "";
         overlay = overlay === name ? "" : name;
     }
+    // the emoji picker is its own small window in the bottom-left corner (EmojiPicker.qml)
+    property bool emojiOpen: false
     function openEmoji() {
         panel = "";
-        overlayQuery = "";
-        overlay = "emoji";
+        overlay = "";
+        emojiOpen = !emojiOpen;
     }
     function openProjection() {
         panel = "";
@@ -71,6 +73,7 @@ Singleton {
     function closeAll() {
         panel = "";
         overlay = "";
+        emojiOpen = false;
         editing = false;
     }
 }

@@ -35,9 +35,10 @@ Singleton {
     property color surfaceHigh: a.surfaceContainerHigh
     property color surfaceHighest: a.surfaceContainerHighest
     property color surfaceText: a.surfaceText
-    property color surfaceTextDim: a.surfaceTextDim
-    property color outline: a.outline
-    property color outlineVariant: a.outlineVariant
+    // high contrast (settings → display): secondary text as strong as the main text, lines visible
+    property color surfaceTextDim: Config.s.highContrast ? a.surfaceText : a.surfaceTextDim
+    property color outline: Config.s.highContrast ? a.surfaceTextDim : a.outline
+    property color outlineVariant: Config.s.highContrast ? a.outline : a.outlineVariant
     property color wallText: a.wallText
     property color wallTextDim: a.wallTextDim
     property color wallShadow: a.wallShadow
