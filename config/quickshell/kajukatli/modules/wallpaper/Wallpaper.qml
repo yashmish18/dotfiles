@@ -210,11 +210,17 @@ Variants {
             property real progress: win.progress
             property real hasFrom: win.fromMeta !== null && (win.fromSlot === 0 ? imgA : imgB).status === Image.Ready ? 1 : 0
             property real hasFromDepth: win.fromMeta !== null && (win.fromSlot === 0 ? depA : depB).status === Image.Ready ? 1 : 0
-            property real hasToDepth: (win.toSlot === 0 ? depA : depB).status === Image.Ready ? 1 : 0
+            // a depth map that arrives late fades the 3d in instead of snapping to it
+            readonly property real toDepthReady: (win.toSlot === 0 ? depA : depB).status === Image.Ready ? 1 : 0
+            property real hasToDepth: toDepthReady
+            Behavior on hasToDepth { enabled: fx.toDepthReady > 0.5; NumberAnimation { duration: 900; easing.type: Easing.InOutQuad } }
             property real seed: win.seed
             property real aspect: win.height > 0 ? win.width / win.height : 1.6
+            // never more than the picture's spare margin (it's drawn at 94%), or the edges smear
+            readonly property real room: 0.026
             property vector2d offset: Config.s.parallax
-                ? Qt.vector2d((win.camX * 0.8 + win.tiltX * 0.9) * win.strength, win.tiltY * 0.65 * win.strength)
+                ? Qt.vector2d(Math.max(-room, Math.min(room, (win.camX * 0.8 + win.tiltX * 0.9) * win.strength)),
+                              Math.max(-room, Math.min(room, win.tiltY * 0.65 * win.strength)))
                 : Qt.vector2d(0, 0)
             property vector2d coverFrom: win.cover(win.fromSlot === 0 ? imgA : imgB)
             property vector2d coverTo: win.cover(win.toSlot === 0 ? imgA : imgB)
@@ -244,7 +250,8 @@ Variants {
                 win.mx = (e.x / width) * 2 - 1;
                 win.my = (e.y / height) * 2 - 1;
             }
-            onExited: { win.mx = 0; win.my = 0; }
+            // (no snapping back to the middle when the pointer slips onto a window or the bar:
+            // the picture stays where it was and carries on from there)
         }
 
         // nothing chosen yet

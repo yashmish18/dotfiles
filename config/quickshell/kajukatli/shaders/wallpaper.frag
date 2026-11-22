@@ -83,14 +83,29 @@ vec2 coverUV(vec2 uv, vec2 cover) {
 }
 
 // inverse displacement: find the picture point that lands on this pixel.
-// near things (white in the depth map) move more than far things.
+// near things (white in the depth map) move more than far things. each step only goes part
+// of the way (damped), so where depth jumps (hair against sky) it settles instead of
+// flickering between the two sides; the depth map itself is pre-softened by kk-prep.
 vec2 parallax(sampler2D depth, vec2 uv, vec2 off) {
     vec2 p = uv;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 6; i++) {
         float d = texture(depth, p).r;
-        p = uv - off * (d - 0.35);
+        p = mix(p, uv - off * (d - 0.35), 0.6);
     }
     return clamp(p, vec2(0.001), vec2(0.999));
+}
+
+// the same camera without a depth map: the picture moves as one plane
+vec2 flatPan(vec2 uv, vec2 off) {
+    return clamp(uv - off * 0.45, vec2(0.001), vec2(0.999));
+}
+
+// hasDepth eases 0 → 1 when a depth map arrives, so flat becomes 3d without a jump
+vec2 camera(sampler2D depth, float hasDepth, vec2 uv, vec2 off) {
+    vec2 f = flatPan(uv, off);
+    if (hasDepth < 0.001)
+        return f;
+    return mix(f, parallax(depth, uv, off), hasDepth);
 }
 
 // lay the widgets layer down, then put the subject back on top of it
@@ -105,8 +120,7 @@ void main() {
     vec2 uv = qt_TexCoord0;
 
     vec2 tu = coverUV(uv, coverTo);
-    // no depth map (yet)? still move: the whole picture pans as one flat plane
-    vec2 tp = hasToDepth > 0.5 ? parallax(toDepth, tu, offset) : clamp(tu - offset * 0.45, vec2(0.001), vec2(0.999));
+    vec2 tp = camera(toDepth, hasToDepth, tu, offset);
     vec3 toC = texture(toTex, tp).rgb;
 
     if (progress >= 0.999) {
@@ -117,7 +131,7 @@ void main() {
     }
 
     vec2 fu = coverUV(uv, coverFrom);
-    vec2 fp = hasFromDepth > 0.5 ? parallax(fromDepth, fu, offset) : clamp(fu - offset * 0.45, vec2(0.001), vec2(0.999));
+    vec2 fp = camera(fromDepth, hasFromDepth, fu, offset);
     vec3 fromC = hasFrom > 0.5 ? texture(fromTex, fp).rgb : baseColor.rgb;
 
     if (useInk < 0.5) {

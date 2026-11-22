@@ -73,15 +73,48 @@ Item {
         }
         if (n === 0) return null;
         r /= n * 255; g /= n * 255; bl /= n * 255;
-        const luma = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
-        // a touch of the theme's colour so it still belongs, but never the picture's own hue
-        const p = Theme.primary;
-        const mix = (a, b, t) => a * (1 - t) + b * t;
-        if (luma > 0.55)
-            return { ink: Qt.rgba(mix(0.07, p.r, 0.12), mix(0.06, p.g, 0.12), mix(0.08, p.b, 0.12), 1),
-                     dim: Qt.rgba(0.08, 0.07, 0.09, 0.72), shadow: Qt.rgba(1, 1, 1, 0.35) };
-        return { ink: Qt.rgba(mix(0.97, p.r, 0.08), mix(0.96, p.g, 0.08), mix(0.95, p.b, 0.08), 1),
-                 dim: Qt.rgba(0.97, 0.96, 0.95, 0.78), shadow: Qt.rgba(0, 0, 0, 0.5) };
+        return layer.colourFor(Qt.rgba(r, g, bl, 1));
+    }
+    // a colour from the wallpaper's own palette that stands out on the ground under the clock:
+    //  · the hue: the theme's primary, tertiary or secondary — whichever is furthest from the
+    //    ground's own hue (no red clock on a red dress; if all of them are, a pale tint of it)
+    //  · the lightness: pushed away from the ground until the contrast is at least 4.5 : 1
+    function lin(c) { return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+    function lum(c) { return 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b); }
+    function contrast(a, b) { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+    function colourFor(ground) {
+        const gh = ground.hslHue, gs = ground.hslSaturation;
+        const hueGap = h => { if (h < 0 || gh < 0 || gs < 0.18) return 1; const d = Math.abs(h - gh); return Math.min(d, 1 - d); };
+        let best = Theme.primary, gap = -1;
+        for (const c of [Theme.primary, Theme.tertiary, Theme.secondary]) {
+            const d = hueGap(c.hslHue) + c.hslSaturation * 0.15;     // apart, and properly coloured
+            if (d > gap) { gap = d; best = c; }
+        }
+        let h = best.hslHue < 0 ? Theme.primary.hslHue : best.hslHue;
+        if (h < 0) h = 0.08;
+        // still the ground's own hue (a red theme on a red picture): keep the hue, soften it, and
+        // let lightness carry the contrast — pale rose on deep red rather than a foreign colour
+        const sameHue = gs >= 0.18 && hueGap(h) < 0.1;
+        const sat = sameHue ? 0.38 : Math.max(0.55, Math.min(0.85, best.hslSaturation));
+        // try lighter and darker, keep whichever reaches 4.5 : 1 first (or gets closest)
+        const walk = (l, step) => {
+            let ink = Qt.hsla(h, sat, l, 1);
+            for (let i = 0; i < 14 && contrast(ink, ground) < 4.5; i++) {
+                l = Math.max(0.06, Math.min(0.95, l + step));
+                ink = Qt.hsla(h, sat, l, 1);
+            }
+            return { ink: ink, l: l, c: contrast(ink, ground) };
+        };
+        const up = walk(0.68, 0.03), down = walk(0.36, -0.03);
+        const pick = (up.c >= 4.5) !== (down.c >= 4.5) ? (up.c >= 4.5 ? up : down)
+                   : (up.c >= 4.5 ? (Math.abs(up.l - 0.68) <= Math.abs(down.l - 0.36) ? up : down) : (up.c > down.c ? up : down));
+        const ink = pick.ink, l = pick.l;
+        const darkGround = pick === up;
+        return {
+            ink: ink,
+            dim: Qt.hsla(h, sat * 0.85, l, 0.8),
+            shadow: darkGround ? Qt.rgba(0, 0, 0, 0.45) : Qt.rgba(1, 1, 1, 0.35)
+        };
     }
     Binding { when: !layer.behind && layer.clockTone !== null; target: Theme; property: "clockInk"; value: layer.clockTone ? layer.clockTone.ink : Theme.wallText }
     Binding { when: !layer.behind && layer.clockTone !== null; target: Theme; property: "clockInkDim"; value: layer.clockTone ? layer.clockTone.dim : Theme.wallTextDim }

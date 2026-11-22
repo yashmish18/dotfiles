@@ -586,6 +586,17 @@ def enrich(meta: dict) -> dict:
     if "clock_anchor" not in meta and meta.get("mask") and (out / "mask.png").exists():
         meta["clock_anchor"] = clock_anchor(out / "mask.png")
         changed = True
+    # depth, softened: hard depth edges are what make parallax tear around hair
+    if meta.get("depth") and not meta.get("depth_soft") and Path(meta["depth"]).exists():
+        from PIL import ImageFilter
+        with Image.open(meta["depth"]) as dm:
+            soft = dm.convert("L").filter(ImageFilter.GaussianBlur(max(2, dm.width // 320)))
+        soft.save(out / ".depth-soft.png")
+        os.replace(out / ".depth-soft.png", out / "depth-soft.png")
+        meta["depth_raw"] = meta["depth"]
+        meta["depth"] = str(out / "depth-soft.png")
+        meta["depth_soft"] = True
+        changed = True
     if "clock_auto" not in meta and Path(meta.get("display", "")).exists() and meta.get("kind") != "video":
         meta["clock_auto"] = clock_auto(meta, out)
         changed = True
@@ -643,6 +654,7 @@ def stage_ai(meta: dict, args) -> dict:
             has_depth = True
     meta.pop("clock_anchor", None)
     meta.pop("clock_auto", None)
+    meta.pop("depth_soft", None)
     log(f"finding the subject ({args.model})…")
     mask, soft = subject_mask(work, args.model)
     ink, has_subject = build_ink(work, mask)
