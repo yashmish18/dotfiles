@@ -147,9 +147,26 @@ Loader {
     // ------------------------------------------------------------ workspaces
     Component {
         id: wsC
+        Row {
+          spacing: 8
+          // the workspace you just went to, shown as a number for a moment
+          readonly property int cur: root.monitor && root.monitor.activeWorkspace ? root.monitor.activeWorkspace.id : Hypr.focusedId
+          property bool flashing: false
+          onCurChanged: { flashing = true; unflash.restart(); }
+          Timer { id: unflash; interval: 1300; onTriggered: parent.flashing = false }
         Grid {
             id: ws
-            readonly property var list: Hypr.workspacesOn(root.monitor)
+            readonly property var real: Hypr.workspacesOn(root.monitor)
+            readonly property int curId: parent.cur
+            readonly property var list: {
+                const by = {};
+                let top = Math.max(1, curId);
+                for (const w of real) { by[w.id] = w; top = Math.max(top, w.id); }
+                const out = [];
+                for (let id = 1; id <= Math.min(top, 20); id++)
+                    out.push(by[id] || { id: id, name: String(id), urgent: false, placeholder: true, toplevels: { values: [] } });
+                return out;
+            }
             readonly property string look: Config.s.workspaceStyle
             columns: root.vertical ? 1 : Math.max(1, list.length)
             rowSpacing: 7
@@ -162,7 +179,7 @@ Loader {
                 delegate: Item {
                     id: w
                     required property var modelData
-                    readonly property bool active: root.monitor && root.monitor.activeWorkspace ? root.monitor.activeWorkspace.id === modelData.id : modelData.active
+                    readonly property bool active: modelData.id === ws.curId
                     readonly property bool occupied: modelData.toplevels.values.length > 0
                     readonly property bool named: modelData.name !== String(modelData.id)
                     implicitWidth: ws.look === "dots" ? (root.vertical ? 7 : (active ? 20 : 7))
@@ -219,6 +236,22 @@ Loader {
                     }
                 }
             }
+        }
+          // "3", sliding out beside the dots after a switch
+          Txt {
+              anchors.verticalCenter: parent.verticalCenter
+              visible: ws.look !== "numbers" && !root.vertical
+              text: parent.cur
+              font.family: Theme.mono
+              font.pixelSize: Theme.sm
+              font.weight: Font.DemiBold
+              color: Theme.primary
+              opacity: parent.flashing ? 1 : 0
+              width: parent.flashing ? implicitWidth : 0
+              clip: true
+              Behavior on opacity { NumberAnimation { duration: 220 } }
+              Behavior on width { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+          }
         }
     }
 

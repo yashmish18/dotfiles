@@ -505,6 +505,53 @@ def build_ink(rgb, mask):
     return cv2.merge([(dist * 255).astype(np.uint8), order, stroke]), True
 
 
+def clock_anchor(mask_png: Path) -> list:
+    """where the clock should tuck in: the subject's solid top (not stray hair), as
+    [x, y] fractions of the picture. the clock's lower half goes behind this point."""
+    import numpy as np
+    from PIL import Image
+    with Image.open(mask_png) as m:
+        a = m.split()[-1]
+        a.thumbnail((256, 256))
+        arr = np.asarray(a) > 127
+    h, w = arr.shape
+    rows = arr.sum(1)
+    peak = rows.max() if rows.size else 0
+    if peak < 0.03 * w:
+        return []
+    top = int(np.argmax(rows >= 0.4 * peak))           # the first properly solid row
+    band = arr[top:top + max(2, int(0.12 * h))]
+    ys, xs = np.nonzero(band)
+    if not len(xs):
+        return []
+    return [round(float(xs.mean()) / w, 4), round(top / h, 4)]
+
+
+def enrich(meta: dict) -> dict:
+    """cheap extras added to any bundle (old ones too) without rebuilding it:
+    grid         16×9 average colours of the picture: the clock picks ink that reads on it
+    clock_anchor see clock_anchor()"""
+    from PIL import Image
+    out = Path(meta.get("dir", ""))
+    if not out.is_dir():
+        return meta
+    changed = False
+    if "grid" not in meta and Path(meta.get("display", "")).exists():
+        with Image.open(meta["display"]) as im:
+            im.draft("RGB", (320, 320))
+            g = im.convert("RGB").resize((16, 9), Image.BOX)
+        meta["grid"] = [list(px) for px in g.getdata()]
+        changed = True
+    if "clock_anchor" not in meta and meta.get("mask") and (out / "mask.png").exists():
+        meta["clock_anchor"] = clock_anchor(out / "mask.png")
+        changed = True
+    if changed:
+        tmp = out / ".meta.json"
+        tmp.write_text(json.dumps(meta, indent=2))
+        tmp.replace(out / "meta.json")
+    return meta
+
+
 def make_cut(out: Path) -> bool:
     """cut.png: the subject in colour on transparency, cropped to it, ~320 px tall.
     the terminal greeting (fastfetch, in kitty) shows it as its logo."""
@@ -550,6 +597,7 @@ def stage_ai(meta: dict, args) -> dict:
             cv2.imwrite(str(out / ".depth.png"), (d * 255).astype(np.uint8))
             os.replace(out / ".depth.png", out / "depth.png")
             has_depth = True
+    meta.pop("clock_anchor", None)
     log(f"finding the subject ({args.model})…")
     mask, soft = subject_mask(work, args.model)
     ink, has_subject = build_ink(work, mask)
@@ -714,6 +762,10 @@ def main() -> int:
     except Exception as e:
         log("failed:", e)
         return 1
+    try:
+        meta = enrich(meta)
+    except Exception as e:
+        log("no colour grid:", e)
     print(json.dumps(meta), flush=True)
     return 0
 

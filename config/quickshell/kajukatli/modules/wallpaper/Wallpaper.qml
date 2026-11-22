@@ -188,7 +188,8 @@ Variants {
             const i = list.findIndex(w => w.active);
             return list.length > 1 && i >= 0 ? (i / (list.length - 1)) * 2 - 1 : 0;
         }
-        readonly property bool cursorOn: Config.s.parallax && Config.s.cursorParallax && !Power.onBattery
+        // (it only redraws while the pointer moves over the bare desktop, so battery is fine)
+        readonly property bool cursorOn: Config.s.parallax && Config.s.cursorParallax
         property real mx: 0
         property real my: 0
         property real camX: -wsCam
@@ -212,7 +213,7 @@ Variants {
             property real seed: win.seed
             property real aspect: win.height > 0 ? win.width / win.height : 1.6
             property vector2d offset: Config.s.parallax
-                ? Qt.vector2d((win.camX * 0.8 + win.tiltX * 0.5) * win.strength, win.tiltY * 0.35 * win.strength)
+                ? Qt.vector2d((win.camX * 0.8 + win.tiltX * 0.9) * win.strength, win.tiltY * 0.65 * win.strength)
                 : Qt.vector2d(0, 0)
             property vector2d coverFrom: win.cover(win.fromSlot === 0 ? imgA : imgB)
             property vector2d coverTo: win.cover(win.toSlot === 0 ? imgA : imgB)

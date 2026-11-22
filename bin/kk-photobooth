@@ -1,0 +1,10 @@
+#!/bin/sh
+# kk-photobooth   open the photobooth (config/quickshell/kk-photobooth). one at a time; it
+# needs qt's camera support, and offers to install it if it's missing.
+if ! pacman -Q qt6-multimedia qt6-multimedia-ffmpeg >/dev/null 2>&1; then
+    notify-send -a Photobooth "Photobooth needs the camera libraries" "Installing qt6-multimedia in a terminal…"
+    exec kitty --title "Photobooth setup" sh -c 'sudo pacman -S --needed qt6-multimedia qt6-multimedia-ffmpeg && exec qs -c kk-photobooth'
+fi
+# an older one that never let go of the camera
+pkill -f "qs -c kk-photobooth" 2>/dev/null
+exec qs -c kk-photobooth

@@ -46,20 +46,62 @@ Item {
     property alias noteItem: note
     property alias clockItem: clockM
 
+    // how the picture is fitted to the screen (the same cover maths as the wallpaper shader)
+    function coverOf(m) {
+        const S = layer.width / Math.max(1, layer.height), I = m.width / Math.max(1, m.height);
+        const zoom = Config.s.parallax ? 0.94 : 1.0;
+        return { x: S > I ? zoom : zoom * S / I, y: S > I ? zoom * I / S : zoom };
+    }
+
+    // the clock's ink: light or dark, whichever reads on the picture right under the clock
+    readonly property var clockTone: {
+        const m = Wall.current;
+        if (Config.s.clockColor !== "auto" || !m || !m.grid || m.grid.length < 144 || !m.width || !clockM.width) return null;
+        const c = coverOf(m);
+        const toU = sx => (sx / layer.width - 0.5) * c.x + 0.5;
+        const toV = sy => (sy / layer.height - 0.5) * c.y + 0.5;
+        const u0 = toU(area.x + clockM.x), u1 = toU(area.x + clockM.x + clockM.width);
+        const v0 = toV(area.y + clockM.y), v1 = toV(area.y + clockM.y + clockM.height);
+        let r = 0, g = 0, bl = 0, n = 0;
+        for (let j = 0; j < 9; j++) {
+            for (let i = 0; i < 16; i++) {
+                const u = (i + 0.5) / 16, v = (j + 0.5) / 9;
+                if (u < u0 - 1 / 32 || u > u1 + 1 / 32 || v < v0 - 1 / 18 || v > v1 + 1 / 18) continue;
+                const px = m.grid[j * 16 + i];
+                r += px[0]; g += px[1]; bl += px[2]; n++;
+            }
+        }
+        if (n === 0) return null;
+        r /= n * 255; g /= n * 255; bl /= n * 255;
+        const luma = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+        // a touch of the theme's colour so it still belongs, but never the picture's own hue
+        const p = Theme.primary;
+        const mix = (a, b, t) => a * (1 - t) + b * t;
+        if (luma > 0.55)
+            return { ink: Qt.rgba(mix(0.07, p.r, 0.12), mix(0.06, p.g, 0.12), mix(0.08, p.b, 0.12), 1),
+                     dim: Qt.rgba(0.08, 0.07, 0.09, 0.72), shadow: Qt.rgba(1, 1, 1, 0.35) };
+        return { ink: Qt.rgba(mix(0.97, p.r, 0.08), mix(0.96, p.g, 0.08), mix(0.95, p.b, 0.08), 1),
+                 dim: Qt.rgba(0.97, 0.96, 0.95, 0.78), shadow: Qt.rgba(0, 0, 0, 0.5) };
+    }
+    Binding { when: !layer.behind && layer.clockTone !== null; target: Theme; property: "clockInk"; value: layer.clockTone ? layer.clockTone.ink : Theme.wallText }
+    Binding { when: !layer.behind && layer.clockTone !== null; target: Theme; property: "clockInkDim"; value: layer.clockTone ? layer.clockTone.dim : Theme.wallTextDim }
+    Binding { when: !layer.behind && layer.clockTone !== null; target: Theme; property: "clockShadow"; value: layer.clockTone ? layer.clockTone.shadow : Theme.wallShadow }
+
     // the clock's "auto" spot: centred on the wallpaper's subject, its lower part tucked behind
     // the subject's top, so the person stands in front of the numbers
     function autoClock(w, h, W, H) {
         const m = Wall.current;
         if (!m || !m.subject_box || m.subject_box.length < 4 || !m.width || !m.height || W <= w || H <= h) return null;
-        const S = layer.width / Math.max(1, layer.height), I = m.width / m.height;
-        const zoom = Config.s.parallax ? 0.94 : 1.0;
-        const cx = S > I ? zoom : zoom * S / I, cy = S > I ? zoom * I / S : zoom;
-        const toX = u => ((u - 0.5) / cx + 0.5) * layer.width - area.x;
-        const toY = v => ((v - 0.5) / cy + 0.5) * layer.height - area.y;
+        const c = coverOf(m);
+        const toX = u => ((u - 0.5) / c.x + 0.5) * layer.width - area.x;
+        const toY = v => ((v - 0.5) / c.y + 0.5) * layer.height - area.y;
+        // the subject's solid top (kk-prep's clock_anchor); the box's top edge as a fallback
+        const a = m.clock_anchor && m.clock_anchor.length >= 2 ? m.clock_anchor : null;
         const b = m.subject_box;
-        const midX = toX((b[0] + b[2]) / 2), top = toY(b[1]);
+        const midX = toX(a ? a[0] : (b[0] + b[2]) / 2), top = toY(a ? a[1] : b[1]);
         const x = midX - w / 2;
-        const y = Math.max(0, top - h * 0.55);
+        // the lower half of the numbers behind the subject
+        const y = Math.max(0, top - h * 0.5);
         return { x: Math.max(0, Math.min(1, x / (W - w))), y: Math.max(0, Math.min(1, y / (H - h))) };
     }
     property alias barsItem: barsM

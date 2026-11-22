@@ -53,7 +53,7 @@ Item {
     Behavior on my { SmoothedAnimation { velocity: 0.9 } }
     MouseArea {
         anchors.fill: parent
-        hoverEnabled: !Power.onBattery
+        hoverEnabled: true
         acceptedButtons: Qt.NoButton
         onPositionChanged: e => { root.mx = e.x / width * 2 - 1; root.my = e.y / height * 2 - 1; }
     }

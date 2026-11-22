@@ -55,7 +55,7 @@ Item {
 
     // large text: scalable rendering, no eliding, the clock's face
     component Big: Text {
-        color: Theme.wallText
+        color: Theme.clockInk
         font.family: Theme.display
         font.weight: Font.Black
         renderType: Text.QtRendering
@@ -70,7 +70,7 @@ Item {
         property real size: 100
         property string family: Theme.display
         property int weight: Font.Black
-        property color color: Theme.wallText
+        property color color: Theme.clockInk
         property real stroke: 2
         preferredRendererType: Shape.CurveRenderer
         implicitWidth: olm.tightBoundingRect.width + stroke * 2 + 2
@@ -132,7 +132,7 @@ Item {
                     anchors.right: parent.right
                     text: Qt.formatDate(root.now, "ddd, d").toUpperCase()
                     font.pixelSize: 46 * root.s
-                    color: Theme.wallTextDim
+                    color: Theme.clockInkDim
                     opacity: 0.85
                 }
                 Outline {
@@ -181,7 +181,7 @@ Item {
                     font.pixelSize: 40 * root.s
                     font.weight: Font.Bold
                     font.family: Theme.sans
-                    color: Theme.wallTextDim
+                    color: Theme.clockInkDim
                     opacity: 0.7
                 }
             }
@@ -236,7 +236,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     name: Weather.icon
                     size: 44 * root.s
-                    color: Theme.wallText
+                    color: Theme.clockInk
                 }
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
@@ -252,14 +252,14 @@ Item {
                         font.pixelSize: 15 * root.s
                         font.weight: Font.Medium
                         font.family: Theme.sans
-                        color: Theme.wallTextDim
+                        color: Theme.clockInkDim
                     }
                     Big {
                         text: Weather.desc
                         font.pixelSize: 17 * root.s
                         font.weight: Font.Medium
                         font.family: Theme.sans
-                        color: Theme.wallTextDim
+                        color: Theme.clockInkDim
                     }
                 }
                 Rectangle {
@@ -268,7 +268,7 @@ Item {
                     height: 96 * root.s
                     rotation: 22
                     antialiasing: true
-                    color: Theme.wallText
+                    color: Theme.clockInk
                     opacity: 0.8
                 }
                 Item {
@@ -277,7 +277,7 @@ Item {
                     height: 54 * root.s
                     Rectangle {
                         anchors.fill: parent
-                        color: Theme.wallText
+                        color: Theme.clockInk
                         antialiasing: true
                         transform: Matrix4x4 { matrix: Qt.matrix4x4(1, -0.2, 0, 10 * root.s, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1) }
                     }
@@ -287,7 +287,7 @@ Item {
                         font.pixelSize: 36 * root.s
                         font.family: Theme.sans
                         font.weight: Font.Black
-                        color: Theme.wallShadow
+                        color: Theme.clockShadow
                     }
                 }
             }
@@ -298,7 +298,7 @@ Item {
                 font.weight: Font.Medium
                 font.family: Theme.sans
                 font.letterSpacing: 9 * root.s
-                color: Theme.wallTextDim
+                color: Theme.clockInkDim
             }
             Item {
                 width: dayName.implicitWidth + 160 * root.s
@@ -319,7 +319,7 @@ Item {
                     style: "bars"
                     count: 40
                     gap: 1
-                    color: Theme.wallText
+                    color: Theme.clockInk
                     fillOpacity: 0.7
                 }
             }
@@ -336,7 +336,7 @@ Item {
                 id: num
                 text: Qt.formatDate(root.now, "d")
                 font.pixelSize: 250 * root.s
-                color: Theme.wallTextDim
+                color: Theme.clockInkDim
                 opacity: 0.72
             }
             Big {
@@ -359,7 +359,7 @@ Item {
                 font.family: Theme.sans
                 font.weight: Font.Medium
                 font.letterSpacing: 3 * root.s
-                color: Theme.wallTextDim
+                color: Theme.clockInkDim
                 transformOrigin: Item.Right
             }
             Column {
@@ -375,7 +375,7 @@ Item {
                     font.weight: Font.Medium
                     font.letterSpacing: 2 * root.s
                 }
-                Rectangle { width: tm.implicitWidth; height: 1; color: Theme.wallText; opacity: 0.6 }
+                Rectangle { width: tm.implicitWidth; height: 1; color: Theme.clockInk; opacity: 0.6 }
             }
         }
     }

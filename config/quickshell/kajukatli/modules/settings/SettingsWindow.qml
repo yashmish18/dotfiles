@@ -436,6 +436,8 @@ LazyLoader {
                     }
                     Setting { label: "Behind the subject"; detail: Wall.depthReady ? "This wallpaper has a subject, so the clock can tuck behind it." : "Needs the wallpaper ai and a picture with a clear figure."
                         Switch { on: Config.s.clockDepth; onToggled: Config.s.clockDepth = !Config.s.clockDepth } }
+                    Setting { label: "Colour"; detail: "Auto picks light or dark ink from the picture under the clock."
+                        Choice { options: [{ value: "auto", label: "auto" }, { value: "theme", label: "theme" }]; value: Config.s.clockColor; onPicked: v => Config.s.clockColor = v } }
                     Setting { label: "Moves with the music"
                         Switch { on: Config.s.clockPulse; onToggled: Config.s.clockPulse = !Config.s.clockPulse } }
                     Setting { label: "24-hour time"

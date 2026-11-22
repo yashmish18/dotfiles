@@ -114,6 +114,7 @@ Singleton {
             property string clockStyle: "hero"      // stack | hero | serif | line | day | date | off
             property bool clockDepth: true          // tuck the clock behind the wallpaper's subject
             property string clockFont: "Syne"       // any installed family; each look sets its own
+            property string clockColor: "auto"     // auto: light or dark ink, whichever reads on the picture under it · theme
             property bool clockPulse: true          // the clock swells a little on the beat while music plays
             property real clockScale: 0.8
             property string visualizer: "off"      // off | wave | bars | mirror

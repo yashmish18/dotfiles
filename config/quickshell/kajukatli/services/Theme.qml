@@ -41,6 +41,13 @@ Singleton {
     property color wallText: a.wallText
     property color wallTextDim: a.wallTextDim
     property color wallShadow: a.wallShadow
+    // the desktop clock's colours: set from the picture right under it (DesktopLayer),
+    // so it reads on a red dress as well as on a white sky
+    property color clockInk: wallText
+    property color clockInkDim: wallTextDim
+    property color clockShadow: wallShadow
+    Behavior on clockInk { ColorAnimation { duration: 900; easing.type: Easing.InOutQuad } }
+    Behavior on clockInkDim { ColorAnimation { duration: 900; easing.type: Easing.InOutQuad } }
     readonly property bool dark: a.dark
     readonly property string scheme: a.scheme
 

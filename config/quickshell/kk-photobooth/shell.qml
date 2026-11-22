@@ -48,6 +48,7 @@ ShellRoot {
         { name: "dream", sat: 0.1, con: -0.1, bri: 0.08, tint: 0.2, col: "#d9a6ff", blur: 0.35 }
     ]
     property int look: 0
+    property string camError: ""
     property bool strip: false
     property int count: 0            // the countdown on screen (0 = none)
     property int shotsLeft: 0
@@ -75,6 +76,8 @@ ShellRoot {
         implicitHeight: 780
         color: app.bg
         visible: true
+        // closing the window ends the app, so the camera is let go (and its light goes off)
+        onVisibleChanged: if (!visible) { cam.active = false; Qt.quit(); }
 
         Item {
             anchors.fill: parent
@@ -82,7 +85,7 @@ ShellRoot {
             Keys.onSpacePressed: app.shoot()
             Keys.onReturnPressed: app.shoot()
             Keys.onTabPressed: app.strip = !app.strip
-            Keys.onEscapePressed: Qt.quit()
+            Keys.onEscapePressed: { cam.active = false; Qt.quit(); }
             Keys.onPressed: e => {
                 const n = parseInt(e.text);
                 if (n >= 1 && n <= app.looks.length) app.look = n - 1;
@@ -94,6 +97,7 @@ ShellRoot {
                     id: cam
                     cameraDevice: devices.defaultVideoInput
                     active: true
+                    onErrorOccurred: (error, message) => app.camError = message || "the camera didn't start"
                 }
                 videoOutput: video
             }
@@ -152,8 +156,11 @@ ShellRoot {
                 // no camera?
                 Text {
                     anchors.centerIn: parent
-                    visible: devices.videoInputs.length === 0
-                    text: "No camera found"
+                    visible: devices.videoInputs.length === 0 || app.camError !== ""
+                    width: parent.width - 80
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    text: devices.videoInputs.length === 0 ? "No camera found" : "Camera: " + app.camError
                     font.family: "Bricolage Grotesque"
                     font.pixelSize: 22
                     color: app.dim
