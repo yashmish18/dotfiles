@@ -68,13 +68,6 @@ Rectangle {
                     font.weight: Font.Medium
                     color: Theme.surfaceText
                 }
-                Txt {
-                    text: "WEEK " + root.weekNumber(clock.date) + " · 6 WEEKS"
-                    font.family: Theme.mono
-                    font.pixelSize: 8
-                    font.letterSpacing: 1
-                    color: Theme.outline
-                }
             }
             Item { Layout.fillWidth: true }
             Btn { icon: "left"; flat: true; onClicked: root.shift(-1) }
@@ -139,19 +132,6 @@ Rectangle {
             }
         }
 
-        Hair { Layout.fillWidth: true; color: Theme.alpha(Theme.outlineVariant, 0.7) }
-        Txt {
-            text: Qt.formatDate(clock.date, "dddd, MMMM d, yyyy")
-            font.family: Theme.mono
-            font.pixelSize: 9
-            color: Theme.surfaceTextDim
-        }
-        Txt {
-            text: "No holidays or events"
-            font.family: Theme.mono
-            font.pixelSize: 9
-            color: Theme.outline
-        }
     }
 
     WheelHandler {

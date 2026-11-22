@@ -21,12 +21,12 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             Txt {
-                text: Notifs.count === 0 ? "nothing new." : Notifs.count === 1 ? "one thing." : Notifs.count + " things."
+                text: "Notifications"
                 font.pixelSize: Theme.xl - 4
                 Layout.fillWidth: true
             }
-            Btn { text: Notifs.dnd ? "quiet: on" : "quiet: off"; active: Notifs.dnd; onClicked: Notifs.dnd = !Notifs.dnd }
-            Btn { text: "clear"; visible: Notifs.count > 0; onClicked: Notifs.clearAll() }
+            Btn { icon: Notifs.dnd ? "bell-off" : "bell"; active: Notifs.dnd; onClicked: Notifs.dnd = !Notifs.dnd }
+            Btn { text: "Clear"; visible: Notifs.count > 0; onClicked: Notifs.clearAll() }
         }
 
         ListView {
@@ -50,7 +50,7 @@ Item {
 
         Txt {
             visible: Notifs.count === 0
-            text: Notifs.dnd ? "quiet is on. only urgent things get through." : "the world can wait."
+            text: ""
             color: Theme.muted
             font.family: Theme.mono
             font.pixelSize: Theme.sm

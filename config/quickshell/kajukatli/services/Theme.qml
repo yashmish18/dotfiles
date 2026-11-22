@@ -99,7 +99,7 @@ Singleton {
     readonly property int barHeight: 36
     readonly property int gap: 10
     readonly property int radius: Config.s.radius
-    readonly property int radiusSmall: Math.max(4, Math.round(Config.s.radius * 0.55))
+    readonly property int radiusSmall: Math.max(4, Math.round(Config.s.radius * 0.7))
 
     function reload() { file.reload() }
 

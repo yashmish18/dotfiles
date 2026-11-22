@@ -73,45 +73,23 @@ Item {
     }
 
     // ------------------------------------------------------------ header
-    RowLayout {
+    // what you've typed, when you type
+    Rectangle {
         id: head
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
-        width: Math.min(parent.width, 900)
-        spacing: 12
-        ColumnLayout {
-            spacing: 2
-            Txt {
-                text: "Wallpapers"
-                font.pixelSize: 28
-                font.weight: Font.Bold
-                color: "#ffffff"
-            }
-            Txt {
-                text: Wall.listing && Wall.library.length === 0 ? "looking in " + Config.s.wallpaperDir + "…"
-                    : root.items.length + (root.query ? " matching" : " in " + Config.s.wallpaperDir)
-                font.pixelSize: Theme.sm
-                color: Theme.alpha("#ffffff", 0.6)
-            }
+        visible: root.query !== ""
+        implicitWidth: qrow.implicitWidth + 24
+        implicitHeight: 34
+        radius: Theme.radiusSmall
+        color: Theme.alpha("#ffffff", 0.12)
+        Row {
+            id: qrow
+            anchors.centerIn: parent
+            spacing: 8
+            Icon { name: "search"; size: 14; color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter }
+            Txt { text: root.query; color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter }
         }
-        Item { Layout.fillWidth: true }
-        // the filter, shown once you type
-        Rectangle {
-            visible: root.query !== ""
-            implicitWidth: qrow.implicitWidth + 24
-            implicitHeight: 34
-            radius: 17
-            color: Theme.alpha("#ffffff", 0.12)
-            Row {
-                id: qrow
-                anchors.centerIn: parent
-                spacing: 8
-                Icon { name: "search"; size: 14; color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter }
-                Txt { text: root.query; color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter }
-            }
-        }
-        Btn { icon: "shuffle"; text: "Surprise me"; onClicked: { Wall.random(); Ui.overlay = ""; } }
-        Btn { icon: "external"; text: "Open folder"; onClicked: { Ui.overlay = ""; Quickshell.execDetached(["xdg-open", Config.wallpaperDir]); } }
     }
 
     // ------------------------------------------------------------ the strip
@@ -162,7 +140,7 @@ Item {
 
                 ClippingRectangle {
                     anchors.fill: parent
-                    radius: 22
+                    radius: Theme.radius
                     color: Theme.surfaceHigh
                     Image {
                         id: thumb
@@ -206,20 +184,11 @@ Item {
                 Rectangle {
                     anchors.fill: parent
                     anchors.margins: -5
-                    radius: 27
+                    radius: Theme.radius + 5
                     color: "transparent"
                     border.width: 2.5
                     border.color: Theme.primary
                     visible: card.current
-                }
-                Row {
-                    anchors.left: parent.left
-                    anchors.bottom: parent.bottom
-                    anchors.margins: 14
-                    spacing: 6
-                    Badge { visible: card.current; icon: "check"; label: "in use" }
-                    Badge { visible: card.modelData.kind === "video"; icon: "play"; label: "live" }
-                    Badge { visible: card.modelData.subject; icon: "spark"; label: "depth" }
                 }
                 MouseArea {
                     anchors.fill: parent
@@ -256,32 +225,15 @@ Item {
                 color: "#ffffff"
             }
         }
-        Txt {
-            Layout.alignment: Qt.AlignHCenter
-            text: "enter  use it      ← →  browse      type  filter      ctrl r  surprise      ctrl a  re-detect subject"
-            font.family: Theme.mono
-            font.pixelSize: Theme.xs + 1
-            color: Theme.alpha("#ffffff", 0.5)
-        }
     }
 
-    // nothing here yet
-    ColumnLayout {
+    // nothing here yet: just where to put them
+    Txt {
         anchors.centerIn: parent
         visible: !Wall.listing && Wall.library.length === 0
-        spacing: 10
-        Icon { Layout.alignment: Qt.AlignHCenter; name: "image"; size: 40; color: Theme.alpha("#ffffff", 0.6) }
-        Txt {
-            Layout.alignment: Qt.AlignHCenter
-            text: "No wallpapers yet"
-            font.pixelSize: Theme.xl
-            font.weight: Font.Bold
-            color: "#ffffff"
-        }
-        Txt {
-            Layout.alignment: Qt.AlignHCenter
-            text: "Put pictures or videos in " + Config.s.wallpaperDir + ", or run ./install.sh --walls"
-            color: Theme.alpha("#ffffff", 0.6)
-        }
+        text: Config.s.wallpaperDir
+        font.family: Theme.mono
+        color: Theme.alpha("#ffffff", 0.6)
     }
+
 }

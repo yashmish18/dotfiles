@@ -23,7 +23,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: Math.min(height / 2, Theme.radius)
+        radius: Theme.radiusSmall
         color: Theme.surfaceHigh
         border.width: 1.5
         border.color: edit.activeFocus ? Theme.primary : "transparent"

@@ -1,65 +1,59 @@
 import QtQuick
 import qs.services
 
-// a quick-settings tile: an icon in a circle, a name, what it's doing. the whole tile lights up
-// in the wallpaper's colour when it's on. click toggles; the chevron (when `more`) opens its page.
-Rectangle {
+// a row: icon, name, its state in small type, and a dot on the right that fills when on.
+// click toggles; the chevron (when `more`) opens its page.
+Item {
     id: root
     property string title: ""
     property string detail: ""
     property string icon: ""
+    property real level: -1
     property bool on: false
     property bool more: false
     signal toggled()
     signal opened()
 
-    implicitWidth: 172
-    implicitHeight: 58
-    radius: Theme.radius
-    color: on ? Theme.primaryContainer : area.containsMouse ? Theme.surfaceHighest : Theme.surfaceHigh
-    opacity: enabled ? 1 : 0.45
-    Behavior on color { ColorAnimation { duration: Theme.normal } }
-    scale: area.pressed ? 0.97 : 1
-    Behavior on scale { NumberAnimation { duration: 90 } }
+    implicitWidth: 320
+    implicitHeight: 40
+    opacity: enabled ? 1 : 0.4
 
     Rectangle {
-        id: badge
-        visible: root.icon !== ""
-        x: 10
-        anchors.verticalCenter: parent.verticalCenter
-        width: 36
-        height: 36
-        radius: 18
-        color: root.on ? Theme.primary : Theme.alpha(Theme.surfaceText, 0.07)
-        Behavior on color { ColorAnimation { duration: Theme.normal } }
-        Icon {
-            anchors.centerIn: parent
-            name: root.icon
-            size: 18
-            color: root.on ? Theme.primaryText : Theme.surfaceText
-        }
+        anchors.fill: parent
+        radius: Theme.radiusSmall
+        color: area.containsMouse ? Theme.alpha(Theme.surfaceText, 0.06) : "transparent"
+        Behavior on color { ColorAnimation { duration: Theme.fast } }
     }
 
-    Column {
-        anchors.left: badge.visible ? badge.right : parent.left
-        anchors.leftMargin: badge.visible ? 10 : 14
-        anchors.right: chevron.visible ? chevron.left : parent.right
-        anchors.rightMargin: 6
+    Icon {
+        id: ic
+        visible: root.icon !== ""
+        x: 8
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 1
-        Txt {
-            width: parent.width
-            text: root.title
-            font.weight: Font.DemiBold
-            color: root.on ? Theme.primaryContainerText : Theme.surfaceText
-        }
-        Txt {
-            width: parent.width
-            text: root.detail
-            visible: text !== ""
-            font.pixelSize: Theme.sm
-            color: root.on ? Theme.alpha(Theme.primaryContainerText, 0.8) : Theme.surfaceTextDim
-        }
+        name: root.icon
+        level: root.level
+        size: 16
+        color: root.on ? Theme.primary : Theme.surfaceTextDim
+    }
+    Txt {
+        id: name
+        anchors.left: ic.visible ? ic.right : parent.left
+        anchors.leftMargin: ic.visible ? 12 : 8
+        anchors.verticalCenter: parent.verticalCenter
+        text: root.title
+        color: Theme.surfaceText
+    }
+    Txt {
+        anchors.left: name.right
+        anchors.leftMargin: 10
+        anchors.right: chevron.visible ? chevron.left : dot.left
+        anchors.rightMargin: 10
+        anchors.verticalCenter: parent.verticalCenter
+        horizontalAlignment: Text.AlignRight
+        text: root.detail
+        font.family: Theme.mono
+        font.pixelSize: Theme.sm
+        color: Theme.outline
     }
 
     MouseArea {
@@ -71,22 +65,19 @@ Rectangle {
         onClicked: e => (e.button === Qt.RightButton && root.more) ? root.opened() : root.toggled()
     }
 
-    // its own hit area, so the chevron opens the page instead of toggling
-    Rectangle {
+    // opens the row's page
+    Item {
         id: chevron
         visible: root.more
-        anchors.right: parent.right
-        anchors.rightMargin: 8
-        anchors.verticalCenter: parent.verticalCenter
-        width: 26
-        height: 26
-        radius: 13
-        color: chevArea.containsMouse ? Theme.alpha(root.on ? Theme.primaryContainerText : Theme.surfaceText, 0.12) : "transparent"
+        anchors.right: dot.left
+        anchors.rightMargin: 4
+        width: 24
+        height: parent.height
         Icon {
             anchors.centerIn: parent
             name: "right"
-            size: 14
-            color: root.on ? Theme.primaryContainerText : Theme.surfaceTextDim
+            size: 12
+            color: chevArea.containsMouse ? Theme.surfaceText : Theme.outline
         }
         MouseArea {
             id: chevArea
@@ -95,5 +86,19 @@ Rectangle {
             cursorShape: Qt.PointingHandCursor
             onClicked: root.opened()
         }
+    }
+    // on / off
+    Rectangle {
+        id: dot
+        anchors.right: parent.right
+        anchors.rightMargin: 10
+        anchors.verticalCenter: parent.verticalCenter
+        width: 10
+        height: 10
+        radius: 5
+        color: root.on ? Theme.primary : "transparent"
+        border.width: root.on ? 0 : 1.5
+        border.color: Theme.outline
+        Behavior on color { ColorAnimation { duration: Theme.fast } }
     }
 }

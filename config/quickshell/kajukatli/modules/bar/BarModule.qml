@@ -226,6 +226,7 @@ Loader {
     Component {
         id: notifC
         Chip {
+            shown: Notifs.count > 0 || Notifs.dnd
             icon: Notifs.dnd ? "bell-off" : "bell"
             label: Notifs.count > 0 ? String(Notifs.count) : ""
             iconColor: Notifs.count > 0 ? Theme.primary : Theme.surfaceTextDim
@@ -290,13 +291,6 @@ Loader {
                     font.pixelSize: Theme.md
                     font.weight: Font.Medium
                     color: Theme.surfaceText
-                }
-                Txt {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: Qt.formatDate(sc.date, "ddd d")
-                    font.family: Theme.mono
-                    font.pixelSize: Theme.sm
-                    color: Theme.outline
                 }
             }
             Column {

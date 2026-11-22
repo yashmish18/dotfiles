@@ -65,7 +65,7 @@ Item {
             spacing: 2
             Txt {
                 Layout.fillWidth: true
-                text: Media.active ? Media.title : "Nothing playing"
+                text: Media.active ? Media.title : ""
                 font.pixelSize: Theme.lg + 3
                 font.weight: Font.Bold
             }

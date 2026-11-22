@@ -43,41 +43,6 @@ Item {
         else if (e.key === Qt.Key_Tab) { sel = (sel + 1) % count; e.accepted = true; }
     }
 
-    // ------------------------------------------------------------ header
-    RowLayout {
-        id: head
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        spacing: 14
-        Txt {
-            text: "Workspaces"
-            font.pixelSize: 34
-            font.weight: Font.Bold
-            color: "#ffffff"
-        }
-        Txt {
-            Layout.alignment: Qt.AlignBottom
-            Layout.bottomMargin: 6
-            text: root.list.length + (root.list.length === 1 ? " open" : " open")
-            font.family: Theme.mono
-            font.pixelSize: Theme.sm
-            color: Theme.alpha("#ffffff", 0.55)
-        }
-        Item { Layout.fillWidth: true }
-        Repeater {
-            model: ["drag a window to move it", "middle-click closes", "right-click renames", "n  new"]
-            Rectangle {
-                required property string modelData
-                implicitWidth: hint.implicitWidth + 20
-                implicitHeight: 26
-                radius: 13
-                color: Theme.alpha("#ffffff", 0.08)
-                Txt { id: hint; anchors.centerIn: parent; text: parent.modelData; font.family: Theme.mono; font.pixelSize: Theme.xs + 1; color: Theme.alpha("#ffffff", 0.7) }
-            }
-        }
-    }
-
     // ------------------------------------------------------------ the row of workspaces
     Flickable {
         id: strip
@@ -118,7 +83,7 @@ Item {
                         Rectangle {
                             anchors.fill: parent
                             anchors.margins: -5
-                            radius: 21
+                            radius: Theme.radius + 5
                             color: "transparent"
                             border.width: frame.active ? 3 : drop.containsDrag ? 2 : 0
                             border.color: Theme.primary
@@ -126,7 +91,7 @@ Item {
                         ClippingRectangle {
                             id: card
                             anchors.fill: parent
-                            radius: 16
+                            radius: Theme.radius
                             color: Theme.surfaceLow
                             scale: frame.hot && !frame.active ? 1.02 : 1
                             Behavior on scale { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutCubic } }
@@ -244,12 +209,6 @@ Item {
                             }
                         }
 
-                        Txt {
-                            visible: frame.modelData.toplevels.values.length === 0
-                            anchors.centerIn: parent
-                            text: "empty"
-                            color: Theme.alpha("#ffffff", 0.6)
-                        }
                     }
 
                     // the big number, and the name if it has one
@@ -263,23 +222,11 @@ Item {
                             color: frame.active ? Theme.primary : "#ffffff"
                             renderType: Text.QtRendering
                         }
-                        Column {
+                        Txt {
                             anchors.verticalCenter: parent.verticalCenter
-                            Txt {
-                                visible: frame.modelData.name !== String(frame.modelData.id)
-                                text: frame.modelData.name
-                                font.weight: Font.DemiBold
-                                color: "#ffffff"
-                            }
-                            Txt {
-                                text: {
-                                    const n = frame.modelData.toplevels.values.length;
-                                    return n === 0 ? "nothing open" : n === 1 ? "1 window" : n + " windows";
-                                }
-                                font.family: Theme.mono
-                                font.pixelSize: Theme.xs + 1
-                                color: Theme.alpha("#ffffff", 0.55)
-                            }
+                            visible: frame.modelData.name !== String(frame.modelData.id)
+                            text: frame.modelData.name
+                            color: "#ffffff"
                         }
                     }
                 }
@@ -291,7 +238,7 @@ Item {
                 Rectangle {
                     width: root.cardW
                     height: root.cardH
-                    radius: 16
+                    radius: Theme.radius
                     readonly property bool hot: newDrop.containsDrag || plusArea.containsMouse || root.sel === root.list.length
                     color: newDrop.containsDrag ? Theme.alpha(Theme.primary, 0.25) : hot ? Theme.alpha("#ffffff", 0.1) : Theme.alpha("#ffffff", 0.04)
                     border.width: 2
@@ -302,15 +249,9 @@ Item {
                         spacing: 10
                         Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: 52; height: 52; radius: 26
+                            width: 52; height: 52; radius: Theme.radius
                             color: Theme.primary
                             Icon { anchors.centerIn: parent; name: "plus"; size: 24; color: Theme.primaryText }
-                        }
-                        Txt {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: newDrop.containsDrag ? "Drop to give it its own workspace" : "New workspace"
-                            font.weight: Font.DemiBold
-                            color: "#ffffff"
                         }
                     }
                     MouseArea {

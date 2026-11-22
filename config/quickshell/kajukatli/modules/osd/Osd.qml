@@ -54,7 +54,7 @@ PanelWindow {
     Rectangle {
         id: box
         anchors.fill: parent
-        radius: height / 2
+        radius: Theme.radius
         color: Theme.glassStrong
         border.width: 1
         border.color: Theme.alpha(Theme.surfaceText, 0.08)

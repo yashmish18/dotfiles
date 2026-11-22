@@ -49,7 +49,7 @@ Singleton {
             property string look: "studio"          // the preset last applied (see Looks.qml)
             property string themeScheme: "vibrant"  // vibrant | tonal | mono
             property string themeMode: "dark"       // dark | light | auto
-            property int radius: 14
+            property int radius: 8
 
             // ---------------------------------------------------- bar
             property string barStyle: "islands"     // islands | pill | bar | rail | none
@@ -63,17 +63,17 @@ Singleton {
             })
 
             // ---------------------------------------------------- desktop
-            property string clockStyle: "hero"      // stack | hero | serif | line | day | date | off
+            property string clockStyle: "line"      // stack | hero | serif | line | day | date | off
             property bool clockDepth: true          // tuck the clock behind the wallpaper's subject
-            property string clockFont: "Syne"       // any installed family; each look sets its own
-            property real clockScale: 0.8
+            property string clockFont: "Bricolage Grotesque"       // any installed family; each look sets its own
+            property real clockScale: 1.0
             property string visualizer: "off"      // off | wave | bars | mirror
             property bool visualizerBehind: true
             property int visualizerBars: 48
             property bool showCalendar: false
-            property string mediaWidget: "off"      // off | lyrics | card | portrait
-            property bool showStats: false
-            property var layout: ({ clock: { x: 0.05, y: 0.1 } })   // widget positions (settings → desktop, or drag them)
+            property string mediaWidget: "portrait" // off | lyrics | card | portrait
+            property bool showStats: true
+            property var layout: ({ clock: { x: 0.03, y: 0.07 }, stats: { x: 0.025, y: 0.82 }, media: { x: 0.56, y: 0.92 } })   // widget positions (settings → desktop, or drag them)
 
             // ---------------------------------------------------- dock
             property bool dock: true

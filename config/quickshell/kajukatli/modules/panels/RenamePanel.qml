@@ -15,13 +15,13 @@ Item {
         width: parent.width
         spacing: 8
         Txt {
-            text: "call workspace " + (root.ws ? root.ws.id : "") + "…"
+            text: "Rename " + (root.ws ? root.ws.id : "") + "…"
             font.pixelSize: Theme.lg + 2
         }
         Field {
             id: field
             Layout.fillWidth: true
-            placeholder: "a name, or nothing"
+            placeholder: ""
             size: Theme.lg
             Component.onCompleted: {
                 if (root.ws && root.ws.name !== String(root.ws.id)) text = root.ws.name;

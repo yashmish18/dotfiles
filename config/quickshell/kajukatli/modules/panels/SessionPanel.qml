@@ -53,23 +53,6 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
-            Txt {
-                Layout.fillWidth: true
-                text: root.armed !== "" ? "Press again to " + root.actions.find(a => a.key === root.armed).word.toLowerCase() : "See you soon"
-                font.pixelSize: Theme.lg + 2
-                font.weight: Font.Bold
-                color: root.armed !== "" ? Theme.error : Theme.surfaceText
-            }
-            Txt {
-                text: Quickshell.env("USER") || ""
-                font.family: Theme.mono
-                font.pixelSize: Theme.sm
-                color: Theme.outline
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
             spacing: 8
             Repeater {
                 model: root.actions
@@ -80,9 +63,9 @@ Item {
                     readonly property bool sel: root.index === index
                     readonly property bool hot: root.armed === modelData.key
                     Layout.fillWidth: true
-                    implicitHeight: 88
+                    implicitHeight: 76
                     radius: Theme.radius
-                    color: hot ? Theme.error : sel ? Theme.primaryContainer : area.containsMouse ? Theme.surfaceHighest : Theme.surfaceHigh
+                    color: hot ? Theme.error : sel ? Theme.alpha(Theme.primary, 0.18) : "transparent"
                     Behavior on color { ColorAnimation { duration: Theme.fast } }
                     scale: area.pressed ? 0.95 : 1
                     Behavior on scale { NumberAnimation { duration: 90 } }
@@ -93,14 +76,14 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             name: card.modelData.icon
                             size: 24
-                            color: card.hot ? Theme.errorText : card.sel ? Theme.primaryContainerText : Theme.surfaceText
+                            color: card.hot ? Theme.errorText : card.sel ? Theme.primary : Theme.surfaceText
                         }
                         Txt {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: card.modelData.word
+                            text: card.hot ? "again" : card.modelData.word
                             font.pixelSize: Theme.sm
                             font.weight: Font.Medium
-                            color: card.hot ? Theme.errorText : card.sel ? Theme.primaryContainerText : Theme.surfaceTextDim
+                            color: card.hot ? Theme.errorText : card.sel ? Theme.primary : Theme.surfaceTextDim
                         }
                     }
                     Txt {
