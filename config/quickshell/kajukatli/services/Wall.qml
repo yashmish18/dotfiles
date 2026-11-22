@@ -57,7 +57,10 @@ Singleton {
     function set(file: string) {
         if (!file) return;
         error = "";
-        if (!isVideoPath(file)) {
+        const known = cachedMeta(file);
+        if (known) {
+            show(known);
+        } else if (!isVideoPath(file)) {
             show({ source: file, name: file.split("/").pop().replace(/\.[^.]+$/, ""), kind: "image",
                    display: file, thumb: file, dir: "", depth: "", ink: "", mask: "", video: "",
                    width: 0, height: 0, stage: 0 });
@@ -66,18 +69,27 @@ Singleton {
         if (!fast.running) fast.go(file);
     }
 
+    function cachedMeta(file: string) {
+        const last = Store.s.wallMeta;
+        if (last && last.source === file && last.display) return last;
+        const e = library.find(w => w.path === file);
+        return e && e.meta && e.meta.display ? e.meta : null;
+    }
+
     function show(meta) {
         if (current !== null) Sounds.play("swoosh", 800);   // not at login, only on a real switch
         stopVideo();
         current = meta;
         generation++;
         Store.s.wallpaper = meta.source;
+        if (meta.dir) Store.s.wallMeta = meta;
         if (isVideo) videoStart.restart();
         pointAt(meta);
     }
     // same picture, more known about it: no transition, just the new parts
     function refine(meta) {
         current = meta;
+        if (meta.dir) Store.s.wallMeta = meta;
         refined();
         pointAt(meta);
     }
@@ -157,6 +169,54 @@ Singleton {
             pick = library[(library.indexOf(pick) + 1) % library.length];
         set(pick.path);
     }
+    // ---------------------------------------------------------------- the rest of the library
+    // on the charger, one wallpaper at a time at idle priority: so every switch has its ink
+    // map, cut-out and depth ready, instead of working them out while you watch
+    property var backlog: []
+    function queueBacklog() {
+        backlog = library.filter(w => w.kind === "image" && !(w.meta && (w.meta.stage || 0) >= 2)).map(w => w.path);
+        backlogTimer.restart();
+    }
+    Timer {
+        id: backlogTimer
+        interval: 20000
+        repeat: true
+        running: root.backlog.length > 0 && !Power.onBattery && !root.aiMissing
+        onTriggered: {
+            if (ai.running || fast.running || root.backlog.length === 0) return;
+            const next = root.backlog[0];
+            root.backlog = root.backlog.slice(1);
+            bg.command = ["nice", "-n", "19", "ionice", "-c", "3", Config.bin + "kk-prep", next];
+            bg.running = true;
+        }
+    }
+    Process {
+        id: bg
+        onExited: if (root.backlog.length === 0) root.refreshLibrary()
+    }
+
+    // kk-getwalls: fresh anime wallpapers from wallhaven, from settings
+    property bool fetching: false
+    property string fetchNote: ""
+    function fetchAnime() {
+        if (getter.running) return;
+        fetching = true;
+        fetchNote = "downloading…";
+        getter.running = true;
+    }
+    Process {
+        id: getter
+        command: [Config.bin + "kk-getwalls", "16"]
+        stdout: StdioCollector { id: getOut }
+        onExited: code => {
+            root.fetching = false;
+            const l = getOut.text.trim().split("
+");
+            root.fetchNote = code === 0 ? l[l.length - 1] : "couldn't reach wallhaven";
+            root.refreshLibrary();
+        }
+    }
+
     function refreshLibrary() {
         if (listProc.running) return;
         listing = true;
@@ -186,6 +246,7 @@ Singleton {
     // the last one; if that's gone (or nothing was saved), any from the folder: never a blank screen
     function restore() {
         if (!Store.ready || root.current !== null) return;
+        refreshLibrary();
         if (Store.s.wallpaper !== "") set(Store.s.wallpaper);
         else random();
     }
@@ -268,6 +329,7 @@ Singleton {
                 } catch (e) {
                     root.library = [];
                 }
+                root.queueBacklog();
             }
         }
         onExited: {
@@ -306,5 +368,6 @@ Singleton {
         function random(): void { root.random(); }
         function redetect(model: string): void { root.redetect(model); }
         function current(): string { return root.current ? root.current.source : ""; }
+        function refresh(): void { root.refreshLibrary(); }
     }
 }

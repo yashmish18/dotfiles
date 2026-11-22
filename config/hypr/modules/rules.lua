@@ -37,6 +37,15 @@ hl.window_rule({
     size   = { "min(1040, monitor_w * 0.8)", "min(720, monitor_h * 0.85)" },
 })
 
+-- the photobooth: floating, centred
+hl.window_rule({
+    name   = "kk-photobooth",
+    match  = { title = "^(Photobooth)$" },
+    float  = true,
+    center = true,
+    size   = { "min(1080, monitor_w * 0.85)", "min(780, monitor_h * 0.88)" },
+})
+
 -- file pickers
 hl.window_rule({
     name   = "float-dialogs",

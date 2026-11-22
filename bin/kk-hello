@@ -1,9 +1,9 @@
 #!/bin/sh
-# kk-hello   the terminal greeting: fastfetch. in kitty, the logo is the figure from your
-#            current wallpaper (cut out by the wallpaper ai); everywhere else, the cat.
+# kk-hello   the terminal greeting: fastfetch with the smoking kitty.
+#            KK_HELLO_FIGURE=1 kk-hello: in kitty, the figure from your current wallpaper instead
 set -u
 cut="${XDG_CACHE_HOME:-$HOME/.cache}/kajukatli/current/cut.png"
-if [ -n "${KITTY_WINDOW_ID:-}" ] && [ -f "$cut" ] && [ -z "${KK_HELLO_CAT:-}" ]; then
+if [ -n "${KITTY_WINDOW_ID:-}" ] && [ -f "$cut" ] && [ -n "${KK_HELLO_FIGURE:-}" ]; then
     w=1; h=1
     [ -f "${cut%.png}.txt" ] && read -r w h < "${cut%.png}.txt"
     rows=14

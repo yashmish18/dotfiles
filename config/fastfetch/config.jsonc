@@ -1,11 +1,11 @@
-// kajukatli · fastfetch      (kk-hello runs it: in kitty the logo is your wallpaper's figure)
+// kajukatli · fastfetch: the smoking kitty. (KK_HELLO_FIGURE=1 meow: your wallpaper's figure instead, in kitty)
 // colours are the terminal's palette slots 16–22, which kk-theme sets from the wallpaper
 {
     "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
     "logo": {
         "type": "file",
         "source": "~/.config/fastfetch/logo.txt",
-        "color": { "1": "38;5;20", "2": "38;5;19", "3": "38;5;16" },
+        "color": { "1": "38;5;20", "2": "38;5;19", "3": "38;5;16", "4": "1;38;5;209", "5": "1;38;5;16" },
         "padding": { "top": 1, "left": 2, "right": 4 }
     },
     "display": {

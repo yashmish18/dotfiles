@@ -500,6 +500,7 @@ LazyLoader {
                 Group {
                     Setting { label: "Choose a wallpaper"; detail: Wall.current ? Wall.current.name : ""
                         RowLayout { spacing: 6
+                            Btn { text: Wall.fetching ? "Getting…" : "Get anime ones"; icon: "download"; enabled: !Wall.fetching; onClicked: Wall.fetchAnime() }
                             Btn { text: "Surprise me"; icon: "shuffle"; onClicked: Wall.random() }
                             Btn { text: "Browse"; icon: "image"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.toggleOverlay("wallpapers"); } } } }
                     Setting { label: "Folder"

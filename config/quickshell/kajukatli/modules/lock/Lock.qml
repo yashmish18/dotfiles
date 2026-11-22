@@ -16,6 +16,7 @@ Scope {
     property int attempts: 0
     property string note: ""
     readonly property bool locked: lock.locked
+    signal woke()       // back from sleep: every surface takes the keyboard again
 
     // "start in the lock screen": kk-session --locked sets KK_LOCK_AT_START. lock once per
     // login (PersistentProperties survives the shell reloading itself, so edits don't re-lock)
@@ -112,5 +113,6 @@ Scope {
         target: "lock"
         function lock(): void { root.lockNow(); }
         function isLocked(): bool { return root.locked; }
+        function wake(): void { root.woke(); }
     }
 }

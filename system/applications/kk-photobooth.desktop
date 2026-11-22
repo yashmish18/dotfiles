@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Photobooth
+GenericName=Camera
+Comment=Take photos and strips with your camera
+Exec=qs -c kk-photobooth
+Icon=camera-photo
+Categories=AudioVideo;Video;Photography;
+Keywords=camera;webcam;selfie;photo;

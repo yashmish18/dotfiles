@@ -126,7 +126,7 @@ Item {
                 Btn { icon: "record"; active: Ui.recording; danger: Ui.recording; onClicked: Ui.recording ? (Ui.panel = "", Quickshell.execDetached([Config.bin + "kk-record"])) : Ui.open("capture") }
                 Btn { icon: "sliders"; onClicked: Ui.open("settings") }
                 Btn { icon: "lock"; onClicked: { Ui.panel = ""; Quickshell.execDetached([Config.bin + "kk-lock"]); } }
-                Btn { icon: "power"; danger: true; onClicked: Ui.open("session") }
+                Btn { icon: "power"; danger: true; onClicked: Ui.toggleOverlay("power") }
             }
 
             // sliders

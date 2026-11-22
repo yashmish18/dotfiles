@@ -1,4 +1,4 @@
-# everyday apps: files, browser, player, mixer, bluetooth + wi-fi editors · ~400 mb
+# everyday apps: files, browser, player, photos, camera + photobooth, mixer, bluetooth + wi-fi editors · ~450 mb
 # default: on
 nautilus
 firefox
@@ -7,3 +7,6 @@ pavucontrol
 blueman
 network-manager-applet
 loupe
+snapshot
+qt6-multimedia
+qt6-multimedia-ffmpeg

@@ -53,6 +53,7 @@ for a in "$@"; do
         --fonts) ONLY=fonts ;;
         --walls) ONLY=walls ;;
         --ai) ONLY=ai ;;
+        --grub) ONLY=grub ;;
         --no-ai) EXTRAS_ARG="${EXTRAS_ARG:-default}"; NO_AI=1 ;;
         -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown option: $a (try --help)"; exit 2 ;;
@@ -282,6 +283,11 @@ links() {
     say "linking the dotfiles"
     # quickshell: the whole folder, so compiled shaders sit next to the qml that loads them
     backup_and_link "$REPO/config/quickshell/kajukatli" "$CONFIG/quickshell/kajukatli"
+    backup_and_link "$REPO/config/quickshell/kk-photobooth" "$CONFIG/quickshell/kk-photobooth"
+    # our own apps in the app drawer
+    for f in "$REPO"/system/applications/*.desktop; do
+        [ -f "$f" ] && install -Dm644 "$f" "$HOME/.local/share/applications/$(basename "$f")"
+    done
 
     # everything else file by file, so generated files (theme.lua, colors.conf) stay out of git
     local skip_re='/(theme\.lua|gpu\.lua|user\.lua|qt6ct\.conf\.in)$'
@@ -394,6 +400,10 @@ wallpapers() {
         sleep 2   # wikimedia asks scripts to go gently (it rate-limits picture scaling)
     done
     ok "wallpapers ($got in ~/Pictures/wallpapers/paintings)"
+    # anime: the month's top ones from wallhaven (sfw), straight to your machine
+    if ask "also download 16 top anime wallpapers from wallhaven.cc (~60 mb)" y; then
+        "$REPO/bin/kk-getwalls" 16 || warn "wallhaven didn't answer; try later: kk-getwalls"
+    fi
 }
 
 # ------------------------------------------------------------------ ai
@@ -423,6 +433,10 @@ ai_env() {
     "$py" -m pip uninstall -y --quiet rembg pymatting numba llvmlite scikit-image scipy 2>/dev/null || true
     note "fetching the model(s) now so the first wallpaper doesn't wait"
     "$BIN/kk-prep" --fetch-models || warn "model download failed; it'll retry on the first wallpaper"
+    # every wallpaper gets its cut-out, depth and ink map now, in the background at idle
+    # priority, so switching is complete from the first time (log: $CACHE/prep-all.log)
+    note "preparing every wallpaper in the background (cut-outs, depth, ink); takes a few minutes"
+    nohup nice -n 19 ionice -c 3 sh -c 'for f in "$1"/*.jpg "$1"/*.jpeg "$1"/*.png "$1"/*.webp "$1"/*/*.jpg "$1"/*/*.png; do [ -f "$f" ] && "$2" "$f" >/dev/null; done'         sh "$HOME/Pictures/wallpapers" "$BIN/kk-prep" >"$CACHE/prep-all.log" 2>&1 &
     ok "wallpaper ai ($level)"
 }
 
@@ -533,6 +547,31 @@ defaults() {
     ok "defaults"
 }
 
+# ------------------------------------------------------------------ grub
+# the boot menu in the desktop's colours, over your wallpaper (bin/kk-grub). only for grub.
+grub_theme() {
+    [ -f /etc/default/grub ] && command -v grub-mkconfig >/dev/null || return 0
+    ask "give the grub boot menu the kajukatli look" y || return 0
+    say "grub theme"
+    sudo pacman -S --needed --noconfirm freetype2 >/dev/null 2>&1 || true
+    local tmp="$CACHE/grub-theme"
+    python3 "$REPO/bin/kk-grub" "$tmp" >/dev/null || { warn "couldn't build the grub theme"; return 0; }
+    sudo rm -rf /boot/grub/themes/kajukatli
+    sudo install -d /boot/grub/themes
+    sudo cp -r "$tmp" /boot/grub/themes/kajukatli
+    local g=/etc/default/grub
+    sudo cp "$g" "$BACKUP-grub.default" 2>/dev/null || sudo cp "$g" "$g.kajukatli-backup"
+    set_grub() {   # set_grub KEY VALUE: replace or add KEY=VALUE
+        if sudo grep -qE "^#?$1=" "$g"; then sudo sed -i -E "s|^#?$1=.*|$1=$2|" "$g"; else echo "$1=$2" | sudo tee -a "$g" >/dev/null; fi
+    }
+    set_grub GRUB_THEME '"/boot/grub/themes/kajukatli/theme.txt"'
+    set_grub GRUB_GFXMODE 'auto'
+    set_grub GRUB_TIMEOUT_STYLE 'menu'
+    # a text-only console output would hide the theme
+    sudo sed -i -E 's|^GRUB_TERMINAL_OUTPUT=console|#GRUB_TERMINAL_OUTPUT=console|' "$g"
+    sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 && ok "grub theme (kk-grub again after a new wallpaper)"         || warn "grub-mkconfig failed; your old grub.cfg is untouched"
+}
+
 # ------------------------------------------------------------------ run
 echo
 echo "  ${c_acc}${c_b}kajukatli${c_0}  ${c_dim}a desktop shell for arch + hyprland${c_0}"
@@ -545,6 +584,7 @@ case "$ONLY" in
     fonts)   fonts; exit 0 ;;
     walls)   wallpapers; exit 0 ;;
     ai)      ai_env; exit 0 ;;
+    grub)    grub_theme; exit 0 ;;
 esac
 
 preflight
@@ -559,6 +599,7 @@ extra_chosen wallpaper-ai && ai_env || note "no wallpaper ai: wallpapers and col
 services
 extra_chosen terminal && terminal || true
 defaults
+grub_theme || true
 
 echo
 ok "done."

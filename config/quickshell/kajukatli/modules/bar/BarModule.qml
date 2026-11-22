@@ -162,7 +162,7 @@ Loader {
                 delegate: Item {
                     id: w
                     required property var modelData
-                    readonly property bool active: modelData.active
+                    readonly property bool active: root.monitor && root.monitor.activeWorkspace ? root.monitor.activeWorkspace.id === modelData.id : modelData.active
                     readonly property bool occupied: modelData.toplevels.values.length > 0
                     readonly property bool named: modelData.name !== String(modelData.id)
                     implicitWidth: ws.look === "dots" ? (root.vertical ? 7 : (active ? 20 : 7))

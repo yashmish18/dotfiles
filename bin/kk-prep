@@ -620,6 +620,8 @@ def list_library(folder: Path) -> list[dict]:
         if meta_path.exists():
             try:
                 meta = json.loads(meta_path.read_text())
+                if meta.get("version") == BUNDLE_VERSION and Path(meta.get("display", "")).exists():
+                    entry["meta"] = meta
                 entry.update(thumb=meta.get("thumb", ""), prepared=True, seed=meta.get("seed", ""),
                              depth=bool(meta.get("depth")), subject=bool(meta.get("has_subject")))
             except (OSError, ValueError):

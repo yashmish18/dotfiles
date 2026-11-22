@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+"""kk-grub OUTDIR   build the kajukatli grub theme into OUTDIR (install.sh copies it to /boot).
+
+the look: your current wallpaper, darkened towards the left; your machine's name huge in
+the display face; the boot entries as a plain list where the chosen one sits in an accent
+pill; a quiet countdown and the keys at the bottom. colours come from the desktop theme.
+needs pillow and grub-mkfont (both there on a kajukatli install)."""
+import json
+import os
+import shutil
+import socket
+import subprocess
+import sys
+from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFilter
+
+HOME = Path.home()
+CACHE = Path(os.environ.get("XDG_CACHE_HOME", HOME / ".cache")) / "kajukatli"
+FONTS = Path(__file__).resolve().parent.parent / "fonts"
+W, H = 1920, 1080
+
+
+def theme_colours() -> dict:
+    try:
+        t = json.loads((CACHE / "theme.json").read_text())
+    except (OSError, ValueError):
+        t = {}
+    return {
+        "accent": t.get("primary", "#e9a86b"),
+        "accentText": t.get("primaryText", "#1b1208"),
+        "text": "#f2edf4",
+        "dim": "#a49ca8",
+        "bg": t.get("surfaceContainerLowest", "#101013"),
+    }
+
+
+def wallpaper() -> Path | None:
+    meta = CACHE / "current" / "meta.json"
+    try:
+        p = Path(json.loads(meta.read_text())["display"])
+        if p.exists():
+            return p
+    except (OSError, ValueError, KeyError):
+        pass
+    for d in (HOME / "Pictures/wallpapers/paintings", HOME / "Pictures/wallpapers"):
+        if d.is_dir():
+            for f in sorted(d.rglob("*")):
+                if f.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp"):
+                    return f
+    return None
+
+
+def hexrgb(h: str) -> tuple:
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def background(out: Path, c: dict) -> None:
+    src = wallpaper()
+    if src:
+        with Image.open(src) as im:
+            im = im.convert("RGB")
+            s = max(W / im.width, H / im.height)
+            im = im.resize((round(im.width * s), round(im.height * s)), Image.LANCZOS)
+            x, y = (im.width - W) // 2, (im.height - H) // 2
+            pic = im.crop((x, y, x + W, y + H))
+    else:
+        pic = Image.new("RGB", (W, H), hexrgb(c["bg"]))
+    # the left half, where the text sits, goes dark and a little soft
+    soft = pic.filter(ImageFilter.GaussianBlur(18))
+    ramp = Image.linear_gradient("L").rotate(-90).resize((W, H))         # 255 left → 0 right
+    ramp = ramp.point(lambda v: min(255, int(v * 1.5)))
+    pic = Image.composite(soft, pic, ramp)
+    shade = Image.new("RGB", (W, H), hexrgb(c["bg"]))
+    pic = Image.composite(shade, pic, ramp.point(lambda v: int(v * 0.82)))
+    pic.save(out / "background.png", optimize=True)
+
+
+def pill(out: Path, colour: str, r: int = 26) -> None:
+    """9-slice pieces for the chosen entry: a rounded bar in the accent colour."""
+    col = hexrgb(colour) + (255,)
+    big = Image.new("RGBA", (r * 8, r * 8), (0, 0, 0, 0))
+    ImageDraw.Draw(big).rounded_rectangle((0, 0, r * 8 - 1, r * 8 - 1), radius=r * 4, fill=col)
+    full = big.resize((r * 2, r * 2), Image.LANCZOS)        # drawn big, scaled down: smooth edges
+    pieces = {
+        "nw": (0, 0, r, r), "ne": (r, 0, 2 * r, r), "sw": (0, r, r, 2 * r), "se": (r, r, 2 * r, 2 * r),
+    }
+    for k, box in pieces.items():
+        full.crop(box).save(out / f"select_{k}.png")
+    Image.new("RGBA", (1, r), col).save(out / "select_n.png")
+    Image.new("RGBA", (1, r), col).save(out / "select_s.png")
+    Image.new("RGBA", (r, 1), col).save(out / "select_w.png")
+    Image.new("RGBA", (r, 1), col).save(out / "select_e.png")
+    Image.new("RGBA", (1, 1), col).save(out / "select_c.png")
+    # the terminal box (grub's console): just dark glass
+    glass = (16, 16, 19, 235)
+    for k in ("nw", "ne", "sw", "se", "n", "s", "w", "e", "c"):
+        Image.new("RGBA", (8, 8), glass).save(out / f"terminal_box_{k}.png")
+
+
+def fonts(out: Path) -> None:
+    mk = shutil.which("grub-mkfont")
+    if not mk:
+        sys.exit("kk-grub: grub-mkfont is missing (pacman -S grub freetype2)")
+    jobs = [
+        ("BricolageGrotesque-VariableFont_opsz,wdth,wght.ttf", "kksans", 30),
+        ("Anton-Regular.ttf", "kkdisplay", 120),
+        ("DMMono-Regular.ttf", "kkmono", 18),
+    ]
+    for ttf, name, size in jobs:
+        subprocess.run([mk, "-n", name, "-s", str(size), "-o", str(out / f"{name}-{size}.pf2"), str(FONTS / ttf)],
+                       check=True, stdout=subprocess.DEVNULL)
+
+
+def theme_txt(out: Path, c: dict) -> None:
+    host = socket.gethostname().split(".")[0].lower()
+    (out / "theme.txt").write_text(f'''# kajukatli · grub (made by kk-grub; run it again after changing wallpaper)
+title-text: ""
+desktop-image: "background.png"
+desktop-color: "{c["bg"]}"
+terminal-font: "kkmono Regular 18"
+terminal-box: "terminal_box_*.png"
+terminal-left: "8%"
+terminal-top: "18%"
+terminal-width: "84%"
+terminal-height: "70%"
+
++ label {{
+    left = 7%
+    top = 12%
+    width = 60%
+    height = 150
+    text = "{host}"
+    font = "kkdisplay Regular 120"
+    color = "{c["text"]}"
+}}
+
++ boot_menu {{
+    left = 7%
+    top = 34%
+    width = 34%
+    height = 46%
+    item_font = "kksans Regular 30"
+    selected_item_font = "kksans Regular 30"
+    item_color = "{c["dim"]}"
+    selected_item_color = "{c["accentText"]}"
+    item_height = 60
+    item_padding = 22
+    item_spacing = 8
+    icon_width = 0
+    icon_height = 0
+    item_icon_space = 0
+    selected_item_pixmap_style = "select_*.png"
+    scrollbar = false
+}}
+
++ label {{
+    id = "__timeout__"
+    left = 7%
+    top = 84%
+    width = 40%
+    height = 30
+    text = "starting in %d"
+    font = "kkmono Regular 18"
+    color = "{c["accent"]}"
+}}
+
++ label {{
+    left = 7%
+    top = 90%
+    width = 80%
+    height = 30
+    text = "up / down  choose      enter  start      e  edit      c  console"
+    font = "kkmono Regular 18"
+    color = "{c["dim"]}"
+}}
+''')
+
+
+def main() -> int:
+    if len(sys.argv) != 2:
+        print(__doc__)
+        return 2
+    out = Path(sys.argv[1])
+    if out.exists():
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
+    c = theme_colours()
+    background(out, c)
+    pill(out, c["accent"])
+    fonts(out)
+    theme_txt(out, c)
+    print(out)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

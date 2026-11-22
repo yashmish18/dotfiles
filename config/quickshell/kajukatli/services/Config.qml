@@ -21,13 +21,18 @@ Singleton {
     // a settings file from an older version keeps the old defaults it saved. bring those
     // forward once (only things whose meaning changed, never your own choices)
     function migrate() {
-        if (adapter.configVersion >= 3) return;
+        if (adapter.configVersion >= 4) return;
+        // 4: the wallpaper ai runs on battery too (the clock behind the subject, the 3d
+        //    parallax and the auto clock all need it, and laptops are mostly unplugged)
+        adapter.aiOnBattery = true;
+        adapter.clockDepth = true;
+        adapter.parallax = true;
         adapter.transition = "ink";
         adapter.transitionMs = 4200;
         const l = Object.assign({}, adapter.layout || {});
         l.clock = Object.assign({}, l.clock || {}, { auto: true });
         adapter.layout = l;
-        adapter.configVersion = 3;
+        adapter.configVersion = 4;
     }
 
     // where a desktop widget sits, as a fraction of the room it has to move in (0..1 each way)
@@ -86,7 +91,7 @@ Singleton {
         JsonAdapter {
             id: adapter
 
-            property int configVersion: 3           // settings written by older versions get updated once
+            property int configVersion: 4           // settings written by older versions get updated once
 
             // ---------------------------------------------------- look
             property string look: "studio"          // the preset last applied (see Looks.qml)
@@ -151,7 +156,7 @@ Singleton {
             property real parallaxStrength: 1.0     // 0.2 … 2.0
             property string transition: "ink"      // ink (bleeds in; draws the subject's outline when known) · fade · none
             property int transitionMs: 4200         // length of the ink transition (trace, then ink)
-            property bool aiOnBattery: false        // run the wallpaper ai unplugged too (else it waits for ac)
+            property bool aiOnBattery: true         // run the wallpaper ai unplugged too (else it waits for ac)
             property string subjectModel: "isnet-anime"   // birefnet-general-lite for photos
             property bool videoOnBattery: false     // live wallpapers freeze to a still on battery
 

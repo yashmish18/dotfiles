@@ -30,6 +30,17 @@ Item {
     // fade in on lock, out on unlock
     property bool shown: false
     Component.onCompleted: { shown = true; forceActiveFocus(); }
+    // after sleep (or anything else stealing it) take the keyboard back
+    Connections {
+        target: root.ctx
+        function onWoke() { root.forceActiveFocus(); }
+    }
+    Timer {
+        interval: 700
+        repeat: true
+        running: true
+        onTriggered: if (!root.activeFocus) root.forceActiveFocus()
+    }
     opacity: shown && !unlocking ? 1 : 0
     // unlocking: the whole scene leans towards you as it fades
     scale: unlocking ? 1.06 : 1
@@ -72,8 +83,11 @@ Item {
             id: pic
             anchors.fill: parent
             source: root.wall ? "file://" + root.wall.display : ""
-            sourceSize: Qt.size(root.width, root.height)
+            // decoded a little bigger than the screen: the drift zooms in, and it should stay sharp
+            sourceSize: Qt.size(Math.round(root.width * 1.2), Math.round(root.height * 1.2))
             fillMode: Image.PreserveAspectCrop
+            smooth: true
+            mipmap: true
             asynchronous: true
         }
         // a darker floor and ceiling so the text always reads

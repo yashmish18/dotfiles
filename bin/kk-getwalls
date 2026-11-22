@@ -1,0 +1,45 @@
+#!/bin/sh
+# kk-getwalls [count] [search words]
+#   the month's top anime wallpapers from wallhaven.cc (safe-for-work only, at least
+#   1920×1080) into ~/Pictures/wallpapers/anime. default: 16 of them, any subject.
+#   kk-getwalls 10 "cyberpunk city"   ten that match those words instead.
+# the art belongs to its artists: this is for your own desktop.
+set -eu
+count="${1:-16}"
+query="${2:-}"
+dir="$HOME/Pictures/wallpapers/anime"
+mkdir -p "$dir"
+ua="desktop-shell/1.0"
+
+for tool in curl jq; do
+    command -v "$tool" >/dev/null || { echo "kk-getwalls: needs $tool" >&2; exit 1; }
+done
+
+# categories 010 = anime only, purity 100 = sfw only
+api="https://wallhaven.cc/api/v1/search?categories=010&purity=100&sorting=toplist&topRange=1M&atleast=1920x1080&ratios=landscape"
+[ -n "$query" ] && api="$api&q=$(printf '%s' "$query" | jq -sRr @uri)"
+
+got=0
+page=1
+while [ "$got" -lt "$count" ] && [ "$page" -le 4 ]; do
+    list="$(curl -fsSL -A "$ua" --retry 3 --max-time 30 "$api&page=$page")" || { echo "kk-getwalls: wallhaven didn't answer" >&2; break; }
+    urls="$(printf '%s' "$list" | jq -r '.data[].path')"
+    [ -n "$urls" ] || break
+    for u in $urls; do
+        [ "$got" -ge "$count" ] && break
+        f="$dir/$(basename "$u")"
+        if [ -f "$f" ]; then continue; fi
+        if curl -fsSL -A "$ua" --retry 3 --max-time 120 -o "$f.part" "$u"; then
+            mv "$f.part" "$f"
+            got=$((got + 1))
+            printf '  %s\n' "$(basename "$f")"
+        else
+            rm -f "$f.part"
+        fi
+        sleep 1.4    # wallhaven allows ~45 requests a minute
+    done
+    page=$((page + 1))
+done
+echo "$got new in $dir"
+# tell the shell its library changed (and get the new ones ready in the background)
+qs -c kajukatli ipc call wall refresh >/dev/null 2>&1 || true

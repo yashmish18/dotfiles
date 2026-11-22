@@ -7,6 +7,24 @@ import Quickshell.Hyprland
 Singleton {
     id: root
 
+    // some changes (a touchpad swipe, a workspace made on the fly) don't always reach quickshell's
+    // own model: re-read it after any workspace event, debounced
+    Connections {
+        target: Hyprland
+        function onRawEvent(ev) {
+            const n = ev.name || "";
+            if (n.startsWith("workspace") || n.startsWith("createworkspace") || n.startsWith("destroyworkspace")
+                || n.startsWith("focusedmon") || n.startsWith("moveworkspace") || n.startsWith("openwindow")
+                || n.startsWith("closewindow") || n.startsWith("movewindow"))
+                again.restart();
+        }
+    }
+    Timer {
+        id: again
+        interval: 40
+        onTriggered: { Hyprland.refreshWorkspaces(); Hyprland.refreshMonitors(); }
+    }
+
     readonly property var focusedWs: Hyprland.focusedWorkspace
     readonly property int focusedId: focusedWs ? focusedWs.id : 1
 
