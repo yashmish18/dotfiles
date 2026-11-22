@@ -16,7 +16,7 @@ Item {
     property string armed: ""
 
     readonly property var actions: [
-        { key: "lock", word: "Lock", icon: "lock", hint: "l", cmd: ["kk-lock"], ask: false },
+        { key: "lock", word: "Lock", icon: "lock", hint: "l", cmd: [Config.bin + "kk-lock"], ask: false },
         { key: "sleep", word: "Sleep", icon: "moon", hint: "s", cmd: ["systemctl", "suspend"], ask: false },
         { key: "logout", word: "Log out", icon: "logout", hint: "o", cmd: ["sh", "-c", "command -v hyprshutdown >/dev/null && exec hyprshutdown; exec hyprctl dispatch 'hl.dsp.exit()'"], ask: true },
         { key: "reboot", word: "Restart", icon: "restart", hint: "r", cmd: ["systemctl", "reboot"], ask: true },

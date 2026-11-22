@@ -15,5 +15,5 @@ hl.config({
     },
 })
 
--- three fingers sideways: previous / next workspace
-hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+-- touchpad gestures live in gestures.lua. the shell re-applies your touchpad settings
+-- (settings → input) on top of these at login.

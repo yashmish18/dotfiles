@@ -40,7 +40,7 @@ Singleton {
     Process {
         id: proc
         running: root.running
-        command: ["kk-sys", "2"]
+        command: [Config.bin + "kk-sys", "2"]
         stdout: SplitParser {
             onRead: line => {
                 let j;

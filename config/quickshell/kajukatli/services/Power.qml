@@ -29,6 +29,12 @@ Singleton {
     // power profiles (needs power-profiles-daemon)
     readonly property int profile: PowerProfiles.profile
     readonly property string profileName: profile === PowerProfile.PowerSaver ? "saver" : profile === PowerProfile.Performance ? "performance" : "balanced"
+    readonly property bool hasPerformance: PowerProfiles.hasPerformanceProfile
+    function setProfile(name: string) {
+        PowerProfiles.profile = name === "saver" ? PowerProfile.PowerSaver
+                              : name === "performance" && PowerProfiles.hasPerformanceProfile ? PowerProfile.Performance
+                              : PowerProfile.Balanced;
+    }
     function cycleProfile() {
         if (profile === PowerProfile.PowerSaver) PowerProfiles.profile = PowerProfile.Balanced;
         else if (profile === PowerProfile.Balanced && PowerProfiles.hasPerformanceProfile) PowerProfiles.profile = PowerProfile.Performance;

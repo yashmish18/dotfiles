@@ -28,6 +28,15 @@ for i, cls in ipairs(floaters) do
     })
 end
 
+-- the shell's settings window: floating, centred, a comfortable size
+hl.window_rule({
+    name   = "kk-settings",
+    match  = { title = "^(Kajukatli Settings)$" },
+    float  = true,
+    center = true,
+    size   = { "min(1040, monitor_w * 0.8)", "min(720, monitor_h * 0.85)" },
+})
+
 -- file pickers
 hl.window_rule({
     name   = "float-dialogs",

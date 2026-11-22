@@ -20,6 +20,7 @@ import qs.modules.overlays
 import qs.modules.lock
 import qs.modules.desktop
 import qs.modules.dock
+import qs.modules.settings
 
 ShellRoot {
     id: shell
@@ -28,10 +29,13 @@ ShellRoot {
     Desktop {}
     Bar {}
     Dock {}
+    Settings {}
     Popups {}
     Osd {}
     Overlay {}
     Lock { id: lock }
+    // apply touchpad / keyboard / scale settings at login
+    readonly property var systemService: System
 
     // make sure the folders the shell writes to exist
     Process {
@@ -72,6 +76,7 @@ ShellRoot {
     Shortcut { name: "ws_rename";     description: "rename workspace";         onPressed: Ui.open("rename") }
     Shortcut { name: "brightness_up";   description: "brighter";               onPressed: Bright.up() }
     Shortcut { name: "brightness_down"; description: "dimmer";                 onPressed: Bright.down() }
+    Shortcut { name: "close";         description: "close panels and overlays"; onPressed: Ui.closeAll() }
     Shortcut { name: "edit";          description: "arrange desktop widgets";  onPressed: { Ui.panel = ""; Ui.editing = !Ui.editing; } }
     Shortcut {
         name: "look_next"
@@ -87,6 +92,7 @@ ShellRoot {
     IpcHandler {
         target: "shell"
         function toggle(panel: string): void { Ui.toggle(panel); }
+        function settings(page: string): void { Ui.settings(page); }
         function overlay(name: string): void { Ui.toggleOverlay(name); }
         function close(): void { Ui.closeAll(); }
         function recording(on: bool): void { Ui.recording = on; }

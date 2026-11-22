@@ -1,4 +1,4 @@
-# a nicer terminal: prompt, fetch, ls/cat/cd/fzf upgrades, btop · ~30 mb
+# a nicer terminal: zsh with autosuggestions + highlighting, prompt, fastfetch, fzf, eza, bat, btop · ~35 mb
 # default: on
 starship
 fastfetch
@@ -7,3 +7,8 @@ bat
 zoxide
 fzf
 btop
+zsh
+zsh-autosuggestions
+zsh-syntax-highlighting
+zsh-completions
+bash-completion

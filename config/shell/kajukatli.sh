@@ -6,6 +6,38 @@ case $- in *i*) ;; *) return 0 2>/dev/null ;; esac
 _kk_shell="$(basename "${ZSH_NAME:-${BASH:-sh}}")"
 case "$_kk_shell" in zsh) _kk_init=zsh ;; *) _kk_init=bash ;; esac
 
+# ---------------------------------------------------------------- completion
+if [ "$_kk_init" = zsh ]; then
+    # menu-style completion that ignores case, plus fish-like suggestions as you type
+    autoload -Uz compinit && compinit -d "${XDG_CACHE_HOME:-$HOME/.cache}/zcompdump"
+    zstyle ':completion:*' menu select
+    zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|=*' 'l:|=* r:|=*'
+    zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+    HISTFILE="$HOME/.zsh_history"; HISTSIZE=20000; SAVEHIST=20000
+    setopt share_history hist_ignore_dups hist_ignore_space auto_cd interactive_comments
+    bindkey -e
+    bindkey '^[[A' history-beginning-search-backward   # ↑ / ↓ search history by what you typed
+    bindkey '^[[B' history-beginning-search-forward
+    bindkey '^[[1;5C' forward-word; bindkey '^[[1;5D' backward-word
+    for _kk_p in /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh                  /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh; do
+        [ -r "$_kk_p" ] && . "$_kk_p"
+    done
+    ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=19'      # the faint text colour of the current theme
+    bindkey '^ ' autosuggest-accept               # ctrl + space takes the suggestion
+else
+    # bash: real completion, case-insensitive, shown at the first tab, cycling with more tabs
+    [ -r /usr/share/bash-completion/bash_completion ] && . /usr/share/bash-completion/bash_completion
+    bind 'set completion-ignore-case on' 2>/dev/null
+    bind 'set show-all-if-ambiguous on' 2>/dev/null
+    bind 'set menu-complete-display-prefix on' 2>/dev/null
+    bind 'set colored-stats on' 2>/dev/null
+    bind 'TAB:menu-complete' 2>/dev/null
+    bind '"\e[Z":menu-complete-backward' 2>/dev/null
+    bind '"\e[A":history-search-backward' 2>/dev/null
+    bind '"\e[B":history-search-forward' 2>/dev/null
+    HISTSIZE=20000; HISTFILESIZE=20000; HISTCONTROL=ignoreboth; shopt -s histappend autocd 2>/dev/null
+fi
+
 command -v starship >/dev/null && eval "$(starship init $_kk_init)"
 command -v zoxide   >/dev/null && eval "$(zoxide init $_kk_init)"
 if command -v fzf >/dev/null; then
@@ -39,3 +71,10 @@ if [ -n "$KITTY_WINDOW_ID" ] && [ -z "$TMUX" ] && [ -z "$SSH_TTY" ] && [ "${SHLV
     command -v fastfetch >/dev/null && fastfetch
 fi
 unset _kk_shell _kk_init
+
+# ---------------------------------------------------------------- hello
+# fastfetch once per new terminal window (not in every subshell, split or tmux pane)
+if command -v fastfetch >/dev/null && [ -z "${KK_GREETED:-}" ] && [ "${SHLVL:-1}" -le 2 ] && [ -z "${TMUX:-}" ]; then
+    export KK_GREETED=1
+    fastfetch
+fi

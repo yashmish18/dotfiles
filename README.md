@@ -197,7 +197,7 @@ if something looks off, run `kk-doctor`.
 | `super + b` | browser |
 | `super + space` | launcher. `=` math · `>` command · `?` web search |
 | `super + a` | control center |
-| `super + i` | dedicated desktop settings |
+| `super + i` | settings: looks, bar, clock, widgets, display, touchpad, keyboard, network, sound, power |
 | `super + n` | notifications |
 | `super + v` | clipboard history |
 | `super + w` | wallpapers |
@@ -209,7 +209,8 @@ if something looks off, run `kk-doctor`.
 | `super + t` | float / tile |
 | `super + p` | pin a floating window to every workspace |
 | `super + c` | center a floating window |
-| `super + arrows` | focus · `+ shift` move · `+ ctrl` resize (`super + alt + h/j/k/l` focuses too) |
+| `super + arrows` | focus · `+ shift` move · `+ alt` resize (`super + alt + h/j/k/l` focuses too) |
+| `ctrl + super + ← →` | previous / next workspace · `ctrl + super + ↑` overview |
 | `super + 1…0` | workspace · `+ shift` send the window there |
 | `super + . / ,` | next / previous workspace (past the last one opens a fresh one) |
 | ``super + ` `` | new empty workspace · `+ shift` take the window with you |
@@ -221,7 +222,9 @@ if something looks off, run `kk-doctor`.
 | `super + shift + b` | hide / show the bar |
 | `super + shift + t` | next look |
 | `super + shift + e` | arrange desktop widgets (drag them; `esc` when done) |
-| three fingers sideways | switch workspace |
+| three or four fingers sideways | switch workspace |
+| four fingers up / down | workspace overview (drag windows between workspaces, or onto “new”) / close it |
+| click the workspaces pill | the same overview |
 
 ---
 

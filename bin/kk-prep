@@ -7,7 +7,7 @@ kk-prep — turn an image, gif or video into a kajukatli wallpaper bundle, in tw
     thumb.jpg     small preview for the picker
     palette.json  seed colour, swatches, brightness (overall and of the top of the frame)
   stage 2 · ai (in the background, at idle priority; the desktop never waits for it):
-    mask.png      soft subject cut-out. the shell draws the clock behind it
+    mask.png      soft subject cut-out (in alpha). the shell draws the clock behind it
     depth.png     depth map (white = near) for the 3d parallax          (full only)
     ink.png       outline strokes + drawing order + distance from subject
 
@@ -45,7 +45,7 @@ INDEX = CACHE / "index.json"
 MODELS = DATA / "models"
 VENV = DATA / "venv"
 
-BUNDLE_VERSION = 5  # bump to rebuild every cached bundle
+BUNDLE_VERSION = 6  # bump to rebuild every cached bundle
 VIDEO_EXT = {".mp4", ".webm", ".mkv", ".mov", ".avi", ".m4v", ".gif"}
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 REUSE_EXT = {".jpg", ".jpeg", ".png", ".webp"}   # shown as-is when already screen-sized
@@ -494,7 +494,9 @@ def stage_ai(meta: dict, args) -> dict:
     cv2.imwrite(str(out / ".ink.png"), ink)
     os.replace(out / ".ink.png", out / "ink.png")
     if soft is not None:
-        cv2.imwrite(str(out / ".mask.png"), soft)
+        # the mask in every channel, alpha included: the wallpaper shader reads .a, and the
+        # lock screen uses it directly as a qml MultiEffect mask (which reads alpha)
+        cv2.imwrite(str(out / ".mask.png"), cv2.merge([soft, soft, soft, soft]))
         os.replace(out / ".mask.png", out / "mask.png")
     elif (out / "mask.png").exists():
         (out / "mask.png").unlink()

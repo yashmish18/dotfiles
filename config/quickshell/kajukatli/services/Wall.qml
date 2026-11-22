@@ -78,7 +78,7 @@ Singleton {
     function theme(dir: string) {
         if (!dir) return;
         themeProc.want = dir;
-        if (!themeProc.running) { themeProc.command = ["kk-theme", dir]; themeProc.running = true; }
+        if (!themeProc.running) { themeProc.command = [Config.bin + "kk-theme", dir]; themeProc.running = true; }
     }
 
     // ---------------------------------------------------------------- the ai stage
@@ -87,7 +87,7 @@ Singleton {
         if (aiMissing && !force) return;
         if (Power.onBattery && !Config.s.aiOnBattery && !force) { aiPending = file; return; }
         aiPending = "";
-        const cmd = ["nice", "-n", "19", "ionice", "-c", "3", "kk-prep", file, "--ai"];
+        const cmd = ["nice", "-n", "19", "ionice", "-c", "3", Config.bin + "kk-prep", file, "--ai"];
         if (model) cmd.push("--model", model);
         if (force) cmd.push("--force");
         ai.want = cmd;
@@ -119,7 +119,7 @@ Singleton {
     function refreshLibrary() {
         if (listProc.running) return;
         listing = true;
-        listProc.command = ["kk-prep", "--list", Config.wallpaperDir];
+        listProc.command = [Config.bin + "kk-prep", "--list", Config.wallpaperDir];
         listProc.running = true;
     }
 
@@ -160,7 +160,7 @@ Singleton {
         property string file: ""
         function go(f: string) {
             file = f;
-            command = ["kk-prep", f, "--fast", "--max-edge", String(root.maxEdge)];
+            command = [Config.bin + "kk-prep", f, "--fast", "--max-edge", String(root.maxEdge)];
             running = true;
         }
         stdout: StdioCollector { id: fastOut }
@@ -209,7 +209,7 @@ Singleton {
         property string want: ""
         onExited: {
             Theme.reload();
-            if (want !== command[1]) Qt.callLater(() => { themeProc.command = ["kk-theme", themeProc.want]; themeProc.running = true; });
+            if (want !== command[1]) Qt.callLater(() => { themeProc.command = [Config.bin + "kk-theme", themeProc.want]; themeProc.running = true; });
         }
     }
 

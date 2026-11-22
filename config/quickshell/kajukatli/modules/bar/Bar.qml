@@ -261,7 +261,6 @@ Variants {
                 sourceComponent: {
                     switch (bar.shown) {
                     case "control": return controlC;
-                    case "settings": return settingsC;
                     case "notifications": return notifC;
                     case "calendar": return calC;
                     case "media": return mediaC;
@@ -276,7 +275,6 @@ Variants {
             }
 
             Component { id: controlC; ControlPanel {} }
-            Component { id: settingsC; SettingsPanel {} }
             Component { id: notifC; NotificationsPanel {} }
             Component { id: calC; CalendarPanel {} }
             Component { id: mediaC; MediaPanel {} }

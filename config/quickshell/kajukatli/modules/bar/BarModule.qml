@@ -9,6 +9,7 @@ import qs.modules.desktop
 //
 //   logo workspaces notifs cpu mem temp clock weather media visualizer
 //   volume brightness network bluetooth battery tray power
+//   control   one pill: wi-fi · sound · battery, opens the control center
 //
 // every module works lying down (pill, bar, islands) and standing up (rail).
 Loader {
@@ -46,6 +47,7 @@ Loader {
         case "battery": return batC;
         case "tray": return trayC;
         case "power": return powerC;
+        case "control": return controlC;
         }
         return null;
     }
@@ -207,10 +209,12 @@ Loader {
                         anchors.fill: parent
                         anchors.margins: -4
                         cursorShape: Qt.PointingHandCursor
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                        // click: every workspace and its windows · middle: just go there · right: rename
                         onClicked: e => {
-                            Hypr.focusWorkspace(w.modelData.id);
-                            if (e.button === Qt.RightButton) Ui.open("rename");
+                            if (e.button === Qt.LeftButton) Ui.toggleOverlay("overview");
+                            else if (e.button === Qt.MiddleButton) Hypr.focusWorkspace(w.modelData.id);
+                            else { Hypr.focusWorkspace(w.modelData.id); Ui.open("rename"); }
                         }
                     }
                 }
@@ -488,6 +492,57 @@ Loader {
             Repeater {
                 model: SystemTray.items
                 delegate: TrayItem { menuEdge: root.menuEdge }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ control: wi-fi · sound · battery, one target
+    Component {
+        id: controlC
+        Item {
+            id: cc
+            implicitWidth: root.vertical ? 28 : crow.implicitWidth + 16
+            implicitHeight: root.vertical ? ccol.implicitHeight + 12 : 24
+            readonly property bool lit: Ui.panel === "control"
+            Rectangle {
+                anchors.fill: parent
+                radius: height / 2
+                color: cc.lit ? Theme.alpha(Theme.primary, 0.22) : cArea.containsMouse ? Theme.alpha(Theme.surfaceText, 0.08) : "transparent"
+                Behavior on color { ColorAnimation { duration: Theme.fast } }
+            }
+            Row {
+                id: crow
+                visible: !root.vertical
+                anchors.centerIn: parent
+                spacing: 9
+                Icon { anchors.verticalCenter: parent.verticalCenter; size: 14; name: Icons.net(Net.ethernet, Net.wifiEnabled, Net.ssid); level: Net.signal / 25 }
+                Icon { anchors.verticalCenter: parent.verticalCenter; size: 14; visible: Bt.connectedDevices.length > 0; name: "bluetooth-on" }
+                Icon { anchors.verticalCenter: parent.verticalCenter; size: 14; name: Icons.volume(Audio.volume, Audio.muted); level: Audio.volume }
+                Row {
+                    visible: Power.hasBattery
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 4
+                    Icon { anchors.verticalCenter: parent.verticalCenter; size: 14; name: Icons.battery(Power.charging); level: Power.percent / 100; color: Power.low ? Theme.error : Theme.surfaceText }
+                    Txt { anchors.verticalCenter: parent.verticalCenter; text: Power.percent + "%"; font.family: Theme.mono; font.pixelSize: Theme.sm; color: Power.low ? Theme.error : Theme.surfaceText }
+                }
+            }
+            Column {
+                id: ccol
+                visible: root.vertical
+                anchors.centerIn: parent
+                spacing: 8
+                Icon { anchors.horizontalCenter: parent.horizontalCenter; size: 15; name: Icons.net(Net.ethernet, Net.wifiEnabled, Net.ssid); level: Net.signal / 25 }
+                Icon { anchors.horizontalCenter: parent.horizontalCenter; size: 15; name: Icons.volume(Audio.volume, Audio.muted); level: Audio.volume }
+                Icon { anchors.horizontalCenter: parent.horizontalCenter; size: 15; visible: Power.hasBattery; name: Icons.battery(Power.charging); level: Power.percent / 100 }
+            }
+            MouseArea {
+                id: cArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: e => e.button === Qt.RightButton ? Ui.toggle("settings") : root.openPanel("control")
+                onWheel: w => Audio.setVolume(Math.max(0, Math.min(1, Audio.volume + (w.angleDelta.y > 0 ? 0.05 : -0.05))))
             }
         }
     }

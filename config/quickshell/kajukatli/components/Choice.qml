@@ -14,6 +14,7 @@ ColumnLayout {
     spacing: 4
 
     Txt {
+        visible: root.label !== ""
         text: root.label
         color: Theme.muted
         font.family: Theme.mono

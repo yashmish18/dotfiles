@@ -10,6 +10,7 @@ Item {
     property real value: 0          // 0..1
     property real level: -1         // passed to meter icons (volume waves); defaults to value
     property bool muted: false
+    property string valueText: ""   // shown instead of the percentage when set
     signal moved(real v)
     signal labelClicked()
 
@@ -73,7 +74,7 @@ Item {
             anchors.right: parent.right
             anchors.rightMargin: 13
             anchors.verticalCenter: parent.verticalCenter
-            text: Math.round(fill.v * 100)
+            text: root.valueText !== "" ? root.valueText : Math.round(fill.v * 100)
             font.family: Theme.mono
             font.pixelSize: Theme.sm
             color: fill.width > track.width - 40 ? Theme.primaryText : Theme.surfaceTextDim

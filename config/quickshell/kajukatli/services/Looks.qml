@@ -5,6 +5,7 @@ import Quickshell
 // looks: whole-desktop presets. each one is only a bundle of settings, so after applying
 // one you can still change any single thing (settings → looks, or settings.json).
 //
+//   studio    three pills up top (workspaces · time · control center), a quiet clock
 //   tide      floating top pill, a huge stacked clock behind the subject, a sea of a waveform
 //   ronin     a thin rail on the left, a big date in the corner, a small player card
 //   komorebi  top pill, a heavy clock tucked behind the subject, a calendar, the dock
@@ -15,9 +16,10 @@ import Quickshell
 Singleton {
     id: root
 
-    readonly property var names: ["tide", "ronin", "komorebi", "currents", "dreamer", "grove", "print"]
+    readonly property var names: ["studio", "tide", "ronin", "komorebi", "currents", "dreamer", "grove", "print"]
 
     readonly property var blurbs: ({
+        studio: "three pills · a quiet clock top-left · dock",
         tide: "top pill · stacked clock behind the subject · wave",
         ronin: "left rail · big date · player card",
         komorebi: "top pill · heavy clock · calendar · dock",
@@ -28,6 +30,16 @@ Singleton {
     })
 
     readonly property var presets: ({
+        studio: {
+            themeScheme: "vibrant", radius: 14,
+            barStyle: "islands", barPosition: "top", workspaceStyle: "dots",
+            barModules: { left: ["workspaces"], center: ["clock", "notifs"], right: ["tray", "control"] },
+            clockStyle: "hero", clockDepth: true, clockFont: "Syne", clockScale: 0.8,
+            visualizer: "off", visualizerBehind: false, visualizerBars: 48,
+            showCalendar: false, mediaWidget: "off", showStats: false,
+            dock: true, dockAutoHide: true, dockMedia: true,
+            layout: { clock: { x: 0.05, y: 0.1 } }
+        },
         tide: {
             themeScheme: "vibrant", radius: 14,
             barStyle: "pill", barPosition: "top", workspaceStyle: "dots",
@@ -120,6 +132,6 @@ Singleton {
     Timer {
         id: rethemeTimer
         interval: 400
-        onTriggered: Quickshell.execDetached(["kk-theme", "--reapply"])
+        onTriggered: Quickshell.execDetached([Config.bin + "kk-theme", "--reapply"])
     }
 }

@@ -2,6 +2,8 @@
 local M = KK.mod
 local bind = hl.bind
 local sh = KK.shell_action
+-- our scripts by full path, so they work even if the session started without ~/.local/bin on PATH
+local B = (os.getenv("HOME") or "") .. "/.local/bin/"
 
 -- apps
 bind(M .. " + Return", hl.dsp.exec_cmd(KK.terminal),  { description = "terminal" })
@@ -18,7 +20,7 @@ bind(M .. " + V",      sh("clipboard"),     { description = "clipboard history" 
 bind(M .. " + Tab",    sh("overview"),      { description = "workspace overview" })
 bind(M .. " + Escape", sh("session"),       { description = "power menu" })
 bind(M .. " + slash",  sh("cheatsheet"),    { description = "this cheatsheet" })
-bind(M .. " + L",      hl.dsp.exec_cmd("kk-lock"), { description = "lock" })
+bind(M .. " + L",      hl.dsp.exec_cmd(B .. "kk-lock"), { description = "lock" })
 bind(M .. " + SHIFT + B", sh("bar"),        { description = "hide / show bar" })
 bind(M .. " + SHIFT + E", sh("edit"),       { description = "arrange desktop widgets" })
 bind(M .. " + SHIFT + T", sh("look_next"),  { description = "next look (preset)" })
@@ -42,10 +44,15 @@ for key, dir in pairs(dirs) do
 end
 
 local step = 40
-bind(M .. " + CTRL + left",  hl.dsp.window.resize({ x = -step, y = 0, relative = true }), { repeating = true })
-bind(M .. " + CTRL + right", hl.dsp.window.resize({ x =  step, y = 0, relative = true }), { repeating = true })
-bind(M .. " + CTRL + up",    hl.dsp.window.resize({ x = 0, y = -step, relative = true }), { repeating = true })
-bind(M .. " + CTRL + down",  hl.dsp.window.resize({ x = 0, y =  step, relative = true }), { repeating = true })
+bind(M .. " + ALT + left",  hl.dsp.window.resize({ x = -step, y = 0, relative = true }), { repeating = true, description = "resize window" })
+bind(M .. " + ALT + right", hl.dsp.window.resize({ x =  step, y = 0, relative = true }), { repeating = true })
+bind(M .. " + ALT + up",    hl.dsp.window.resize({ x = 0, y = -step, relative = true }), { repeating = true })
+bind(M .. " + ALT + down",  hl.dsp.window.resize({ x = 0, y =  step, relative = true }), { repeating = true })
+
+-- ctrl + super + ← →: previous / next workspace (like a laptop's desktop switch). ↑: overview
+bind(M .. " + CTRL + left",  sh("ws_prev"),  { description = "previous workspace" })
+bind(M .. " + CTRL + right", sh("ws_next"),  { description = "next workspace" })
+bind(M .. " + CTRL + up",    sh("overview"), { description = "workspace overview" })
 
 bind(M .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
 bind(M .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
@@ -69,10 +76,10 @@ bind(M .. " + S",         hl.dsp.workspace.toggle_special("magic"),           { 
 bind(M .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:magic" }), { description = "send to scratchpad" })
 
 -- screenshots & recording
-bind("Print",              hl.dsp.exec_cmd("kk-shot area"),   { description = "screenshot area" })
-bind("SHIFT + Print",      hl.dsp.exec_cmd("kk-shot screen"), { description = "screenshot screen" })
-bind(M .. " + CTRL + S",   hl.dsp.exec_cmd("kk-shot area"),   { description = "screenshot area (no print key)" })
-bind(M .. " + SHIFT + R",  hl.dsp.exec_cmd("kk-record"),      { description = "record screen (toggle)" })
+bind("Print",              hl.dsp.exec_cmd(B .. "kk-shot area"),   { description = "screenshot area" })
+bind("SHIFT + Print",      hl.dsp.exec_cmd(B .. "kk-shot screen"), { description = "screenshot screen" })
+bind(M .. " + CTRL + S",   hl.dsp.exec_cmd(B .. "kk-shot area"),   { description = "screenshot area (no print key)" })
+bind(M .. " + SHIFT + R",  hl.dsp.exec_cmd(B .. "kk-record"),      { description = "record screen (toggle)" })
 bind(M .. " + SHIFT + C",  hl.dsp.exec_cmd("hyprpicker -a"),  { description = "colour picker" })
 
 -- hardware keys (work on the lock screen too)

@@ -41,7 +41,7 @@ layout(binding = 3) uniform sampler2D toTex;
 layout(binding = 4) uniform sampler2D toDepth;
 layout(binding = 5) uniform sampler2D inkTex;   // r stroke, g draw order, b distance from subject
 layout(binding = 6) uniform sampler2D overlayTex; // premultiplied widgets layer, screen space
-layout(binding = 7) uniform sampler2D toMask;     // r = subject (soft), picture space
+layout(binding = 7) uniform sampler2D toMask;     // a = subject (soft), picture space
 
 float luma(vec3 c) {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -95,7 +95,7 @@ vec2 parallax(sampler2D depth, vec2 uv, vec2 off) {
 // lay the widgets layer down, then put the subject back on top of it
 vec3 behind(vec3 col, vec2 uv, vec2 tp, float weight) {
     vec4 o = texture(overlayTex, uv);
-    float m = hasMask > 0.5 ? texture(toMask, tp).r * weight : 0.0;
+    float m = hasMask > 0.5 ? texture(toMask, tp).a * weight : 0.0;
     float k = 1.0 - m;
     return col * (1.0 - o.a * k) + o.rgb * k;
 }

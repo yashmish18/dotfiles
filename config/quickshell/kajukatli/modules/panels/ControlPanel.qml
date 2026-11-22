@@ -111,10 +111,10 @@ Item {
                         color: Theme.surfaceTextDim
                     }
                 }
-                Btn { icon: "screenshot"; onClicked: { Ui.panel = ""; Quickshell.execDetached(["sh", "-c", "sleep 0.35; kk-shot area"]); } }
-                Btn { icon: "record"; active: Ui.recording; danger: Ui.recording; onClicked: { Ui.panel = ""; Quickshell.execDetached(["kk-record"]); } }
+                Btn { icon: "screenshot"; onClicked: { Ui.panel = ""; Quickshell.execDetached(["sh", "-c", "sleep 0.35; " + Config.bin + "kk-shot area"]); } }
+                Btn { icon: "record"; active: Ui.recording; danger: Ui.recording; onClicked: { Ui.panel = ""; Quickshell.execDetached([Config.bin + "kk-record"]); } }
                 Btn { icon: "sliders"; onClicked: Ui.open("settings") }
-                Btn { icon: "lock"; onClicked: { Ui.panel = ""; Quickshell.execDetached(["kk-lock"]); } }
+                Btn { icon: "lock"; onClicked: { Ui.panel = ""; Quickshell.execDetached([Config.bin + "kk-lock"]); } }
                 Btn { icon: "power"; danger: true; onClicked: Ui.open("session") }
             }
 

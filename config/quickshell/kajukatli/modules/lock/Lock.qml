@@ -65,7 +65,7 @@ Scope {
                 root.fail(result === PamResult.MaxTries ? "too many tries. wait a little." : "");
             }
         }
-        errorText: root.fail("something went wrong checking that.")
+        // (this used to be a binding that called fail() the moment the shell started)
     }
 
     // let the fade-out play before the lock lifts

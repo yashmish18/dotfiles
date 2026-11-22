@@ -445,6 +445,24 @@ services() {
     ok "services"
 }
 
+# ------------------------------------------------------------------ terminal
+terminal() {
+    command -v zsh >/dev/null || return 0
+    say "terminal"
+    local line="[ -f \"$CONFIG/shell/kajukatli.sh\" ] && . \"$CONFIG/shell/kajukatli.sh\""
+    [ -f "$HOME/.zshrc" ] || printf '# kajukatli
+%s
+' "$line" > "$HOME/.zshrc"
+    grep -qF "shell/kajukatli.sh" "$HOME/.zshrc" || printf '
+# kajukatli
+%s
+' "$line" >> "$HOME/.zshrc"
+    if [ "$(basename "${SHELL:-}")" != zsh ] && ask "make zsh your shell (autosuggestions, highlighting, menu completion)" y; then
+        sudo chsh -s "$(command -v zsh)" "$USER" && note "zsh from your next login"
+    fi
+    ok "terminal"
+}
+
 # ------------------------------------------------------------------ defaults
 defaults() {
     say "first-run defaults"
@@ -489,6 +507,7 @@ fonts
 extra_chosen wallpaper-pack && wallpapers || true
 extra_chosen wallpaper-ai && ai_env || note "no wallpaper ai: wallpapers and colours still work, the clock just stays in front."
 services
+extra_chosen terminal && terminal || true
 defaults
 
 echo
