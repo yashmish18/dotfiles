@@ -33,6 +33,7 @@ Variants {
                 Region { item: layer.calendarItem },
                 Region { item: layer.mediaItem },
                 Region { item: layer.noteItem },
+                Region { item: layer.timerItem },
                 Region { item: layer.clockItem },
                 Region { item: layer.barsItem },
                 Region { item: layer.statsItem },
@@ -54,6 +55,15 @@ Variants {
                 opacity: Ui.editing ? 1 : 0
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: Theme.normal } }
+            }
+
+            // focus mode dims the wallpaper
+            Rectangle {
+                anchors.fill: parent
+                color: "#000000"
+                opacity: Ui.focusMode ? 0.4 : 0
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 600; easing.type: Easing.InOutQuad } }
             }
 
             DesktopLayer {

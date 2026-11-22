@@ -11,11 +11,24 @@ Singleton {
 
     readonly property alias s: adapter
     readonly property string home: Quickshell.env("HOME")
+    readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"
     // the shell calls its helpers by full path: a session started before ~/.local/bin was
     // on PATH must not break wallpapers, the lock or stats
     readonly property string bin: home + "/.local/bin/"
     readonly property string wallpaperDir: adapter.wallpaperDir.replace(/^~/, home)
     property bool loaded: false
+
+    // a settings file from an older version keeps the old defaults it saved. bring those
+    // forward once (only things whose meaning changed, never your own choices)
+    function migrate() {
+        if (adapter.configVersion >= 3) return;
+        adapter.transition = "ink";
+        adapter.transitionMs = 4200;
+        const l = Object.assign({}, adapter.layout || {});
+        l.clock = Object.assign({}, l.clock || {}, { auto: true });
+        adapter.layout = l;
+        adapter.configVersion = 3;
+    }
 
     // where a desktop widget sits, as a fraction of the room it has to move in (0..1 each way)
     function pos(name: string, fallback: var): var {
@@ -62,7 +75,7 @@ Singleton {
         printErrors: false
         onFileChanged: reload()
         onAdapterUpdated: writeAdapter()
-        onLoaded: root.loaded = true
+        onLoaded: { root.migrate(); root.loaded = true; }
         onLoadFailed: error => {
             if (error === FileViewError.FileNotFound)
                 writeAdapter();
@@ -71,6 +84,8 @@ Singleton {
 
         JsonAdapter {
             id: adapter
+
+            property int configVersion: 3           // settings written by older versions get updated once
 
             // ---------------------------------------------------- look
             property string look: "studio"          // the preset last applied (see Looks.qml)
@@ -105,6 +120,13 @@ Singleton {
             property bool showBattery: false
             property bool showAnalog: false
             property bool showNote: false
+            property bool showTimer: false
+            property int timerMinutes: 25
+            property int timerBreak: 5
+            property bool weatherFx: true           // rain / snow over the wallpaper when it's raining / snowing outside
+            property bool musicTint: true           // while music plays, the accent takes the album art's colour
+            property bool hotCorners: true          // top left: overview · bottom right: the desktop
+            property string wallRotate: "off"       // off | hourly | daily: a new wallpaper by itself
             property string noteText: ""
             property var layout: ({ clock: { x: 0.05, y: 0.1, auto: true }, media: { x: 0.5, y: 0.97 } })   // where widgets sit: drag them, ctrl + scroll to resize
 
@@ -134,6 +156,7 @@ Singleton {
 
             // ---------------------------------------------------- system
             property bool autoPowerProfile: true    // power-saver on battery, balanced on ac
+            property int chargeLimit: 100           // stop charging here (80 keeps the battery young); 100 = off
             property bool clock24h: true
             property bool naturalScroll: true
             property bool tapToClick: true

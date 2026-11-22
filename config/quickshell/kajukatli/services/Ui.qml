@@ -17,6 +17,12 @@ Singleton {
     property string settingsPage: ""    // which page it opens on
     property string status: ""     // short message shown in the bar ("developing…")
     property bool recording: false // kk-record tells us over ipc
+    // focus: the bar and the widgets step away, notifications wait, the wallpaper dims
+    property bool focusMode: false
+    function toggleFocus() {
+        focusMode = !focusMode;
+        Sounds.play(focusMode ? "focus" : "unfocus", 0);
+    }
 
     readonly property bool anyOpen: panel !== "" || overlay !== ""
     // room the bar takes at the top edge, for toasts and the osd to sit under it

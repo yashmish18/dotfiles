@@ -35,6 +35,12 @@ Item {
     // anything to draw at all? (the wallpaper skips the composite when not)
     readonly property bool anyHere: clockHere || barsHere || waveHere
 
+    // focus mode: everything here steps away
+    opacity: Ui.focusMode ? 0 : 1
+    visible: opacity > 0
+    Behavior on opacity { NumberAnimation { duration: 600; easing.type: Easing.InOutQuad } }
+
+    property alias timerItem: timerM
     property alias calendarItem: calendar
     property alias mediaItem: media
     property alias noteItem: note
@@ -81,6 +87,13 @@ Item {
         count: Cava.bars
         color: Theme.wallText
         fillOpacity: 0.5
+    }
+
+    // rain or snow, when it's falling outside
+    WeatherFx {
+        anchors.fill: parent
+        visible: !layer.behind && Config.s.weatherFx
+        active: visible && !layer.covered && !Power.onBattery
     }
 
     Item {
@@ -166,6 +179,14 @@ Item {
             fallback: ({ x: 0.85, y: 0.6 })
             shown: !layer.behind && Config.s.showAnalog
             AnalogClock {}
+        }
+
+        Movable {
+            id: timerM
+            name: "timer"
+            fallback: ({ x: 0.92, y: 0.5 })
+            shown: !layer.behind && Config.s.showTimer
+            TimerWidget {}
         }
 
         Movable {

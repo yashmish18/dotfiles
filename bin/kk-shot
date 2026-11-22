@@ -1,35 +1,66 @@
 #!/bin/sh
-# kk-shot area|screen|window   screenshot → clipboard + ~/Pictures/screenshots, with a notification
-# hold on to it: click "edit" on the notification to annotate in satty.
+# kk-shot region|window|screen [delay seconds] [--edit]
+# a screenshot → the clipboard and ~/Pictures/screenshots, with a notification:
+#   open    the picture, in your image viewer
+#   folder  the folder, with the file picked out (in the file manager)
+#   edit    annotate it in satty
 set -u
 dir="${XDG_PICTURES_DIR:-$HOME/Pictures}/screenshots"
 mkdir -p "$dir"
 file="$dir/$(date +%Y-%m-%d_%H-%M-%S).png"
-mode="${1:-area}"
+mode="${1:-region}"
+delay=0
+edit=0
+for a in "$@"; do
+    case "$a" in
+        --edit) edit=1 ;;
+        [0-9]|[0-9][0-9]) delay="$a" ;;
+    esac
+done
+[ "$mode" = area ] && mode=region   # the old name
+
+sound() {
+    snd="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/kajukatli/sounds/$1.wav"
+    if [ -f "$snd" ] && ! grep -q '"sounds": *false' "${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli/settings.json" 2>/dev/null; then
+        pw-play --volume 0.6 "$snd" >/dev/null 2>&1 &
+    fi
+}
 
 case "$mode" in
-    area)
-        geom="$(slurp -d -b '#0c0c0c88' -c '#c9b79cff' -s '#00000000' -w 1)" || exit 0
+    region)
+        geom="$(slurp -d -b '#00000066' -c '#ffffffcc' -s '#00000000' -w 1)" || exit 0
+        [ "$delay" -gt 0 ] && sleep "$delay"
         grim -g "$geom" "$file" ;;
-    screen)
-        out="$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')"
-        grim -o "$out" "$file" ;;
     window)
+        [ "$delay" -gt 0 ] && sleep "$delay"
         geom="$(hyprctl activewindow -j | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')"
         grim -g "$geom" "$file" ;;
-    *) echo "usage: kk-shot area|screen|window" >&2; exit 2 ;;
+    screen)
+        [ "$delay" -gt 0 ] && sleep "$delay"
+        out="$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')"
+        grim -o "$out" "$file" ;;
+    *) echo "usage: kk-shot region|window|screen [delay] [--edit]" >&2; exit 2 ;;
 esac
 
 [ -s "$file" ] || exit 1
 wl-copy --type image/png < "$file"
-# the shutter sound, unless sounds are off in settings
-snd="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/kajukatli/sounds/shutter.wav"
-if [ -f "$snd" ] && ! grep -q '"sounds": *false' "${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli/settings.json" 2>/dev/null; then
-    pw-play --volume 0.6 "$snd" >/dev/null 2>&1 &
+sound shutter
+
+if [ "$edit" = 1 ] && command -v satty >/dev/null; then
+    exec satty --filename "$file" --output-filename "$file" --copy-command wl-copy
 fi
-action="$(notify-send -a screenshot -i "$file" --action=edit=edit --action=open=folder \
-    "kept it." "$(basename "$file") · copied to clipboard")"
+
+action="$(notify-send -a Screenshot -i "$file" --action=open=Open --action=folder=Folder --action=edit=Edit \
+    "Screenshot" "$(basename "$file") · copied")"
 case "$action" in
+    open) xdg-open "$file" ;;
+    folder)
+        # ask the file manager to show the file itself; fall back to opening the folder in one
+        uri="file://$file"
+        gdbus call --session --dest org.freedesktop.FileManager1 --object-path /org/freedesktop/FileManager1 \
+            --method org.freedesktop.FileManager1.ShowItems "['$uri']" "" >/dev/null 2>&1 \
+        || { command -v nautilus >/dev/null && nautilus "$dir"; } \
+        || { command -v dolphin >/dev/null && dolphin "$dir"; } \
+        || { command -v thunar >/dev/null && thunar "$dir"; } ;;
     edit) satty --filename "$file" --output-filename "$file" --copy-command wl-copy ;;
-    open) xdg-open "$dir" ;;
 esac

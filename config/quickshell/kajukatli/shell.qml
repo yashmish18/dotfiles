@@ -34,9 +34,12 @@ ShellRoot {
     Popups {}
     Osd {}
     Overlay {}
+    HotCorners {}
     Lock { id: lock }
     // apply touchpad / keyboard / scale settings at login
     readonly property var systemService: System
+    readonly property var batteryService: Battery
+    readonly property var pomoService: Pomo
 
     // make sure the folders the shell writes to exist
     Process {
@@ -69,6 +72,9 @@ ShellRoot {
         case "notifications": Ui.toggle("notifications"); break;
         case "clipboard": Ui.toggle("clipboard"); break;
         case "session": Ui.toggle("session"); break;
+        case "capture": Ui.toggle("capture"); break;
+        case "focus": Ui.toggleFocus(); break;
+        case "timer": Pomo.toggle(); break;
         case "wallpapers": Ui.toggleOverlay("wallpapers"); break;
         case "overview": Ui.toggleOverlay("overview"); break;
         case "cheatsheet": Ui.toggleOverlay("cheatsheet"); break;
@@ -93,7 +99,7 @@ ShellRoot {
     Variants {
         model: ["launcher", "control", "settings", "notifications", "clipboard", "session", "wallpapers",
                 "overview", "cheatsheet", "bar", "ws_next", "ws_prev", "ws_new", "ws_new_move", "ws_rename",
-                "brightness_up", "brightness_down", "close", "edit", "look_next"]
+                "brightness_up", "brightness_down", "close", "edit", "look_next", "capture", "focus", "timer"]
         GlobalShortcut {
             required property var modelData
             appid: "kajukatli"

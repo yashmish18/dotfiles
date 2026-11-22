@@ -505,6 +505,32 @@ def build_ink(rgb, mask):
     return cv2.merge([(dist * 255).astype(np.uint8), order, stroke]), True
 
 
+def make_cut(out: Path) -> bool:
+    """cut.png: the subject in colour on transparency, cropped to it, ~320 px tall.
+    the terminal greeting (fastfetch, in kitty) shows it as its logo."""
+    from PIL import Image
+    meta_f = out / "meta.json"
+    if not (out / "mask.png").exists() or not meta_f.exists():
+        return False
+    meta = json.loads(meta_f.read_text())
+    with Image.open(meta["display"]) as im, Image.open(out / "mask.png") as m:
+        pic = im.convert("RGB")
+        a = m.split()[-1].resize(pic.size, Image.BILINEAR)
+    bbox = a.point(lambda v: 255 if v > 40 else 0).getbbox()
+    if not bbox:
+        return False
+    x0, y0, x1, y1 = bbox
+    px, py = int((x1 - x0) * 0.04), int((y1 - y0) * 0.04)
+    box = (max(0, x0 - px), max(0, y0 - py), min(pic.width, x1 + px), min(pic.height, y1 + py))
+    cut = pic.crop(box)
+    cut.putalpha(a.crop(box))
+    cut.thumbnail((320, 320), Image.LANCZOS)
+    cut.save(out / ".cut.png", optimize=True)
+    os.replace(out / ".cut.png", out / "cut.png")
+    (out / "cut.txt").write_text(f"{cut.width} {cut.height}" + chr(10))   # kk-hello sizes the logo from it
+    return True
+
+
 def stage_ai(meta: dict, args) -> dict:
     """adds the cut-out, depth and ink map to a stage-1 bundle, in place."""
     import cv2
@@ -555,6 +581,10 @@ def stage_ai(meta: dict, args) -> dict:
     tmp = out / ".meta.json"
     tmp.write_text(json.dumps(meta, indent=2))
     tmp.replace(out / "meta.json")
+    try:
+        make_cut(out)
+    except Exception as e:
+        log("no colour cut-out:", e)
     return meta
 
 
@@ -635,6 +665,7 @@ def main() -> int:
                     help="skip the parallax depth map in stage 2")
     ap.add_argument("--depth", dest="no_depth", action="store_false", help="make the depth map")
     ap.add_argument("--fetch-models", action="store_true", help="download the models from ai.conf and exit")
+    ap.add_argument("--cut", type=Path, metavar="BUNDLE", help="(re)make cut.png in a bundle dir and exit")
     ap.add_argument("--model", default=os.environ.get("KK_SUBJECT_MODEL", conf["model"]),
                     help="subject model: " + ", ".join(SUBJECT_MODELS))
     ap.add_argument("--max-edge", type=int, default=int(os.environ.get("KK_MAX_EDGE", "2560")),
@@ -648,6 +679,8 @@ def main() -> int:
         if not args.no_depth:
             ok = download(DEPTH_URL, DEPTH_FILE, "depth model (~100 MB)") is not None and ok
         return 0 if ok else 1
+    if args.cut is not None:
+        return 0 if make_cut(args.cut.expanduser()) else 1
     if args.list is not None:
         print(json.dumps(list_library(args.list.expanduser())), flush=True)
         return 0

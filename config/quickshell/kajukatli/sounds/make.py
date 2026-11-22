@@ -80,4 +80,9 @@ write("shutter.wav", mix((0, noise(0.05, lambda t: math.exp(-t / 0.008), smooth=
                          (0.05, noise(0.07, lambda t: math.exp(-t / 0.015), seed=3, smooth=0.35))), gain=0.3)
 # wallpaper: ink spreading, a soft rising-then-falling hush
 write("swoosh.wav", noise(0.9, lambda t: math.sin(math.pi * min(1, t / 0.9)) ** 2, seed=11, smooth=0.93), gain=0.2)
+# timer done: three bells walking up, the last one left to ring
+write("chime.wav", mix((0, bell(659, 0.5, 0.14)), (0.18, bell(880, 0.5, 0.14)), (0.36, bell(1319, 1.4, 0.45))), gain=0.3)
+# focus mode: one low, round note in, a higher one out
+write("focus.wav", bell(392, 0.7, 0.22, ((1, 1.0), (2, 0.15))), gain=0.26)
+write("unfocus.wav", bell(587, 0.5, 0.16, ((1, 1.0), (2, 0.15))), gain=0.24)
 print("sounds written to", HERE)

@@ -1,0 +1,15 @@
+#!/bin/sh
+# kk-hello   the terminal greeting: fastfetch. in kitty, the logo is the figure from your
+#            current wallpaper (cut out by the wallpaper ai); everywhere else, the cat.
+set -u
+cut="${XDG_CACHE_HOME:-$HOME/.cache}/kajukatli/current/cut.png"
+if [ -n "${KITTY_WINDOW_ID:-}" ] && [ -f "$cut" ] && [ -z "${KK_HELLO_CAT:-}" ]; then
+    w=1; h=1
+    [ -f "${cut%.png}.txt" ] && read -r w h < "${cut%.png}.txt"
+    rows=14
+    cols=$(( rows * 2 * w / h ))          # a cell is about twice as tall as it is wide
+    [ "$cols" -lt 10 ] && cols=10
+    [ "$cols" -gt 36 ] && cols=36
+    exec fastfetch --logo-type kitty-direct --logo "$cut" --logo-width "$cols" --logo-height "$rows" "$@"
+fi
+exec fastfetch "$@"

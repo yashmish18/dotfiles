@@ -29,7 +29,7 @@ Variants {
         readonly property string style: Config.s.barStyle
         readonly property bool vertical: style === "rail"
         readonly property bool atBottom: !vertical && Config.s.barPosition === "bottom"
-        readonly property bool shownBar: style !== "none" && Ui.barVisible
+        readonly property bool shownBar: style !== "none" && Ui.barVisible && !Ui.focusMode
         readonly property int thick: vertical ? 42 : Theme.barHeight
         readonly property int edge: vertical ? 0 : 6
         readonly property int menuEdge: vertical ? Edges.Right : atBottom ? Edges.Top : Edges.Bottom
@@ -41,7 +41,7 @@ Variants {
         readonly property var monitor: Hyprland.monitorFor(modelData)
         readonly property bool focusedScreen: Hyprland.focusedMonitor === monitor
         readonly property bool open: Ui.panel !== "" && focusedScreen
-        readonly property bool typing: ["launcher", "clipboard", "rename", "session"].indexOf(Ui.panel) !== -1
+        readonly property bool typing: ["launcher", "clipboard", "rename", "session", "capture"].indexOf(Ui.panel) !== -1
 
         WlrLayershell.layer: WlrLayer.Top
         WlrLayershell.namespace: "kajukatli-bar"
@@ -245,10 +245,10 @@ Variants {
             border.width: 1
             border.color: Theme.alpha(Theme.surfaceText, 0.08)
             opacity: bar.open && loader.status === Loader.Ready ? 1 : 0
-            scale: bar.open ? 1 : 0.97
+            scale: bar.open ? 1 : 0.92
             transformOrigin: bar.vertical ? Item.Left : bar.atBottom ? Item.Bottom : Item.Top
             Behavior on opacity { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutQuad } }
-            Behavior on scale { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutCubic } }
+            Behavior on scale { NumberAnimation { duration: Theme.normal + 60; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
             Behavior on height { enabled: bar.open; NumberAnimation { duration: Theme.normal; easing.type: Easing.OutCubic } }
             clip: true
 
@@ -268,6 +268,7 @@ Variants {
                     case "clipboard": return clipC;
                     case "session": return sessionC;
                     case "rename": return renameC;
+                    case "capture": return captureC;
                     }
                     return null;
                 }
@@ -282,6 +283,7 @@ Variants {
             Component { id: clipC; ClipboardPanel {} }
             Component { id: sessionC; SessionPanel {} }
             Component { id: renameC; RenamePanel {} }
+            Component { id: captureC; CapturePanel {} }
         }
     }
 }

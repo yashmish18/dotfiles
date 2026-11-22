@@ -105,7 +105,8 @@ void main() {
     vec2 uv = qt_TexCoord0;
 
     vec2 tu = coverUV(uv, coverTo);
-    vec2 tp = hasToDepth > 0.5 ? parallax(toDepth, tu, offset) : tu;
+    // no depth map (yet)? still move: the whole picture pans as one flat plane
+    vec2 tp = hasToDepth > 0.5 ? parallax(toDepth, tu, offset) : clamp(tu - offset * 0.45, vec2(0.001), vec2(0.999));
     vec3 toC = texture(toTex, tp).rgb;
 
     if (progress >= 0.999) {
@@ -116,7 +117,7 @@ void main() {
     }
 
     vec2 fu = coverUV(uv, coverFrom);
-    vec2 fp = hasFromDepth > 0.5 ? parallax(fromDepth, fu, offset) : fu;
+    vec2 fp = hasFromDepth > 0.5 ? parallax(fromDepth, fu, offset) : clamp(fu - offset * 0.45, vec2(0.001), vec2(0.999));
     vec3 fromC = hasFrom > 0.5 ? texture(fromTex, fp).rgb : baseColor.rgb;
 
     if (useInk < 0.5) {

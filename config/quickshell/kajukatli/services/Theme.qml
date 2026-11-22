@@ -13,8 +13,10 @@ Singleton {
     id: root
 
     // ---------------------------------------------------------------- roles
-    property color primary: a.primary
-    property color primaryText: a.primaryText
+    // while music plays, the accent borrows the album cover's colour (settings → look)
+    readonly property bool tinted: Config.s.musicTint && Media.playing && Media.artReady
+    property color primary: tinted ? Media.artTint : a.primary
+    property color primaryText: tinted ? Media.artTintText : a.primaryText
     property color primaryContainer: a.primaryContainer
     property color primaryContainerText: a.primaryContainerText
     property color secondary: a.secondary
@@ -52,7 +54,7 @@ Singleton {
     property color faint: a.faint
     property color danger: a.danger
     property color ok: a.ok
-    property color accent: a.accent
+    property color accent: tinted ? Media.artTint : a.accent
     property color accentDim: a.accentDim
     property color accentFaint: a.accentFaint
 
@@ -63,6 +65,7 @@ Singleton {
     function alpha(c: color, a: real): color { return Qt.rgba(c.r, c.g, c.b, a); }
 
     Behavior on primary { ColorAnimation { duration: 1400; easing.type: Easing.InOutQuad } }
+    Behavior on primaryText { ColorAnimation { duration: 1400; easing.type: Easing.InOutQuad } }
     Behavior on primaryContainer { ColorAnimation { duration: 1400; easing.type: Easing.InOutQuad } }
     Behavior on tertiary { ColorAnimation { duration: 1400; easing.type: Easing.InOutQuad } }
     Behavior on accent { ColorAnimation { duration: 1400; easing.type: Easing.InOutQuad } }

@@ -6,3 +6,4 @@ mpv
 pavucontrol
 blueman
 network-manager-applet
+loupe

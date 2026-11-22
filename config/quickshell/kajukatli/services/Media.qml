@@ -68,6 +68,10 @@ Singleton {
     // older quickshell without it just keeps the theme's colour instead of failing to load.
     property color artColor: Theme.primary
     property color artText: Theme.primaryText
+    // the cover's colour, once worked out (Theme tints the accent with it while music plays)
+    property bool artReady: false
+    property color artTint: "#888888"
+    property color artTintText: "#000000"
     property var _quant: null
     Component.onCompleted: {
         try {
@@ -79,6 +83,7 @@ Singleton {
         }
     }
     onArtChanged: {
+        artReady = false;
         if (_quant && art !== "") _quant.source = art;
         else if (art === "") { artColor = Theme.primary; artText = Theme.primaryText; }
     }
@@ -94,6 +99,9 @@ Singleton {
         const dark = Theme.dark;
         artColor = Qt.hsla(best.hslHue, Math.max(0.45, Math.min(0.85, best.hslSaturation)), dark ? 0.72 : 0.42, 1);
         artText = Qt.hsla(best.hslHue, 0.5, dark ? 0.14 : 0.97, 1);
+        artTint = artColor;
+        artTintText = artText;
+        artReady = true;
     }
 
     // ---------------------------------------------------------------- lyrics

@@ -1,9 +1,10 @@
 #!/bin/sh
-# kk-record   start: drag an area, or click a screen for all of it.
-# kk-record   again: stop. files land in ~/Videos/recordings
+# kk-record [region|screen]   start recording (region: drag an area; screen: the whole screen)
+# kk-record                   again while recording: stop. files land in ~/Videos/recordings
 set -u
 pidfile="${XDG_RUNTIME_DIR:-/tmp}/kk-record.pid"
 dir="${XDG_VIDEOS_DIR:-$HOME/Videos}/recordings"
+mode="${1:-region}"
 
 tell() { qs -c kajukatli ipc call shell recording "$1" >/dev/null 2>&1 || true; }
 
@@ -11,13 +12,23 @@ if [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
     kill -INT "$(cat "$pidfile")"
     rm -f "$pidfile"
     tell false
-    notify-send -a recorder "cut." "saved in $dir"
+    last="$(ls -t "$dir"/*.mp4 2>/dev/null | head -n1)"
+    action="$(notify-send -a Recorder --action=open=Open --action=folder=Folder "Recording saved" "$(basename "$last")")"
+    case "$action" in
+        open) xdg-open "$last" ;;
+        folder) gdbus call --session --dest org.freedesktop.FileManager1 --object-path /org/freedesktop/FileManager1 \
+                    --method org.freedesktop.FileManager1.ShowItems "['file://$last']" "" >/dev/null 2>&1 || xdg-open "$dir" ;;
+    esac
     exit 0
 fi
 
 mkdir -p "$dir"
 file="$dir/$(date +%Y-%m-%d_%H-%M-%S).mp4"
-geom="$(slurp -o -d -b '#0c0c0c88' -c '#b5655aff' -w 1 2>/dev/null)" || exit 0
+case "$mode" in
+    screen) target="-o $(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')" ;;
+    *) geom="$(slurp -d -b '#00000066' -c '#ff5a5acc' -w 1 2>/dev/null)" || exit 0
+       target="" ;;
+esac
 
 # encode on the integrated gpu (vaapi) so the nvidia card can keep sleeping
 render=""
@@ -27,7 +38,12 @@ for r in /sys/class/drm/renderD*; do
 done
 
 start() {
-    wf-recorder -g "$geom" "$@" -f "$file" >/dev/null 2>&1 &
+    if [ -n "$target" ]; then
+        # shellcheck disable=SC2086
+        wf-recorder $target "$@" -f "$file" >/dev/null 2>&1 &
+    else
+        wf-recorder -g "$geom" "$@" -f "$file" >/dev/null 2>&1 &
+    fi
     pid=$!
     sleep 0.6
     kill -0 "$pid" 2>/dev/null
@@ -36,7 +52,7 @@ start() {
 if [ -n "$render" ] && start -c h264_vaapi -d "$render"; then :
 elif start; then :
 else
-    notify-send -u critical -a recorder "couldn't start recording" "is wf-recorder installed?"
+    notify-send -u critical -a Recorder "Couldn't start recording" "Is wf-recorder installed?"
     exit 1
 fi
 echo "$pid" > "$pidfile"

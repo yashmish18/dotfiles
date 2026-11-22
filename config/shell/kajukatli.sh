@@ -56,7 +56,7 @@ command -v bat >/dev/null && alias cat='bat --style=plain --paging=never --theme
 
 # small kindnesses
 alias please='sudo'
-alias meow='fastfetch'
+alias meow='kk-hello'      # KK_HELLO_CAT=1 meow: the cat, even in kitty
 alias ..='cd ..'
 alias ...='cd ../..'
 alias icat='kitten icat'
@@ -65,16 +65,11 @@ alias wall='kk-wall'
 alias doctor='kk-doctor'
 alias update='sudo pacman -Syu && { command -v paru >/dev/null && paru -Sua || command -v yay >/dev/null && yay -Sua; }'
 
-# a greeting, once per kitty window, never inside tmux/ssh/scripts
-if [ -n "$KITTY_WINDOW_ID" ] && [ -z "$TMUX" ] && [ -z "$SSH_TTY" ] && [ "${SHLVL:-1}" -le 2 ] && [ -z "$KK_GREETED" ]; then
-    export KK_GREETED=1
-    command -v fastfetch >/dev/null && fastfetch
-fi
 unset _kk_shell _kk_init
 
 # ---------------------------------------------------------------- hello
 # fastfetch once per new terminal window (not in every subshell, split or tmux pane)
 if command -v fastfetch >/dev/null && [ -z "${KK_GREETED:-}" ] && [ "${SHLVL:-1}" -le 2 ] && [ -z "${TMUX:-}" ]; then
     export KK_GREETED=1
-    fastfetch
+    if command -v kk-hello >/dev/null; then kk-hello; else fastfetch; fi
 fi

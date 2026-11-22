@@ -211,6 +211,8 @@ gpu() {
 
     say "graphics: $( [ $has_ig = 1 ] && echo -n "integrated " )$( [ $has_nv = 1 ] && echo -n "nvidia" )"
     sudo install -Dm644 "$REPO/system/udev/61-kajukatli-gpu.rules" /etc/udev/rules.d/61-kajukatli-gpu.rules
+    # the battery's charge limit, settable from settings → power
+    sudo install -Dm644 "$REPO/system/udev/62-kajukatli-battery.rules" /etc/udev/rules.d/62-kajukatli-battery.rules
 
     if [ $has_nv = 1 ]; then
         if ! pacman -Qq | grep -qE '^nvidia(-open)?(-dkms)?$|^nvidia-[0-9]+xx'; then
@@ -229,6 +231,7 @@ gpu() {
         note "the nvidia card sleeps unless you run something with: prime-run <app>"
     fi
     sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=drm || true
+    sudo udevadm trigger --subsystem-match=power_supply --action=add 2>/dev/null || true
 
     # route hyprland to the integrated gpu on hybrid laptops
     local out="$CONFIG/hypr/modules/gpu.lua"
@@ -391,15 +394,15 @@ wallpapers() {
 # onnxruntime + opencv-headless, ~250 mb, plus the models you pick.
 ai_env() {
     say "wallpaper ai (subject cut-out for the depth clock, 3d parallax)"
-    local level="anime" r
+    local level="full" r
     if [ "$YES" != 1 ]; then
         note "1  lite    u2netp, rough cut-outs, no parallax              ~5 mb of models"
-        note "2  anime   isnet-anime, clean cut-outs of drawn art         ~170 mb  (recommended)"
-        note "3  full    anime + depth for the 3d parallax                ~270 mb"
+        note "2  anime   isnet-anime, clean cut-outs of drawn art         ~170 mb"
+        note "3  full    anime + depth for the 3d parallax                ~270 mb  (recommended)"
         note "4  photo   birefnet for photographs + depth                 ~320 mb"
-        printf '  %s?%s which one %s ' "$c_acc" "$c_0" "[2]"
+        printf '  %s?%s which one %s ' "$c_acc" "$c_0" "[3]"
         read -r r </dev/tty || r=""
-        case "${r:-2}" in 1) level=lite ;; 3) level=full ;; 4) level=photo ;; *) level=anime ;; esac
+        case "${r:-3}" in 1) level=lite ;; 2) level=anime ;; 4) level=photo ;; *) level=full ;; esac
     fi
     local model=isnet-anime depth=0
     case "$level" in lite) model=u2netp ;; full) depth=1 ;; photo) model=birefnet-general-lite; depth=1 ;; esac
@@ -505,6 +508,12 @@ defaults() {
     # nothing to look at yet? a few generated gradients so the desktop isn't empty
     if [ -z "$(find "$HOME/Pictures/wallpapers" -type f 2>/dev/null | head -n1)" ]; then
         python3 "$REPO/bin/kk-wallpapers" "$HOME/Pictures/wallpapers/generated" >/dev/null || true
+    fi
+    # folders open in the file manager, pictures and videos in their viewers (not the terminal)
+    if command -v xdg-mime >/dev/null; then
+        [ -f /usr/share/applications/org.gnome.Nautilus.desktop ] && xdg-mime default org.gnome.Nautilus.desktop inode/directory
+        [ -f /usr/share/applications/org.gnome.Loupe.desktop ] && xdg-mime default org.gnome.Loupe.desktop image/png image/jpeg image/webp image/gif
+        [ -f /usr/share/applications/mpv.desktop ] && xdg-mime default mpv.desktop video/mp4 video/webm video/x-matroska
     fi
     gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' 2>/dev/null || true
     gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3-dark' 2>/dev/null || true

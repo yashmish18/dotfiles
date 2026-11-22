@@ -33,7 +33,7 @@ Singleton {
 
         onNotification: n => {
             n.tracked = true;
-            if (root.dnd && n.urgency !== NotificationUrgency.Critical) return;
+            if ((root.dnd || Ui.focusMode) && n.urgency !== NotificationUrgency.Critical) return;
             if (Ui.panel === "notifications") return; // you're already looking at them
             root.popups = [n].concat(root.popups.filter(p => p)).slice(0, 4);
             Sounds.play("notify", 400);

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
+import Quickshell.Io
 import qs.services
 import qs.components
 
@@ -9,6 +10,8 @@ import qs.components
 //   =  calculator        (= 12*7)
 //   >  run a command     (> htop)   opens in kitty
 //   ?  search the web
+//   /  find a file in your home folder
+// with nothing typed, the apps you open most come first.
 Item {
     id: root
     implicitWidth: 520
@@ -16,7 +19,9 @@ Item {
 
     property int index: 0
     readonly property string q: field.text.trim()
-    readonly property string mode: q.startsWith("=") ? "calc" : q.startsWith(">") ? "run" : q.startsWith("?") ? "web" : "apps"
+    readonly property string mode: q.startsWith("=") ? "calc" : q.startsWith(">") ? "run" : q.startsWith("?") ? "web" : q.startsWith("/") ? "files" : "apps"
+    readonly property var launches: Store.s.launches || ({})
+    function used(app) { return launches[app.id] || 0; }
 
     function score(app, s) {
         const name = (app.name || "").toLowerCase();
@@ -38,8 +43,9 @@ Item {
         const all = DesktopEntries.applications.values;
         const scored = [];
         for (const a of all) {
-            const v = score(a, s);
-            if (v > 0) scored.push({ app: a, v: v });
+            // what you open often floats up; with nothing typed, that's the whole order
+            const v = score(a, s) * (s ? 1 : 0) + Math.min(30, used(a) * 2) + (s ? 0 : 0.01);
+            if (s ? score(a, s) > 0 : true) scored.push({ app: a, v: v });
         }
         scored.sort((x, y) => y.v - x.v || x.app.name.localeCompare(y.app.name));
         return scored.slice(0, 8).map(x => x.app);
@@ -60,6 +66,9 @@ Item {
     function launch(app) {
         if (!app) return;
         Ui.panel = "";
+        const l = Object.assign({}, Store.s.launches || {});
+        l[app.id] = (l[app.id] || 0) + 1;
+        Store.s.launches = l;
         if (app.runInTerminal)
             Quickshell.execDetached({ command: ["kitty", "--"].concat(app.command), workingDirectory: app.workingDirectory || Config.home });
         else
@@ -71,6 +80,34 @@ Item {
         else if (mode === "calc" && calc !== "") { Quickshell.execDetached(["wl-copy", calc]); Ui.panel = ""; }
         else if (mode === "run" && q.length > 1) { Ui.panel = ""; Quickshell.execDetached(["kitty", "--hold", "sh", "-c", q.slice(1).trim()]); }
         else if (mode === "web" && q.length > 1) { Ui.panel = ""; Qt.openUrlExternally("https://duckduckgo.com/?q=" + encodeURIComponent(q.slice(1).trim())); }
+        else if (mode === "files" && files.length > 0) openFile(files[Math.min(index, files.length - 1)]);
+    }
+
+    // ---------------------------------------------------------------- files
+    property var files: []
+    function openFile(path) {
+        Ui.panel = "";
+        Quickshell.execDetached(["xdg-open", path]);
+    }
+    Timer {
+        id: findLater
+        interval: 160
+        onTriggered: {
+            const term = root.q.slice(1).trim();
+            if (term.length < 2) { root.files = []; return; }
+            finder.command = ["sh", "-c",
+                'cd "$HOME" && if command -v fd >/dev/null; then fd -i -t f -t d --max-results 8 -- "$1"; '
+                + 'else find . -maxdepth 5 -not -path "*/.*" -iname "*$1*" 2>/dev/null | head -n 8 | sed "s|^\\./||"; fi',
+                "sh", term];
+            finder.running = true;
+        }
+    }
+    onQChanged: if (mode === "files") findLater.restart(); else files = []
+    Process {
+        id: finder
+        stdout: StdioCollector {
+            onStreamFinished: root.files = text.split("\n").filter(x => x !== "").map(x => Config.home + "/" + x)
+        }
     }
 
     ColumnLayout {
@@ -87,7 +124,7 @@ Item {
             onTextChanged: root.index = 0
             onAccepted: root.accept()
             onEscaped: Ui.panel = ""
-            onDownPressed: root.index = Math.min(root.index + 1, Math.max(0, root.results.length - 1))
+            onDownPressed: root.index = Math.min(root.index + 1, Math.max(0, (root.mode === "files" ? root.files.length : root.results.length) - 1))
             onUpPressed: root.index = Math.max(0, root.index - 1)
             onTabPressed: root.index = (root.index + 1) % Math.max(1, root.results.length)
         }
@@ -142,13 +179,47 @@ Item {
             }
         }
 
+        Repeater {
+            model: root.mode === "files" ? root.files : []
+            delegate: Rectangle {
+                id: frow
+                required property var modelData
+                required property int index
+                readonly property bool sel: index === root.index
+                Layout.fillWidth: true
+                implicitHeight: 40
+                radius: Theme.radius
+                color: sel ? Theme.primaryContainer : "transparent"
+                Behavior on color { ColorAnimation { duration: Theme.fast } }
+                Txt {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.margins: 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: frow.modelData.slice(Config.home.length + 1)
+                    elide: Text.ElideMiddle
+                    font.family: Theme.mono
+                    font.pixelSize: Theme.sm
+                    color: frow.sel ? Theme.primaryContainerText : Theme.surfaceText
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onEntered: root.index = frow.index
+                    onClicked: root.openFile(frow.modelData)
+                }
+            }
+        }
+
         Txt {
-            visible: root.mode !== "apps" || root.results.length === 0
+            visible: (root.mode !== "apps" && !(root.mode === "files" && root.files.length > 0)) || (root.mode === "apps" && root.results.length === 0)
             Layout.fillWidth: true
             Layout.leftMargin: 2
             text: root.mode === "calc" ? (root.calc !== "" ? "= " + root.calc + "    enter copies it" : "keep typing…")
                 : root.mode === "run" ? "enter runs it in a terminal"
                 : root.mode === "web" ? "enter searches the web"
+                : root.mode === "files" ? (root.q.length < 3 ? "a file or folder name" : "nothing in your home folder by that name")
                 : root.q === "" ? "" : "no app by that name. try > to run it, or ? to search."
             font.family: root.mode === "calc" && root.calc !== "" ? Theme.mono : Theme.sans
             font.pixelSize: root.mode === "calc" && root.calc !== "" ? Theme.lg : Theme.sm
@@ -156,7 +227,7 @@ Item {
         }
 
         Txt {
-            text: "=  math      >  command      ?  web      ↑↓  choose"
+            text: "=  math      >  command      ?  web      /  files      ↑↓  choose"
             font.family: Theme.mono
             font.pixelSize: Theme.xs + 1
             color: Theme.outline

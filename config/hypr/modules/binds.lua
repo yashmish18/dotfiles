@@ -24,6 +24,8 @@ bind(M .. " + L",      hl.dsp.exec_cmd(B .. "kk-lock"), { description = "lock" }
 bind(M .. " + SHIFT + B", sh("bar"),        { description = "hide / show bar" })
 bind(M .. " + SHIFT + E", sh("edit"),       { description = "arrange desktop widgets" })
 bind(M .. " + SHIFT + T", sh("look_next"),  { description = "next look (preset)" })
+bind(M .. " + Z",         sh("focus"),      { description = "focus mode" })
+bind(M .. " + SHIFT + P", sh("timer"),      { description = "start / pause the timer" })
 
 -- windows
 bind(M .. " + Q",         hl.dsp.window.close(),                       { description = "close window" })
@@ -76,10 +78,12 @@ bind(M .. " + S",         hl.dsp.workspace.toggle_special("magic"),           { 
 bind(M .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:magic" }), { description = "send to scratchpad" })
 
 -- screenshots & recording
-bind("Print",              hl.dsp.exec_cmd(B .. "kk-shot area"),   { description = "screenshot area" })
-bind("SHIFT + Print",      hl.dsp.exec_cmd(B .. "kk-shot screen"), { description = "screenshot screen" })
-bind(M .. " + CTRL + S",   hl.dsp.exec_cmd(B .. "kk-shot area"),   { description = "screenshot area (no print key)" })
-bind(M .. " + SHIFT + R",  hl.dsp.exec_cmd(B .. "kk-record"),      { description = "record screen (toggle)" })
+bind("Print",              sh("capture"),                            { description = "screenshot / record: pick what" })
+bind("SHIFT + Print",      hl.dsp.exec_cmd(B .. "kk-shot screen"),   { description = "screenshot the screen" })
+bind("CTRL + Print",       hl.dsp.exec_cmd(B .. "kk-shot region"),   { description = "screenshot a region" })
+bind("ALT + Print",        hl.dsp.exec_cmd(B .. "kk-shot window"),   { description = "screenshot the window" })
+bind(M .. " + CTRL + S",   sh("capture"),                            { description = "screenshot / record (no print key)" })
+bind(M .. " + SHIFT + R",  hl.dsp.exec_cmd(B .. "kk-record region"), { description = "record a region (again: stop)" })
 bind(M .. " + SHIFT + C",  hl.dsp.exec_cmd("hyprpicker -a"),  { description = "colour picker" })
 
 -- hardware keys (work on the lock screen too)

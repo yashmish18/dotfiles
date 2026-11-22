@@ -73,11 +73,22 @@ Singleton {
         generation++;
         Store.s.wallpaper = meta.source;
         if (isVideo) videoStart.restart();
+        pointAt(meta);
     }
     // same picture, more known about it: no transition, just the new parts
     function refine(meta) {
         current = meta;
         refined();
+        pointAt(meta);
+    }
+    // ~/.cache/kajukatli/current → this wallpaper's bundle. the terminal greeting shows its
+    // subject (cut.png) as fastfetch's logo; an older bundle gets its cut-out made here
+    function pointAt(meta) {
+        if (!meta || !meta.dir) return;
+        Quickshell.execDetached(["sh", "-c",
+            'c="${XDG_CACHE_HOME:-$HOME/.cache}/kajukatli"; ln -sfn "$1" "$c/current"; '
+            + '[ -f "$1/mask.png" ] && [ ! -f "$1/cut.png" ] && exec nice -n 19 "$2" --cut "$1"; true',
+            "sh", meta.dir, Config.bin + "kk-prep"]);
     }
     function sameSource(meta): bool {
         return current !== null && meta && current.source === meta.source;
@@ -109,6 +120,24 @@ Singleton {
         target: Power
         function onOnBatteryChanged() {
             if (!Power.onBattery && root.aiPending !== "") root.runAi(root.aiPending, "", false);
+        }
+    }
+
+    // ---------------------------------------------------------------- a new one by itself
+    Timer {
+        interval: 60 * 1000
+        repeat: true
+        running: Config.s.wallRotate !== "off"
+        onTriggered: {
+            const period = Config.s.wallRotate === "hourly" ? 3600e3 : 86400e3;
+            const now = Date.now();
+            if (Store.s.rotatedAt === 0) { Store.s.rotatedAt = now; return; }
+            // daily: at the first minute of a new day you're here for
+            const due = Config.s.wallRotate === "daily" ? new Date(Store.s.rotatedAt).toDateString() !== new Date(now).toDateString()
+                                                         : now - Store.s.rotatedAt >= period;
+            if (!due) return;
+            Store.s.rotatedAt = now;
+            root.random();
         }
     }
 

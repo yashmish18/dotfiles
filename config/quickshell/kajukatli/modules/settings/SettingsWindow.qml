@@ -472,6 +472,14 @@ LazyLoader {
                         Switch { on: Config.s.showAnalog; onToggled: Config.s.showAnalog = !Config.s.showAnalog } }
                     Setting { label: "Note"
                         Switch { on: Config.s.showNote; onToggled: Config.s.showNote = !Config.s.showNote } }
+                    Setting { label: "Timer"; detail: "Click to start, scroll for minutes, right click to reset. Super + Shift + P."
+                        Switch { on: Config.s.showTimer; onToggled: Config.s.showTimer = !Config.s.showTimer } }
+                    Setting { label: "Rain and snow"; detail: "When it's falling where you are. Needs the weather."
+                        Switch { on: Config.s.weatherFx; onToggled: Config.s.weatherFx = !Config.s.weatherFx } }
+                    Setting { label: "Album colours"; detail: "While music plays, the accent takes the cover's colour."
+                        Switch { on: Config.s.musicTint; onToggled: Config.s.musicTint = !Config.s.musicTint } }
+                    Setting { label: "Hot corners"; detail: "Top left: overview. Bottom right: the desktop, and back."
+                        Switch { on: Config.s.hotCorners; onToggled: Config.s.hotCorners = !Config.s.hotCorners } }
                     Setting { label: "Place them"
                         Btn { text: "Arrange"; icon: "move"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.editing = true; } } }
                     Setting { label: "Weather city"; detail: "Empty guesses from your connection (wttr.in)."
@@ -488,7 +496,7 @@ LazyLoader {
             id: wallP
             ColumnLayout {
                 spacing: 18
-                Head { title: "Wallpaper"; about: "Switching is instant. The subject cut-out (for the clock behind it) is worked out quietly afterwards." }
+                Head { title: "Wallpaper"; about: "Every switch is inked in: traced first, then filled. The subject cut-out is worked out quietly afterwards." }
                 Group {
                     Setting { label: "Choose a wallpaper"; detail: Wall.current ? Wall.current.name : ""
                         RowLayout { spacing: 6
@@ -496,8 +504,8 @@ LazyLoader {
                             Btn { text: "Browse"; icon: "image"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.toggleOverlay("wallpapers"); } } } }
                     Setting { label: "Folder"
                         Field { implicitWidth: 260; size: Theme.md; text: Config.s.wallpaperDir; onAccepted: { Config.s.wallpaperDir = text.trim(); Wall.refreshLibrary(); } } }
-                    Setting { label: "Switching"
-                        Choice { options: [{ value: "fade", label: "Crossfade" }, { value: "ink", label: "Ink outline" }, { value: "none", label: "Instant" }]; value: Config.s.transition; onPicked: v => Config.s.transition = v } }
+                    Setting { label: "A new one by itself"
+                        Choice { options: [{ value: "off", label: "never" }, { value: "hourly", label: "every hour" }, { value: "daily", label: "every day" }]; value: Config.s.wallRotate; onPicked: v => Config.s.wallRotate = v } }
                 }
                 Group {
                     title: "Depth"
@@ -662,6 +670,60 @@ LazyLoader {
                         Switch { on: Config.s.autoPowerProfile; onToggled: Config.s.autoPowerProfile = !Config.s.autoPowerProfile } }
                     Setting { label: "Stay awake"; detail: "Don't dim, lock or sleep."
                         Switch { on: Power.caffeine; onToggled: Power.caffeine = !Power.caffeine } }
+                }
+                Group {
+                    title: "Battery"
+                    visible: Power.hasBattery
+                    Setting {
+                        label: "Charge limit"
+                        detail: !Battery.limitSupported ? "This laptop doesn't let the system set one."
+                              : "Stops charging at this level. 80% keeps the battery healthy for years."
+                        Choice {
+                            enabled: Battery.limitSupported
+                            options: [{ value: 100, label: "off" }, { value: 90, label: "90%" }, { value: 80, label: "80%" }, { value: 60, label: "60%" }]
+                            value: Config.s.chargeLimit
+                            onPicked: v => Battery.setLimit(v)
+                        }
+                    }
+                    Setting { label: "Health"; detail: Battery.health < 0 ? "unknown" : Math.round(Battery.health * 100) + "% of its original capacity" + (Battery.cycles >= 0 ? " · " + Battery.cycles + " cycles" : "") }
+                    // the last day, one dot every ten minutes
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 90
+                        Layout.topMargin: 6
+                        Layout.bottomMargin: 10
+                        visible: Battery.history.length > 1
+                        Canvas {
+                            id: hist
+                            anchors.fill: parent
+                            property var pts: Battery.history
+                            onPtsChanged: requestPaint()
+                            onPaint: {
+                                const c = getContext("2d");
+                                c.reset();
+                                const n = pts.length;
+                                if (n < 2) return;
+                                const t0 = Date.now() - 24 * 3600 * 1000;
+                                const X = t => (t - t0) / (24 * 3600 * 1000) * width;
+                                const Y = p => height - 4 - p / 100 * (height - 8);
+                                c.lineWidth = 2;
+                                c.strokeStyle = Theme.primary;
+                                c.beginPath();
+                                for (let i = 0; i < n; i++) {
+                                    const x = X(pts[i].t), y = Y(pts[i].p);
+                                    if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+                                }
+                                c.stroke();
+                                c.lineTo(X(pts[n - 1].t), height);
+                                c.lineTo(X(pts[0].t), height);
+                                c.closePath();
+                                c.fillStyle = Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15);
+                                c.fill();
+                            }
+                        }
+                        Txt { anchors.left: parent.left; anchors.bottom: parent.bottom; text: "24 h ago"; font.family: Theme.mono; font.pixelSize: Theme.xs; color: Theme.outline }
+                        Txt { anchors.right: parent.right; anchors.bottom: parent.bottom; text: "now"; font.family: Theme.mono; font.pixelSize: Theme.xs; color: Theme.outline }
+                    }
                 }
             }
         }

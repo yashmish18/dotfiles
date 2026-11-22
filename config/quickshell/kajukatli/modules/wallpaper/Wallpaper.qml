@@ -98,15 +98,15 @@ Variants {
             const m = pendingSlot === 0 ? metaA : metaB;
             // a brand-new picture shows up before kk-prep has made its ink map: give the fast
             // stage a moment (it's usually ~0.2 s) so the switch can still ink in
-            if (Config.s.transition === "ink" && !m.ink && (m.stage || 0) === 0 && waitedMs < 900) return;
-            const wantInk = Config.s.transition === "ink" && !!m.ink;
+            if (!m.ink && (m.stage || 0) === 0 && waitedMs < 900) return;
+            const wantInk = !!m.ink;
             if (wantInk && !settled(inkImg.status)) return;
             inkRun = wantInk;
             waiting = false;
             fromSlot = toMeta === null || pendingSlot === toSlot ? (pendingSlot === 0 ? 1 : 0) : toSlot;
             toSlot = pendingSlot;
             seed = Math.random() * 100;
-            if (Config.s.transition === "none" || fromMeta === null) {
+            if (fromMeta === null) {
                 progress = 1;
                 if (fromSlot === 0) metaA = null; else metaB = null;
                 return;

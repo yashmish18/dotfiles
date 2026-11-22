@@ -35,7 +35,9 @@ Item {
     readonly property real fit: iw > 0 && ih > 0 && parent ? Math.min(parent.width * 0.96 / iw, parent.height * 0.96 / ih) : 1
     readonly property real k: k0
 
-    visible: shown
+    visible: shown || opacity > 0
+    opacity: shown ? 1 : 0
+    Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.OutQuad } }
     width: shown ? iw * k : 0
     height: shown ? ih * k : 0
 
