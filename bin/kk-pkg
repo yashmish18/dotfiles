@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+set -eu
+query="${2:-}"
+case "${1:-search}" in
+    search)
+        [ -n "$query" ] || exit 0
+        if command -v paru >/dev/null 2>&1; then paru -Ss "$query" --color never
+        else pacman -Ss "$query"
+        fi
+        ;;
+    installed)
+        pacman -Qq
+        ;;
+    install)
+        [ -n "$query" ] || exit 2
+        if command -v paru >/dev/null 2>&1 && ! pacman -Si "$query" >/dev/null 2>&1; then
+            exec paru -S --needed "$query"
+        fi
+        exec sudo pacman -S --needed "$query"
+        ;;
+    remove)
+        [ -n "$query" ] || exit 2
+        exec sudo pacman -Rns "$query"
+        ;;
+    *) echo "usage: kk-pkg search|installed|install|remove [package]"; exit 2 ;;
+esac

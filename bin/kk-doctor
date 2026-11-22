@@ -10,7 +10,7 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 echo; echo "  kajukatli doctor"; echo
 
-for c in Hyprland qs kitty hypridle hyprlock grim slurp wl-copy wtype cliphist brightnessctl playerctl          nmcli ffmpeg jq notify-send hyprsunset python3 curl kk-sys kk-prep kk-theme; do
+for c in Hyprland qs kitty hypridle hyprlock grim slurp wl-copy wtype cliphist brightnessctl playerctl          nmcli ffmpeg jq notify-send hyprsunset python3 curl kk-sys kk-prep kk-theme kk-display kk-pkg kk-transaction; do
     have "$c" && pass "$c" || fail "$c missing" "run install.sh again, or: sudo pacman -S <package for $c>"
 done
 # extras: only a note when they're missing (you may have left them out on purpose)

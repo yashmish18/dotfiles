@@ -15,7 +15,7 @@ case "$mode" in
         ;;
     mirror)
         [ -n "$external" ] || { echo "no external display"; exit 1; }
-        hyprctl eval "hl.monitor({ output = \"$(printf '%s' "$external" | tr -d '"')\", mode = \"preferred\", position = \"0x0\", scale = \"1\", mirror = \"$(printf '%s' "$internal" | tr -d '"')\" })"
+        hyprctl keyword monitor "$external,preferred,0x0,1,mirror,$internal"
         ;;
     internal) hyprctl keyword monitor "$internal,preferred,0x0,1"; [ -z "$external" ] || hyprctl keyword monitor "$external,disable" ;;
     external)

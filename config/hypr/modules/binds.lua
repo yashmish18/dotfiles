@@ -19,6 +19,7 @@ bind(M .. " + A",      sh("control"),       { description = "control center" })
 bind(M .. " + I",      sh("settings"),      { description = "desktop settings" })
 bind(M .. " + N",      sh("notifications"), { description = "notifications" })
 bind(M .. " + W",      sh("wallpapers"),    { description = "wallpaper picker" })
+bind(M .. " + SHIFT + W", hl.dsp.exec_cmd(B .. "kk-wall random"), { description = "random wallpaper" })
 bind(M .. " + V",      sh("clipboard"),     { description = "clipboard history" })
 bind(M .. " + Tab",    sh("overview"),      { description = "workspace overview" })
 bind(M .. " + Escape", sh("session"),       { description = "power menu" })
@@ -77,6 +78,8 @@ bind(M .. " + grave",           sh("ws_new"),      { description = "new empty wo
 bind(M .. " + SHIFT + grave",   sh("ws_new_move"), { description = "move window to new workspace" })
 bind(M .. " + R",               sh("ws_rename"),   { description = "rename workspace" })
 bind(M .. " + period",          sh("emoji"),       { description = "emoji picker" })
+bind(M .. " + D",               sh("projection"),  { description = "display / projection menu" })
+bind(M .. " + SHIFT + I",       sh("packages"),    { description = "package manager" })
 
 -- scratchpad
 bind(M .. " + S",         hl.dsp.workspace.toggle_special("magic"),           { description = "scratchpad" })

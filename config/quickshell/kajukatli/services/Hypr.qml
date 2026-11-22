@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import qs.services
 
 // thin helpers over hyprland ipc. works with the lua config and the old hyprlang one.
 Singleton {
@@ -13,6 +14,9 @@ Singleton {
         target: Hyprland
         function onRawEvent(ev) {
             const n = ev.name || "";
+            if (n === "monitoradded" || n === "monitoraddedv2") {
+                monitorHotplug.restart();
+            }
             if (n === "fullscreen") root.fullscreen = (ev.data || "").trim() === "1";
             else if (n === "workspace" || n === "workspacev2") root.fullscreen = false;
             if (n.startsWith("workspace") || n.startsWith("createworkspace") || n.startsWith("destroyworkspace")
@@ -25,6 +29,11 @@ Singleton {
         id: again
         interval: 120          // one refresh for a burst of events (opening an app sends several)
         onTriggered: Hyprland.refreshWorkspaces()
+    }
+    Timer {
+        id: monitorHotplug
+        interval: 900
+        onTriggered: Quickshell.execDetached(["sh", "-c", "sleep 0.2; exec " + Config.bin + "kk-display extend"])
     }
 
     // something is fullscreen (a video, a game): notifications wait until it isn't

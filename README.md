@@ -99,6 +99,9 @@ Press `Super + /` to show the live keybinding overlay.
 | `Super + Space` | Launcher |
 | `Super + A` | Control centre |
 | `Super + I` | Kajukatli settings |
+| `Super + Shift + I` | Package manager |
+| `Super + D` | Dedicated projection/display menu |
+| `Super + Shift + W` | Random wallpaper |
 | `Super + .` | Emoji picker (inserts directly into the focused text field) |
 | `Super + N` | Notifications |
 | `Super + V` | Clipboard history |
