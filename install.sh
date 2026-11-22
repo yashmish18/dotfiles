@@ -20,12 +20,15 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # keep a running checkout current before it builds or links anything
 if [ -d "$REPO/.git" ] && command -v git >/dev/null; then
+    # the installer marks scripts executable; that must never count as "local changes"
+    git -C "$REPO" config core.fileMode false 2>/dev/null || true
     branch="$(git -C "$REPO" branch --show-current 2>/dev/null || true)"
     if [ -n "$branch" ] && [ -z "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
         echo "  · updating dotfiles ($branch)"
         git -C "$REPO" pull --ff-only origin "$branch" || echo "  ! could not pull origin/$branch; using the checked-out files"
     elif [ -n "$branch" ]; then
-        echo "  ! local changes present; skipping git pull"
+        echo "  ! you have local changes in $REPO, so it isn't updating itself."
+        echo "    to get the latest: cd $REPO && git stash && git pull && ./install.sh"
     fi
 fi
 
