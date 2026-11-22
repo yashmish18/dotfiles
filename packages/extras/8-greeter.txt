@@ -1,0 +1,4 @@
+# a text login screen (greetd + tuigreet) instead of your current one · ~3 mb
+# default: on
+greetd
+greetd-tuigreet

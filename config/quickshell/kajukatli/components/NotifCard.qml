@@ -5,7 +5,7 @@ import Quickshell.Widgets
 import Quickshell.Services.Notifications
 import qs.services
 
-// one notification: app in mono, title in serif italic, body in sans, actions as words.
+// one notification: the app, a bold summary, the body, actions as buttons.
 Rectangle {
     id: root
     required property var notif
@@ -13,25 +13,25 @@ Rectangle {
     signal done()
 
     implicitWidth: 360
-    implicitHeight: col.implicitHeight + 24
-    radius: 8
-    color: Theme.ink
-    border.width: 1
-    border.color: notif && notif.urgency === NotificationUrgency.Critical ? Theme.danger : Theme.line
+    implicitHeight: col.implicitHeight + 28
+    radius: Theme.radius
+    color: popup ? Theme.glassStrong : Theme.surfaceHigh
+    border.width: notif && notif.urgency === NotificationUrgency.Critical ? 1.5 : 1
+    border.color: notif && notif.urgency === NotificationUrgency.Critical ? Theme.error : Theme.alpha(Theme.outlineVariant, popup ? 0.6 : 0)
 
     readonly property string appIcon: notif && notif.appIcon ? (notif.appIcon.indexOf("/") === 0 || notif.appIcon.indexOf("file:") === 0 ? notif.appIcon : Quickshell.iconPath(notif.appIcon, true)) : ""
 
     RowLayout {
         anchors.fill: parent
-        anchors.margins: 12
+        anchors.margins: 14
         spacing: 12
 
         // picture (a contact photo, an album cover…)
         Image {
             visible: root.notif && root.notif.image !== ""
             source: root.notif ? root.notif.image : ""
-            Layout.preferredWidth: 44
-            Layout.preferredHeight: 44
+            Layout.preferredWidth: 48
+            Layout.preferredHeight: 48
             Layout.alignment: Qt.AlignTop
             sourceSize: Qt.size(88, 88)
             fillMode: Image.PreserveAspectCrop
@@ -49,19 +49,19 @@ Rectangle {
                 IconImage {
                     visible: root.appIcon !== ""
                     source: root.appIcon
-                    implicitSize: 12
+                    implicitSize: 14
                 }
                 Txt {
                     Layout.fillWidth: true
-                    text: root.notif ? (root.notif.appName || "").toLowerCase() : ""
-                    font.family: Theme.mono
-                    font.pixelSize: Theme.xs
-                    color: Theme.faint
+                    text: root.notif ? (root.notif.appName || "") : ""
+                    font.pixelSize: Theme.sm
+                    font.weight: Font.Medium
+                    color: Theme.primary
                 }
-                Txt {
-                    text: "×"
-                    font.pixelSize: Theme.lg
-                    color: closeArea.containsMouse ? Theme.paper : Theme.faint
+                Icon {
+                    name: "close"
+                    size: 14
+                    color: closeArea.containsMouse ? Theme.surfaceText : Theme.outline
                     MouseArea {
                         id: closeArea
                         anchors.fill: parent
@@ -79,9 +79,8 @@ Rectangle {
             Txt {
                 Layout.fillWidth: true
                 text: root.notif ? root.notif.summary : ""
-                font.family: Theme.serif
-                font.italic: true
-                font.pixelSize: Theme.md + 2
+                font.pixelSize: Theme.md + 1
+                font.weight: Font.DemiBold
                 maximumLineCount: 2
                 wrapMode: Text.WordWrap
             }
@@ -90,8 +89,8 @@ Rectangle {
                 visible: text !== ""
                 text: root.notif ? root.notif.body : ""
                 textFormat: Text.StyledText
-                color: Theme.muted
-                linkColor: Theme.accent
+                color: Theme.surfaceTextDim
+                linkColor: Theme.primary
                 font.family: Theme.sans
                 font.pixelSize: Theme.sm + 1
                 wrapMode: Text.Wrap
@@ -102,13 +101,13 @@ Rectangle {
 
             Row {
                 visible: root.notif && root.notif.actions.length > 0
-                spacing: 4
-                Layout.topMargin: 4
+                spacing: 6
+                Layout.topMargin: 6
                 Repeater {
                     model: root.notif ? root.notif.actions : []
                     delegate: Btn {
                         required property var modelData
-                        text: modelData.text.toLowerCase()
+                        text: modelData.text
                         onClicked: {
                             modelData.invoke();
                             root.done();

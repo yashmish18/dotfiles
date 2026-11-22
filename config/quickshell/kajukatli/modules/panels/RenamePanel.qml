@@ -16,8 +16,6 @@ Item {
         spacing: 8
         Txt {
             text: "call workspace " + (root.ws ? root.ws.id : "") + "…"
-            font.family: Theme.serif
-            font.italic: true
             font.pixelSize: Theme.lg + 2
         }
         Field {

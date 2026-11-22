@@ -52,4 +52,8 @@ hl.window_rule({ name = "idle-fullscreen", match = { class = ".*" }, idle_inhibi
 
 -- the shell animates itself. hyprland's layer animations would fight it.
 hl.layer_rule({ name = "kk-no-anim", match = { namespace = "^kajukatli.*" }, no_anim = true })
+
+-- frosted glass behind the bar, its panels, the dock and toasts. ignore_alpha keeps the blur
+-- to the drawn shapes, not the whole (mostly transparent) surface.
+hl.layer_rule({ name = "kk-glass", match = { namespace = "^kajukatli-(bar|dock|notifications)$" }, blur = true, ignore_alpha = 0.35 })
 hl.layer_rule({ name = "kk-selection", match = { namespace = "^(selection|hyprpicker)$" }, no_anim = true })

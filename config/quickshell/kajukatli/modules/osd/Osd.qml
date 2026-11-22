@@ -5,7 +5,7 @@ import Quickshell.Hyprland
 import qs.services
 import qs.components
 
-// volume / brightness: a short hairline under the pill, gone after a second and a half.
+// volume / brightness: a small glass capsule under the bar, gone after a second and a half.
 PanelWindow {
     id: win
     screen: {
@@ -16,9 +16,9 @@ PanelWindow {
     WlrLayershell.namespace: "kajukatli-osd"
     exclusionMode: ExclusionMode.Ignore
     anchors.top: true
-    margins.top: Theme.barHeight + 16
-    implicitWidth: 260
-    implicitHeight: 40
+    margins.top: Ui.topInset + 14
+    implicitWidth: 280
+    implicitHeight: 48
     color: "transparent"
     mask: Region {}
     visible: shown || box.opacity > 0
@@ -55,48 +55,51 @@ PanelWindow {
         id: box
         anchors.fill: parent
         radius: height / 2
-        color: Theme.ink
+        color: Theme.glassStrong
         border.width: 1
-        border.color: Theme.line
+        border.color: Theme.alpha(Theme.surfaceText, 0.08)
         opacity: win.shown ? 1 : 0
-        scale: win.shown ? 1 : 0.96
+        scale: win.shown ? 1 : 0.92
         Behavior on opacity { NumberAnimation { duration: Theme.normal } }
-        Behavior on scale { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutBack } }
 
-        Txt {
-            id: label
-            x: 18
+        Icon {
+            id: ic
+            x: 16
             anchors.verticalCenter: parent.verticalCenter
-            text: win.muted ? "muted" : win.kind
-            font.family: Theme.mono
-            font.pixelSize: Theme.xs
-            color: Theme.muted
-            width: 44
+            name: win.kind === "light" ? "sun" : Icons.volume(win.value, win.muted)
+            level: win.value
+            size: 18
+            color: win.muted ? Theme.outline : Theme.primary
         }
-        Item {
-            anchors.left: label.right
+        Rectangle {
+            id: track
+            anchors.left: ic.right
+            anchors.leftMargin: 12
             anchors.right: num.left
-            anchors.margins: 8
-            height: parent.height
-            Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 1; color: Theme.line }
+            anchors.rightMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            height: 8
+            radius: 4
+            color: Theme.surfaceHighest
             Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width * Math.max(0, Math.min(1, win.value))
-                height: 2
-                color: win.muted ? Theme.faint : Theme.accent
-                Behavior on width { NumberAnimation { duration: Theme.fast } }
+                width: Math.max(height, parent.width * Math.max(0, Math.min(1, win.value)))
+                height: parent.height
+                radius: 4
+                color: win.muted ? Theme.outline : Theme.primary
+                Behavior on width { NumberAnimation { duration: Theme.fast; easing.type: Easing.OutCubic } }
             }
         }
         Txt {
             id: num
             anchors.right: parent.right
-            anchors.rightMargin: 18
+            anchors.rightMargin: 16
             anchors.verticalCenter: parent.verticalCenter
-            text: Math.round(win.value * 100)
+            text: win.muted ? "off" : Math.round(win.value * 100)
             font.family: Theme.mono
-            font.pixelSize: Theme.xs
+            font.pixelSize: Theme.md
             horizontalAlignment: Text.AlignRight
-            width: 24
+            width: 28
         }
     }
 }

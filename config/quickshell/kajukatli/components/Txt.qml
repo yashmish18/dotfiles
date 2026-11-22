@@ -1,11 +1,12 @@
 import QtQuick
 import qs.services
 
-// default text: paper on ink, the sans, no surprises
+// default text: the interface face, on-surface colour, one line
 Text {
-    color: Theme.paper
+    color: Theme.surfaceText
     font.family: Theme.sans
     font.pixelSize: Theme.md
+    font.weight: Font.Normal
     elide: Text.ElideRight
     verticalAlignment: Text.AlignVCenter
     textFormat: Text.PlainText

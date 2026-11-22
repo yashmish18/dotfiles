@@ -27,7 +27,7 @@ LazyLoader {
         Rectangle {
             id: dim
             anchors.fill: parent
-            color: Qt.rgba(0.047, 0.047, 0.047, 0.9)
+            color: Theme.alpha(Theme.surfaceLowest, Ui.overlay === "wallpapers" ? 0.62 : 0.9)
             opacity: 0
             Component.onCompleted: opacity = 1
             Behavior on opacity { NumberAnimation { duration: Theme.normal } }

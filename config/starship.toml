@@ -1,29 +1,30 @@
-# kajukatli · starship. lowercase, quiet, one line of facts then a small arrow.
+# kajukatli · starship. one line of facts then a small arrow.
+# colours are kitty palette slots 16–22, which kk-theme fills from the wallpaper.
 add_newline = true
 format = "$directory$git_branch$git_status$python$nodejs$rust$cmd_duration$jobs$line_break$character"
 right_format = "$time"
 
 [character]
-success_symbol = "[›](#c9b79c)"
-error_symbol   = "[›](#b5655a)"
-vimcmd_symbol  = "[‹](#8a9a7b)"
+success_symbol = "[›](16)"
+error_symbol   = "[›](21)"
+vimcmd_symbol  = "[‹](2)"
 
 [directory]
-style = "italic #e8e4dc"
+style = "bold 20"
 read_only = " ro"
-read_only_style = "#b5655a"
+read_only_style = "21"
 truncation_length = 3
 truncate_to_repo = true
 truncation_symbol = "…/"
 home_symbol = "~"
 
 [git_branch]
-format = "[on](#5a5650) [$branch]($style) "
-style = "#c9b79c"
+format = "[on](19) [$branch]($style) "
+style = "16"
 
 [git_status]
 format = "[$all_status$ahead_behind]($style) "
-style = "#8f8a80"
+style = "18"
 modified = "*"
 untracked = "?"
 staged = "+"
@@ -33,19 +34,19 @@ behind = "↓"
 
 [cmd_duration]
 min_time = 2000
-format = "[took $duration](#5a5650) "
+format = "[took $duration](19) "
 
 [jobs]
-format = "[$number in the back](#8f8a80) "
+format = "[$number in the back](18) "
 
 [time]
 disabled = false
-format = "[$time](#5a5650)"
+format = "[$time](19)"
 time_format = "%H:%M"
 
 [python]
-format = "[py $version](#7d8ea3) "
+format = "[py $version](4) "
 [nodejs]
-format = "[node $version](#8a9a7b) "
+format = "[node $version](2) "
 [rust]
-format = "[rust $version](#b5655a) "
+format = "[rust $version](21) "

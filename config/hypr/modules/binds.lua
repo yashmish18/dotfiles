@@ -20,6 +20,8 @@ bind(M .. " + Escape", sh("session"),       { description = "power menu" })
 bind(M .. " + slash",  sh("cheatsheet"),    { description = "this cheatsheet" })
 bind(M .. " + L",      hl.dsp.exec_cmd("kk-lock"), { description = "lock" })
 bind(M .. " + SHIFT + B", sh("bar"),        { description = "hide / show bar" })
+bind(M .. " + SHIFT + E", sh("edit"),       { description = "arrange desktop widgets" })
+bind(M .. " + SHIFT + T", sh("look_next"),  { description = "next look (preset)" })
 
 -- windows
 bind(M .. " + Q",         hl.dsp.window.close(),                       { description = "close window" })

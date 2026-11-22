@@ -1,0 +1,3 @@
+# videos and gifs as wallpapers (mpvpaper) · ~5 mb
+# default: on
+mpvpaper

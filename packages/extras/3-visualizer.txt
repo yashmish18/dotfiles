@@ -1,0 +1,3 @@
+# audio visualiser for the desktop and bar (cava) · ~2 mb
+# default: on
+cava

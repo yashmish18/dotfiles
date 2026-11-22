@@ -22,8 +22,6 @@ Item {
             Layout.fillWidth: true
             Txt {
                 text: Notifs.count === 0 ? "nothing new." : Notifs.count === 1 ? "one thing." : Notifs.count + " things."
-                font.family: Theme.serif
-                font.italic: true
                 font.pixelSize: Theme.xl - 4
                 Layout.fillWidth: true
             }

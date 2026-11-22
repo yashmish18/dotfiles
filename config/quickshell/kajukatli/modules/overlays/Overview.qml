@@ -57,8 +57,6 @@ Item {
             Layout.fillWidth: true
             Txt {
                 text: "workspaces"
-                font.family: Theme.serif
-                font.italic: true
                 font.pixelSize: 40
                 font.weight: Font.Light
             }
@@ -202,8 +200,6 @@ Item {
                             visible: frame.modelData.toplevels.values.length === 0
                             anchors.centerIn: parent
                             text: "empty"
-                            font.family: Theme.serif
-                            font.italic: true
                             color: Theme.faint
                         }
                     }
@@ -219,8 +215,6 @@ Item {
                         Txt {
                             visible: frame.modelData.name !== String(frame.modelData.id)
                             text: frame.modelData.name
-                            font.family: Theme.serif
-                            font.italic: true
                             font.pixelSize: Theme.md
                         }
                         Txt {
@@ -247,8 +241,6 @@ Item {
                 Txt {
                     anchors.centerIn: parent
                     text: "+ new"
-                    font.family: Theme.serif
-                    font.italic: true
                     font.pixelSize: Theme.lg
                     color: plusArea.containsMouse ? Theme.accent : Theme.muted
                 }

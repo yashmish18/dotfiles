@@ -19,7 +19,16 @@ Item {
     signal deletePressed()
 
     implicitWidth: 300
-    implicitHeight: edit.implicitHeight + 12
+    implicitHeight: edit.implicitHeight + 20
+
+    Rectangle {
+        anchors.fill: parent
+        radius: Math.min(height / 2, Theme.radius)
+        color: Theme.surfaceHigh
+        border.width: 1.5
+        border.color: edit.activeFocus ? Theme.primary : "transparent"
+        Behavior on border.color { ColorAnimation { duration: Theme.fast } }
+    }
 
     function focusNow() { edit.forceActiveFocus(); }
     function clear() { edit.text = ""; }
@@ -28,18 +37,21 @@ Item {
         id: edit
         anchors.left: parent.left
         anchors.right: parent.right
+        anchors.leftMargin: 14
+        anchors.rightMargin: 14
         anchors.verticalCenter: parent.verticalCenter
-        color: Theme.paper
-        selectionColor: Theme.accentDim
-        selectedTextColor: Theme.paper
+        color: Theme.surfaceText
+        selectionColor: Theme.primaryContainer
+        selectedTextColor: Theme.primaryContainerText
         font.family: root.mono ? Theme.mono : Theme.sans
         font.pixelSize: root.size
         echoMode: root.password ? TextInput.Password : TextInput.Normal
         passwordCharacter: "·"
         clip: true
         cursorDelegate: Rectangle {
-            width: 1
-            color: Theme.accent
+            width: 2
+            radius: 1
+            color: Theme.primary
             SequentialAnimation on opacity {
                 loops: Animation.Infinite
                 running: edit.activeFocus
@@ -63,17 +75,9 @@ Item {
         anchors.fill: edit
         visible: edit.text === "" && !edit.inputMethodComposing
         text: root.placeholder
-        color: Theme.faint
-        font.family: Theme.serif
-        font.italic: true
+        color: Theme.outline
+        font.family: Theme.sans
         font.pixelSize: root.size
     }
 
-    Rectangle {
-        anchors.bottom: parent.bottom
-        width: parent.width
-        height: 1
-        color: edit.activeFocus ? Theme.accentDim : Theme.line
-        Behavior on color { ColorAnimation { duration: Theme.normal } }
-    }
 }

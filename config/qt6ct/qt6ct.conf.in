@@ -6,8 +6,8 @@ standard_dialogs=xdgdesktopportal
 style=Fusion
 
 [Fonts]
-fixed="IBM Plex Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
-general="IBM Plex Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+fixed="DM Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+general="Bricolage Grotesque,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
 
 [Interface]
 activate_item_on_single_click=1

@@ -65,7 +65,7 @@ Scope {
                 root.fail(result === PamResult.MaxTries ? "too many tries. wait a little." : "");
             }
         }
-        onError: root.fail("something went wrong checking that.")
+        errorText: root.fail("something went wrong checking that.")
     }
 
     // let the fade-out play before the lock lifts

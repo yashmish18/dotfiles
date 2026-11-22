@@ -4,25 +4,25 @@
     "logo": {
         "type": "file",
         "source": "~/.config/fastfetch/logo.txt",
-        "color": { "1": "38;2;232;228;220", "2": "38;2;90;86;80", "3": "38;2;201;183;156" },
+        "color": { "1": "38;5;20", "2": "38;5;19", "3": "38;5;16" },
         "padding": { "top": 1, "left": 2, "right": 4 }
     },
     "display": {
         "separator": "  ",
-        "color": { "keys": "38;2;143;138;128", "title": "38;2;201;183;156" },
+        "color": { "keys": "38;5;18", "title": "38;5;16" },
         "key": { "width": 9 }
     },
     "modules": [
-        { "type": "title", "format": "{user-name}{#38;2;90;86;80} at {#}{host-name}" },
+        { "type": "title", "format": "{user-name}{#38;5;19} at {#}{host-name}" },
         "break",
-        { "type": "os", "key": "os", "format": "{name} {#38;2;90;86;80}{arch}" },
+        { "type": "os", "key": "os", "format": "{name} {#38;5;19}{arch}" },
         { "type": "kernel", "key": "kernel", "format": "{release}" },
         { "type": "wm", "key": "wm", "format": "{pretty-name}" },
         { "type": "shell", "key": "shell", "format": "{pretty-name}" },
         { "type": "uptime", "key": "awake" },
         { "type": "memory", "key": "memory", "format": "{used} of {total}" },
-        { "type": "battery", "key": "battery", "format": "{capacity} {#38;2;90;86;80}{status}" },
+        { "type": "battery", "key": "battery", "format": "{capacity} {#38;5;19}{status}" },
         "break",
-        { "type": "custom", "format": "{#38;2;90;86;80}meow. type `please` instead of sudo, i won't judge." }
+        { "type": "custom", "format": "{#38;5;19}meow. type `please` instead of sudo, i won't judge." }
     ]
 }

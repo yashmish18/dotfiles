@@ -18,18 +18,20 @@ import qs.modules.notifications
 import qs.modules.osd
 import qs.modules.overlays
 import qs.modules.lock
-import qs.modules.widgets
+import qs.modules.desktop
+import qs.modules.dock
 
 ShellRoot {
     id: shell
 
     Wallpaper {}
+    Desktop {}
     Bar {}
+    Dock {}
     Popups {}
     Osd {}
     Overlay {}
     Lock { id: lock }
-    DesktopWidget {}
 
     // make sure the folders the shell writes to exist
     Process {
@@ -41,10 +43,11 @@ ShellRoot {
     Connections {
         target: Power
         function onOnBatteryChanged() {
+            // shadows and blur are the expensive bits of the compositor
             if (Power.onBattery)
-                Hypr.hyprEval('hl.config({ decoration = { shadow = { enabled = false } } })');
+                Hypr.hyprEval('hl.config({ decoration = { shadow = { enabled = false }, blur = { enabled = false } } })');
             else
-                Hypr.hyprEval('hl.config({ decoration = { shadow = { enabled = true } } })');
+                Hypr.hyprEval('hl.config({ decoration = { shadow = { enabled = true }, blur = { enabled = true } } })');
         }
     }
 
@@ -69,6 +72,16 @@ ShellRoot {
     Shortcut { name: "ws_rename";     description: "rename workspace";         onPressed: Ui.open("rename") }
     Shortcut { name: "brightness_up";   description: "brighter";               onPressed: Bright.up() }
     Shortcut { name: "brightness_down"; description: "dimmer";                 onPressed: Bright.down() }
+    Shortcut { name: "edit";          description: "arrange desktop widgets";  onPressed: { Ui.panel = ""; Ui.editing = !Ui.editing; } }
+    Shortcut {
+        name: "look_next"
+        description: "next look"
+        onPressed: {
+            const n = Looks.names;
+            Looks.apply(n[(n.indexOf(Config.s.look) + 1) % n.length]);
+            Quickshell.execDetached(["notify-send", "-a", "looks", "-t", "1800", Config.s.look, Looks.blurbs[Config.s.look] || ""]);
+        }
+    }
 
     // ------------------------------------------------------------- ipc
     IpcHandler {
@@ -79,5 +92,8 @@ ShellRoot {
         function recording(on: bool): void { Ui.recording = on; }
         function status(text: string): void { Ui.status = text; }
         function dnd(on: bool): void { Notifs.dnd = on; }
+        function look(name: string): string { return Looks.apply(name) ? "ok" : "no such look. try: " + Looks.names.join(" "); }
+        function looks(): string { return Looks.names.join(" "); }
+        function edit(): void { Ui.panel = ""; Ui.editing = !Ui.editing; }
     }
 }

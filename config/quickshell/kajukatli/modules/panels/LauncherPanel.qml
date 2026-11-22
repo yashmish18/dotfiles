@@ -11,7 +11,7 @@ import qs.components
 //   ?  search the web
 Item {
     id: root
-    implicitWidth: 460
+    implicitWidth: 520
     implicitHeight: col.implicitHeight + 6
 
     property int index: 0
@@ -100,27 +100,27 @@ Item {
                 required property int index
                 readonly property bool sel: index === root.index
                 Layout.fillWidth: true
-                implicitHeight: 40
-                radius: 6
-                color: sel ? Theme.raised : "transparent"
-                border.width: sel ? 1 : 0
-                border.color: Theme.line
+                implicitHeight: 50
+                radius: Theme.radius
+                color: sel ? Theme.primaryContainer : "transparent"
+                Behavior on color { ColorAnimation { duration: Theme.fast } }
 
                 IconImage {
                     id: icon
-                    x: 10
+                    x: 12
                     anchors.verticalCenter: parent.verticalCenter
-                    implicitSize: 20
+                    implicitSize: 30
                     source: Quickshell.iconPath(item.modelData.icon, "application-x-executable")
                 }
                 Txt {
                     anchors.left: icon.right
-                    anchors.leftMargin: 12
+                    anchors.leftMargin: 14
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width * 0.5
                     text: item.modelData.name
                     font.pixelSize: Theme.md + 1
-                    color: item.sel ? Theme.paper : Theme.muted
+                    font.weight: item.sel ? Font.DemiBold : Font.Medium
+                    color: item.sel ? Theme.primaryContainerText : Theme.surfaceText
                 }
                 Txt {
                     anchors.right: parent.right
@@ -128,11 +128,9 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width * 0.38
                     horizontalAlignment: Text.AlignRight
-                    text: (item.modelData.genericName || item.modelData.comment || "").toLowerCase()
-                    font.family: Theme.serif
-                    font.italic: true
+                    text: item.modelData.genericName || item.modelData.comment || ""
                     font.pixelSize: Theme.sm
-                    color: Theme.faint
+                    color: item.sel ? Theme.alpha(Theme.primaryContainerText, 0.75) : Theme.outline
                 }
                 MouseArea {
                     anchors.fill: parent
@@ -152,17 +150,16 @@ Item {
                 : root.mode === "run" ? "enter runs it in a terminal"
                 : root.mode === "web" ? "enter searches the web"
                 : root.q === "" ? "" : "no app by that name. try > to run it, or ? to search."
-            font.family: root.mode === "calc" && root.calc !== "" ? Theme.mono : Theme.serif
-            font.italic: !(root.mode === "calc" && root.calc !== "")
+            font.family: root.mode === "calc" && root.calc !== "" ? Theme.mono : Theme.sans
             font.pixelSize: root.mode === "calc" && root.calc !== "" ? Theme.lg : Theme.sm
-            color: root.mode === "calc" && root.calc !== "" ? Theme.accent : Theme.muted
+            color: root.mode === "calc" && root.calc !== "" ? Theme.primary : Theme.surfaceTextDim
         }
 
         Txt {
             text: "=  math      >  command      ?  web      ↑↓  choose"
             font.family: Theme.mono
-            font.pixelSize: Theme.xs
-            color: Theme.faint
+            font.pixelSize: Theme.xs + 1
+            color: Theme.outline
             Layout.topMargin: 2
         }
     }

@@ -1,0 +1,10 @@
+#!/bin/sh
+# kk-look — switch the whole desktop to a preset look.
+#   kk-look            list them
+#   kk-look tide       apply one
+#   kk-look edit       drag the desktop widgets around
+case "${1:-}" in
+    "")   qs -c kajukatli ipc call shell looks ;;
+    edit) qs -c kajukatli ipc call shell edit ;;
+    *)    qs -c kajukatli ipc call shell look "$1" ;;
+esac

@@ -53,8 +53,6 @@ Item {
             Layout.fillWidth: true
             Txt {
                 text: Qt.formatDate(new Date(root.year, root.month, 1), "MMMM").toLowerCase()
-                font.family: Theme.serif
-                font.italic: true
                 font.pixelSize: Theme.xl - 2
             }
             Txt {
@@ -66,9 +64,9 @@ Item {
                 Layout.alignment: Qt.AlignBottom
                 Layout.bottomMargin: 3
             }
-            Btn { glyph: ""; size: 9; onClicked: root.shift(-1) }
+            Btn { icon: "left"; flat: true; onClicked: root.shift(-1) }
             Btn { text: "today"; visible: !root.thisMonth; onClicked: { root.year = clock.date.getFullYear(); root.month = clock.date.getMonth(); } }
-            Btn { glyph: ""; size: 9; onClicked: root.shift(1) }
+            Btn { icon: "right"; flat: true; onClicked: root.shift(1) }
         }
 
         GridLayout {
@@ -103,7 +101,7 @@ Item {
                         text: cell.modelData.d
                         font.family: Theme.mono
                         font.pixelSize: Theme.sm
-                        color: cell.today ? Theme.accent : !cell.modelData.inMonth ? Qt.rgba(1, 1, 1, 0.12) : cell.modelData.col >= 5 ? Theme.muted : Theme.paper
+                        color: cell.today ? Theme.accent : !cell.modelData.inMonth ? Theme.alpha(Theme.paper, 0.18) : cell.modelData.col >= 5 ? Theme.muted : Theme.paper
                     }
                     Rectangle {
                         visible: cell.today

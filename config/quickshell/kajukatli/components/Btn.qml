@@ -1,57 +1,59 @@
 import QtQuick
 import qs.services
 
-// a word you can press. underlines on hover instead of lighting up.
-Item {
+// a button. tonal by default, filled when `active` (or `primary`), red when it's dangerous.
+// text, an icon, or both.
+Rectangle {
     id: root
     property string text: ""
-    property string glyph: ""
-    property color color: Theme.paper
+    property string icon: ""
     property bool active: false
+    property bool primary: false
     property bool danger: false
-    property int size: Theme.sm
-    property bool mono: true
+    property bool flat: false          // no fill until hovered (for rows of small actions)
+    property int size: Theme.sm + 1
+    property bool mono: false
     readonly property bool hovered: mouse.containsMouse
+    readonly property bool filled: active || primary
     signal clicked()
     signal rightClicked()
 
-    implicitWidth: row.implicitWidth + 12
-    implicitHeight: Math.max(24, row.implicitHeight + 8)
+    implicitWidth: row.implicitWidth + (text !== "" ? 24 : 0) + (text === "" ? 30 - row.implicitWidth : 0)
+    implicitHeight: 30
+    radius: height / 2
+    color: !enabled ? Theme.alpha(Theme.surfaceText, 0.05)
+         : filled ? (danger ? Theme.error : Theme.primary)
+         : danger && hovered ? Theme.alpha(Theme.error, 0.18)
+         : hovered ? Theme.surfaceHighest
+         : flat ? "transparent" : Theme.surfaceHigh
+    Behavior on color { ColorAnimation { duration: Theme.fast } }
+    scale: mouse.pressed ? 0.96 : 1
+    Behavior on scale { NumberAnimation { duration: 90 } }
+
+    readonly property color ink: !enabled ? Theme.alpha(Theme.surfaceText, 0.35)
+                               : filled ? (danger ? Theme.errorText : Theme.primaryText)
+                               : danger ? Theme.error : Theme.surfaceText
 
     Row {
         id: row
         anchors.centerIn: parent
-        spacing: 6
-        Glyph {
-            visible: root.glyph !== ""
-            g: root.glyph
-            font.pixelSize: root.size + 1
-            color: label.color
+        spacing: 7
+        Icon {
+            visible: root.icon !== ""
+            name: root.icon
+            size: root.text !== "" ? 14 : 16
+            color: root.ink
             anchors.verticalCenter: parent.verticalCenter
         }
         Txt {
-            id: label
             visible: root.text !== ""
             text: root.text
             font.family: root.mono ? Theme.mono : Theme.sans
             font.pixelSize: root.size
-            color: root.danger && root.hovered ? Theme.danger : root.active ? Theme.accent : root.color
-            opacity: root.enabled ? (root.active || root.hovered ? 1 : 0.78) : 0.35
-            Behavior on opacity { NumberAnimation { duration: Theme.fast } }
+            font.weight: Font.Medium
+            color: root.ink
             anchors.verticalCenter: parent.verticalCenter
         }
-    }
-
-    Rectangle {
-        anchors.left: row.left
-        anchors.right: row.right
-        anchors.top: row.bottom
-        anchors.topMargin: 1
-        height: 1
-        color: root.danger ? Theme.danger : Theme.accent
-        scale: root.hovered && root.enabled ? 1 : 0
-        transformOrigin: Item.Left
-        Behavior on scale { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutCubic } }
     }
 
     MouseArea {

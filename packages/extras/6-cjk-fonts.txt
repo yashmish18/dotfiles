@@ -1,0 +1,3 @@
+# chinese / japanese / korean text (and the 力 bar logo) · ~250 mb
+# default: off
+noto-fonts-cjk

@@ -55,8 +55,6 @@ Item {
 
         Txt {
             text: "the keys"
-            font.family: Theme.serif
-            font.italic: true
             font.pixelSize: 40
             font.weight: Font.Light
         }
@@ -84,8 +82,6 @@ Item {
                     }
                     Txt {
                         text: modelData.what
-                        font.family: Theme.serif
-                        font.italic: true
                         font.pixelSize: Theme.md
                         color: Theme.paper
                     }

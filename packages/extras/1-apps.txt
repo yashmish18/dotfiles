@@ -1,0 +1,8 @@
+# everyday apps: files, browser, player, mixer, bluetooth + wi-fi editors · ~400 mb
+# default: on
+nautilus
+firefox
+mpv
+pavucontrol
+blueman
+network-manager-applet

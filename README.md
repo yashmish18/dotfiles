@@ -1,14 +1,21 @@
 # kajukatli
 
-a desktop for arch + hyprland, in black and white.
-grain, serif italics, film-frame numbers, and one muted colour borrowed from whatever wallpaper you're looking at.
+a desktop shell for arch + hyprland that takes its colours, and its clock, from the wallpaper.
 
-- **wallpaper engine**: the selected image or video appears immediately in the wallpaper layer. cached depth and subject processing continues in the background for 3d parallax and ink effects, so the picker never waits for AI work.
-- **one pill for a bar**: it grows into the control center, calendar, media, notifications, launcher, clipboard and power menu. no dock.
-- **control center**: wi-fi (join networks and type passwords in place), bluetooth (scan, pair, connect, battery), sound (output device and per-app volume), brightness, night light, quiet mode, stay-awake, power profile. every page links to the full app (network manager, blueman, pavucontrol).
-- **workspaces**: they appear when you go to them and disappear when they're empty. `super + tab` shows them all as frames. drag windows between them, rename them, open new ones.
-- **lock screen**: a frame of black and white film. sprocket holes along the top with edge print that counts up every time you lock, 12 fps grain, a warm light leak that comes and goes, and a line of late-night writing.
-- **light on battery and ram**: the whole desktop is one quickshell process. no blur anywhere. the nvidia card sleeps unless you ask for it. live wallpapers freeze to a still frame on battery.
+type: **bricolage grotesque** for the interface, **dm mono** for numbers, and a loud face per look for the desktop clock (syne, unbounded, anton, fraunces). no italics. icons are the shell's own, drawn as vector lines (no icon font).
+
+the clock tucks itself *behind* the person in your wallpaper. the whole desktop recolours from the picture.
+an audio wave rolls along the bottom of the screen, synced lyrics scroll beside the album art, and there's a calendar, the weather and your system stats.
+seven looks switch the whole thing in one click, and every widget can be dragged wherever you want it.
+
+- **depth clock**: every wallpaper gets its subject cut out once (rembg, cached). the shell draws the clock (and, if you like, the visualiser) *between* the background and that cut-out, inside the wallpaper shader, so it stays glued behind the subject even while the 3d parallax moves the camera.
+- **colour from the picture**: `kk-theme` builds a full material-you style scheme (oklch tonal palettes) from the wallpaper's seed colour and applies it to the shell, kitty, hyprland borders, gtk and qt/kde apps. `vibrant`, `tonal`, or `mono` (the original black & white print look); dark, light, or auto.
+- **six desktop clocks**: `stack` · `hero` · `serif` · `line` · `day` (weather + slanted time chip + giant weekday) · `date` (a giant day of month with the month across it).
+- **widgets**: cava visualiser (wave / bars / mirror), a calendar with week numbers, a player with synced lyrics (lrclib.net) or as a card or a tall portrait, and system stats (cpu, network graph, disk, temperatures, fan, battery). drag them anywhere with `super + shift + e`.
+- **bars**: a floating `pill`, a long floating `bar`, three `islands`, a `rail` down the left edge, or `none`. top or bottom. every module (workspaces, media, weather, cpu, volume…) can go in any group. panels pop out next to whatever you clicked.
+- **dock**: pinned + running apps, a player pill, and it hides while a window is open.
+- **control center, launcher, clipboard, notifications, film lock screen, workspace overview**: all still here, all recoloured.
+- **light on battery**: one quickshell process. cava, weather and stats only run while something on screen shows them. unplugged, blur, shadows, cursor parallax and live wallpapers switch off.
 
 ---
 
@@ -42,7 +49,13 @@ dotfiles/
 │   ├── quickshell/kajukatli/  the desktop shell (qml)
 │   │   ├── shell.qml          entry point: modules, global shortcuts, ipc
 │   │   ├── services/          the logic, no drawing
-│   │   │   ├── Theme.qml      colours, fonts, sizes, motion (accent follows the wallpaper)
+│   │   │   ├── Theme.qml      colour roles from the wallpaper (kk-theme), fonts, sizes, motion
+│   │   │   ├── Looks.qml      the presets (tide, ronin, komorebi, currents, dreamer, grove, print)
+│   │   │   ├── Media.qml      the active player, position, synced lyrics (lrclib.net)
+│   │   │   ├── Cava.qml       the audio visualiser feed (runs only while shown + playing)
+│   │   │   ├── Weather.qml    wttr.in, every 20 minutes while shown
+│   │   │   ├── Sys.qml        cpu, memory, network, disk, temperatures (via kk-sys)
+│   │   │   ├── Icons.qml      every nerd-font glyph in one place
 │   │   │   ├── Config.qml     ~/.config/kajukatli/settings.json
 │   │   │   ├── Store.qml      remembered state (current wallpaper, film frame)
 │   │   │   ├── Ui.qml         which panel / overlay is open
@@ -55,15 +68,17 @@ dotfiles/
 │   │   │   ├── Notifs.qml     the notification daemon (no dunst / mako needed)
 │   │   │   └── Wall.qml       the wallpaper engine's brain: prep → ink → theme → video
 │   │   ├── modules/
-│   │   │   ├── wallpaper/     the background layer: two picture slots + the ink/parallax shader
-│   │   │   ├── bar/           the pill: workspaces, now playing, clock, tray, status
+│   │   │   ├── wallpaper/     the background layer: picture slots, ink/parallax shader, depth composite
+│   │   │   ├── desktop/       clocks, visualiser, calendar, player, stats; drag-to-arrange
+│   │   │   ├── dock/          pinned + running apps and a player pill
+│   │   │   ├── bar/           pill / bar / islands / rail, and every module that goes in them
 │   │   │   ├── panels/        what the pill grows into (control, calendar, media, launcher…)
 │   │   │   ├── notifications/ toasts
 │   │   │   ├── osd/           volume / brightness
 │   │   │   ├── overlays/      workspace overview, wallpaper contact sheet, keybind cheatsheet
 │   │   │   └── lock/          the film lock screen (wayland session-lock + pam)
 │   │   ├── components/        small pieces: text, buttons, toggles, sliders, fields, cards
-│   │   ├── shaders/           wallpaper.frag (ink + parallax), film.frag (lock), grain, mono
+│   │   ├── shaders/           wallpaper.frag (ink + parallax + depth), film.frag (lock), grain, mono, round
 │   │   └── pam/password.conf  lets the lock screen check your password (pam_unix)
 │   │
 │   ├── kitty/kitty.conf       cursor with a tail, film-frame tab numbers, serif-ish italics
@@ -75,8 +90,10 @@ dotfiles/
 │   └── kajukatli/             settings.json lives here
 │
 ├── bin/                       → linked into ~/.local/bin
-│   ├── kk-prep                makes a wallpaper bundle: depth, subject outline, ink map, accent
-│   ├── kk-theme               spreads the accent to the shell, kitty, hyprland, gtk, qt, kde
+│   ├── kk-prep                makes a wallpaper bundle: depth, subject cut-out, ink map, seed colour
+│   ├── kk-theme               builds the colour scheme and spreads it to shell, kitty, hyprland, gtk, qt, kde
+│   ├── kk-look                switch looks from a terminal (kk-look tide · kk-look edit)
+│   ├── kk-sys                 system counters as json, for the stats widget
 │   ├── kk-wall                set / next / prev / random / redetect, from a terminal
 │   ├── kk-lock                lock (falls back to hyprlock if the shell is down)
 │   ├── kk-shot                screenshot area / screen / window → clipboard + file (+ edit in satty)
@@ -90,6 +107,32 @@ dotfiles/
     ├── modprobe/nvidia.conf   modeset, fine-grained power management, suspend fix
     └── udev/                  stable igpu/dgpu names + nvidia runtime sleep
 ```
+
+---
+
+## looks
+
+`super + i` → **looks**, or `super + shift + t` to flip through them, or `kk-look <name>` in a terminal.
+
+| look | bar | desktop |
+|---|---|---|
+| `tide` | floating pill, top | huge stacked clock behind the subject, an audio wave along the bottom, dock |
+| `ronin` | rail down the left | a giant date in the corner, small visualiser bars, a player card |
+| `komorebi` | pill, top | a heavy clock with hollow seconds behind the subject, calendar, dock |
+| `currents` | long bar, bottom | weather · time chip · giant weekday, calendar, lyrics card |
+| `dreamer` | three islands, top | `12:35 – 09/04` line clock, system stats, a tall player |
+| `grove` | none | a big serif clock behind the subject, dock |
+| `print` | long bar, top | the original kajukatli: black & white, one muted accent |
+
+a look is only a bundle of settings, so after picking one you can change any single piece on the same page (bar shape, clock face, visualiser, which widgets, dock, colours). `super + shift + e` lets you drag every widget around; positions are saved as fractions of the screen, so they survive a resolution change.
+
+### the depth effect
+
+the clock goes behind the subject when the wallpaper has a cut-out. that needs the wallpaper ai (`./install.sh --ai`, on by default).
+
+- the default subject model is `isnet-anime`, tuned for drawn art. for photos, set `subjectModel` to `birefnet-general-lite`.
+- wrong subject, or none found? open the wallpaper picker and press `a`, or **looks → re-detect subject**. the same thing from a terminal: `kk-prep <file> --force --model isnet-anime`.
+- live wallpapers: the clock stays in front once the video plays (the subject moves, the cut-out doesn't).
 
 ---
 
@@ -116,19 +159,26 @@ cd ~/dotfiles
 ./install.sh
 ```
 
-it will:
+it installs the **essentials** (hyprland, the shell, network / bluetooth / sound / power, kitty, the typefaces), then shows a menu of **extras** to switch on or off:
 
-1. update the system and install the packages (from the aur too, bootstrapping `paru` if you have no aur helper; it asks first)
-2. detect your graphics. on a hybrid nvidia laptop it offers the `nvidia-open` driver, makes the nvidia card sleep when idle, and pins hyprland to the integrated gpu
-3. link every config. anything already in the way is moved to `~/.local/share/kajukatli/backup/<date>/`
-4. compile the shaders
-5. build the wallpaper ai in a private python environment (~1 gb, optional) and offer to download the models now
-6. enable networkmanager, bluetooth, power-profiles-daemon, and (if you say yes) the greetd login screen
-7. set dark gtk/qt defaults and a starting accent colour
+| # | extra | what | size |
+|---|---|---|---|
+| 1 | apps | files, browser, video player, mixer, bluetooth + wi-fi editors | ~400 mb |
+| 2 | capture | screenshot editor, screen recorder, colour picker | ~30 mb |
+| 3 | visualizer | cava, for the desktop and bar visualisers | ~2 mb |
+| 4 | live-wallpapers | videos and gifs as wallpapers (mpvpaper) | ~5 mb |
+| 5 | terminal | starship, fastfetch, eza, bat, zoxide, fzf, btop | ~30 mb |
+| 6 | cjk-fonts | chinese / japanese / korean text | ~250 mb |
+| 7 | kde-helpers | archive manager, thumbnails for qt apps | ~150 mb |
+| 8 | greeter | greetd + tuigreet login screen | ~3 mb |
+| 9 | wallpaper-pack | twelve public-domain paintings (hokusai, friedrich, vermeer, klimt…) | ~25 mb |
+| 10 | wallpaper-ai | the subject cut-out behind the clock (+ optional 3d depth) | ~200–450 mb |
 
-then **reboot**, log in, and put some pictures, gifs or videos in `~/Pictures/wallpapers`. press `super + w`.
+everything except 6 and 7 is on by default. options: `--yes` (recommended set, no questions), `--minimal` (essentials only), `--extras=3,5,10` (exactly these), and `--links`, `--shaders`, `--fonts`, `--walls`, `--ai` to redo one step. safe to run again any time.
 
-options: `--yes` (no questions), `--no-ai`, `--links` (only relink), `--shaders`, `--ai`. it's safe to run again at any time.
+the wallpaper ai asks once: **lite** (u2netp, 5 mb), **anime** (recommended, 170 mb), **full** (anime + parallax depth) or **photo** (birefnet + depth). it no longer pulls in rembg, so there's no numba / scipy / scikit-image (~700 mb saved).
+
+then **reboot**, log in, and press `super + w`.
 
 if something looks off, run `kk-doctor`.
 
@@ -169,11 +219,15 @@ if something looks off, run `kk-doctor`.
 | `super + shift + r` | record the screen (press again to stop) |
 | `super + shift + c` | colour picker |
 | `super + shift + b` | hide / show the bar |
+| `super + shift + t` | next look |
+| `super + shift + e` | arrange desktop widgets (drag them; `esc` when done) |
 | three fingers sideways | switch workspace |
 
 ---
 
 ## the wallpaper engine
+
+switching is instant: the picture is decoded at screen size and fades in within half a second, the colours follow a moment later (`kk-prep --fast`, pillow + numpy, no ai), and the subject cut-out and depth arrive in the background at idle priority, without a second transition. on battery the ai waits for the charger (`aiOnBattery` to change that).
 
 ```
 your file ──► kk-prep (once per file, cached)          ──► the shell
@@ -181,7 +235,8 @@ your file ──► kk-prep (once per file, cached)          ──► the shell
               ├─ depth.png     depth anything v2            ├─ ink bleeds out from the subject
               ├─ ink.png       outline + drawing order      ├─ 3d parallax: workspace switches pan the
               │                + distance from subject      │   camera, the cursor tilts it over the bare desktop
-              └─ palette.json  one muted accent             ├─ kk-theme recolours everything
+              ├─ mask.png      soft subject cut-out         ├─ the clock is composited behind the cut-out
+              └─ palette.json  seed colour + swatches       ├─ kk-theme recolours everything
                                                             └─ videos: mpvpaper takes over after the ink
 ```
 
@@ -200,12 +255,31 @@ your file ──► kk-prep (once per file, cached)          ──► the shell
 
 | key | default | what it does |
 |---|---|---|
+| `look` | `tide` | the preset last applied (see **looks**) |
+| `themeScheme` | `vibrant` | `vibrant`, `tonal`, `mono` |
+| `themeMode` | `dark` | `dark`, `light`, `auto` (follows the wallpaper's brightness) |
+| `barStyle` | `pill` | `pill`, `bar`, `islands`, `rail`, `none` |
+| `barPosition` | `top` | `top`, `bottom` |
+| `barModules` | … | `{ left: [], center: [], right: [] }` from: `logo workspaces notifs cpu mem temp clock weather media visualizer volume brightness network bluetooth battery tray power` |
+| `workspaceStyle` | `dots` | `dots`, `diamonds`, `numbers` |
+| `clockStyle` | `stack` | `stack`, `hero`, `serif`, `line`, `day`, `date`, `off` |
+| `clockDepth` | `true` | put the clock behind the wallpaper's subject |
+| `clockFont` / `clockScale` | `""` / `1.0` | any installed font family; size multiplier |
+| `visualizer` | `wave` | `off`, `wave`, `bars`, `mirror` · `visualizerBehind` puts it behind the subject too |
+| `mediaWidget` | `off` | `off`, `lyrics`, `card`, `portrait` |
+| `showCalendar` / `showStats` | `false` | desktop calendar, system stats |
+| `layout` | `{}` | widget positions, written by `super + shift + e` |
+| `dock` / `dockAutoHide` / `dockPinned` | `true` / `true` / kitty, firefox, files | right-click an icon to pin or unpin it |
+| `weatherLocation` / `tempUnit` | `""` / `c` | a city name (empty = guess from your ip, via wttr.in) |
+| `lyrics` | `true` | fetch synced lyrics from lrclib.net (sends the track's title and artist) |
+| `transition` | `fade` | `fade` (0.4 s), `ink` (the drawn outline, needs the ai), `none` |
+| `aiOnBattery` | `false` | run the subject detection unplugged too |
 | `wallpaperDir` | `~/Pictures/wallpapers` | where the picker looks |
 | `parallax` | `true` | 3d depth parallax |
 | `cursorParallax` | `true` | also tilt toward the cursor over the bare desktop (off on battery) |
 | `parallaxStrength` | `1.0` | 0.2 subtle … 2.0 a lot |
 | `transitionMs` | `2600` | how long the outline + ink take |
-| `subjectModel` | `birefnet-general-lite` | `isnet-anime` for drawn art, `u2net` for speed |
+| `subjectModel` | `isnet-anime` | `birefnet-general-lite` for photos, `u2net` for speed |
 | `videoOnBattery` | `false` | keep live wallpapers moving when unplugged |
 | `autoPowerProfile` | `true` | power-saver on battery, balanced on ac |
 | `clock24h` | `true` | |
@@ -238,7 +312,10 @@ hyprland: put your own binds, monitors and options in `~/.config/hypr/modules/us
 | wallpaper prep | `kk-prep ~/Pictures/wallpapers/x.jpg --force` prints what it's doing |
 | lock screen won't take the password | `ls ~/.config/quickshell/kajukatli/pam/password.conf`. `hyprlock` is the fallback (`super + l` runs it if the shell is down) |
 | wi-fi missing | `systemctl status NetworkManager`. iwd / dhcpcd / systemd-networkd must be off |
-| ui shows the wrong accent | `kk-theme --reapply` |
+| ui shows the wrong colours | `kk-theme --reapply` |
+| clock isn't behind the subject | `kk-doctor` says whether this wallpaper has a cut-out; re-detect with the anime model |
+| no visualiser | `cava` installed? it only moves while something is playing |
+| updated the dotfiles | `./install.sh --links --shaders` (new scripts + the new shader) |
 
 ## push the dotfiles to GitHub
 
@@ -271,4 +348,4 @@ this removes every link and restores your backed-up files. it lists what it leav
 
 ---
 
-built on [hyprland](https://hypr.land), [quickshell](https://quickshell.org), [depth anything v2](https://github.com/DepthAnything/Depth-Anything-V2), [rembg](https://github.com/danielgatis/rembg) / birefnet, [mpvpaper](https://github.com/GhostNaN/mpvpaper). the lines on the lock screen are original.
+built on [hyprland](https://hypr.land), [quickshell](https://quickshell.org), [cava](https://github.com/karlstav/cava), [lrclib](https://lrclib.net), [wttr.in](https://wttr.in), [depth anything v2](https://github.com/DepthAnything/Depth-Anything-V2), [rembg](https://github.com/danielgatis/rembg) / birefnet, [mpvpaper](https://github.com/GhostNaN/mpvpaper). the lines on the lock screen are original.

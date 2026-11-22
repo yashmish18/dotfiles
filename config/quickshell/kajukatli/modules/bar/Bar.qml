@@ -1,14 +1,23 @@
 import QtQuick
-import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
-import Quickshell.Services.Mpris
 import qs.services
 import qs.components
 import qs.modules.panels
 
-// a slim, full-width top bar. panels are anchored under their control button.
+// the bar, in four shapes (settings → looks, or barStyle in settings.json):
+//
+//   pill      one compact floating capsule, centred                        (top or bottom)
+//   bar       a long floating bar: left · centre · right                   (top or bottom)
+//   islands   three separate capsules: left, centre, right                 (top or bottom)
+//   rail      a thin full-height strip down the left edge
+//   none      no bar; panels still open from their shortcuts
+//
+// what goes in it is barModules.left / center / right (see BarModule.qml for the names).
+// panels (control centre, calendar, media…) pop out as a card next to the thing you clicked.
+//
+// the window covers the whole screen but only takes input where something is drawn.
 Variants {
     model: Quickshell.screens
 
@@ -16,6 +25,18 @@ Variants {
         id: bar
         required property var modelData
         screen: modelData
+
+        readonly property string style: Config.s.barStyle
+        readonly property bool vertical: style === "rail"
+        readonly property bool atBottom: !vertical && Config.s.barPosition === "bottom"
+        readonly property bool shownBar: style !== "none" && Ui.barVisible
+        readonly property int thick: vertical ? 42 : Theme.barHeight
+        readonly property int edge: vertical ? 0 : 6
+        readonly property int menuEdge: vertical ? Edges.Right : atBottom ? Edges.Top : Edges.Bottom
+        readonly property var mods: {
+            const m = Config.s.barModules || {};
+            return { left: m.left || [], center: m.center || [], right: m.right || [] };
+        }
 
         readonly property var monitor: Hyprland.monitorFor(modelData)
         readonly property bool focusedScreen: Hyprland.focusedMonitor === monitor
@@ -25,11 +46,25 @@ Variants {
         WlrLayershell.layer: WlrLayer.Top
         WlrLayershell.namespace: "kajukatli-bar"
         WlrLayershell.keyboardFocus: !open ? WlrKeyboardFocus.None : typing ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
-        anchors { top: true; left: true; right: true }
-        implicitHeight: Theme.barHeight + 12
-        exclusiveZone: Ui.barVisible ? Theme.barHeight : 0
+        anchors {
+            top: !bar.atBottom
+            bottom: bar.atBottom || bar.vertical
+            left: true
+            right: !bar.vertical
+        }
+        implicitWidth: vertical ? modelData.width : 0
+        implicitHeight: vertical ? 0 : modelData.height
+        exclusiveZone: shownBar ? thick + edge : 0
         color: "transparent"
-        mask: Region { item: pill }
+
+        mask: Region {
+            regions: [
+                Region { item: bar.shownBar ? shapeA : null },
+                Region { item: bar.shownBar ? shapeB : null },
+                Region { item: bar.shownBar ? shapeC : null },
+                Region { item: bar.shown !== "" ? card : null }
+            ]
+        }
 
         HyprlandFocusGrab {
             windows: [bar]
@@ -37,7 +72,7 @@ Variants {
             onCleared: Ui.panel = ""
         }
 
-        // the panel that's drawn: lags behind Ui.panel on close so the pill can shrink first
+        // the panel that's drawn lags behind Ui.panel on close, so it can fade out first
         property string shown: ""
         onOpenChanged: {
             if (open) { shown = Ui.panel; unload.stop(); }
@@ -49,97 +84,179 @@ Variants {
         }
         Timer { id: unload; interval: Theme.slow; onTriggered: if (!bar.open) bar.shown = "" }
 
-        Rectangle {
-            id: pill
-            readonly property int pad: 14
-            readonly property real panelH: loader.item ? loader.item.implicitHeight + 20 : 0
-            anchors.left: parent.left
-            anchors.right: parent.right
-            y: Ui.barVisible ? 0 : -height
-            height: Theme.barHeight + (bar.open ? panelH : 0)
-            color: Qt.rgba(0.045, 0.045, 0.045, 0.94)
-            border.width: 0
-            clip: true
+        // ------------------------------------------------------------ pieces
+        // (inline components can't see the window's ids, so it's all passed in)
+        component Group: Grid {
+            id: grp
+            property var names: []
+            property bool vertical: false
+            property var monitor: null
+            property int menuEdge: Edges.Bottom
+            columns: vertical ? 1 : Math.max(1, names.length)
+            rowSpacing: 6
+            columnSpacing: 3
+            horizontalItemAlignment: Grid.AlignHCenter
+            verticalItemAlignment: Grid.AlignVCenter
+            Repeater {
+                model: grp.names
+                BarModule {
+                    required property string modelData
+                    name: modelData
+                    vertical: grp.vertical
+                    monitor: grp.monitor
+                    menuEdge: grp.menuEdge
+                }
+            }
+        }
 
-            Behavior on y { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutCubic } }
-            Behavior on height { NumberAnimation { duration: Theme.slow; easing.type: Easing.OutCubic } }
+        component Shell: Rectangle {
+            property bool flat: false
+            color: flat ? Theme.surfaceLowest : Theme.alpha(Theme.surfaceLowest, 0.84)
+            radius: flat ? 0 : height / 2
+            border.width: flat ? 0 : 1
+            border.color: Theme.alpha(Theme.surfaceText, 0.08)
+        }
 
-            // ------------------------------------------------------ the row
-            RowLayout {
-                id: leftRow
-                anchors.left: parent.left
-                anchors.leftMargin: 12
-                y: 0
-                height: Theme.barHeight
-                spacing: 12
-                Workspaces { monitor: bar.monitor; Layout.alignment: Qt.AlignVCenter }
-                Sep {}
-                Item {
-                    id: media
-                    readonly property var player: Mpris.players.values.find(p => p.isPlaying) || null
-                    visible: player !== null
-                    Layout.preferredWidth: Math.min(mediaText.implicitWidth, 190)
-                    Layout.preferredHeight: Theme.barHeight
+        // a thin upright line between groups
+        component Dot: Rectangle {
+            width: 1; height: 14
+            color: Theme.alpha(Theme.surfaceText, 0.14)
+            anchors.verticalCenter: parent ? parent.verticalCenter : undefined
+        }
+
+        // slides the whole bar off its edge when hidden
+        property real off: shownBar ? 0 : -(thick + edge + 20)
+        Behavior on off { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutCubic } }
+
+        Item {
+            id: shapes
+            anchors.fill: parent
+            transform: Translate {
+                x: bar.vertical ? bar.off : 0
+                y: bar.vertical ? 0 : bar.atBottom ? -bar.off : bar.off
+            }
+            readonly property real barY: bar.atBottom ? bar.height - bar.edge - pillH : bar.edge
+            readonly property real pillH: bar.thick - 6
+
+            // ---------------- A: the pill, the long bar, the rail, or the left island
+            Shell {
+                id: shapeA
+                flat: bar.vertical
+                visible: bar.style !== "none"
+                x: bar.vertical ? 0
+                 : bar.style === "pill" ? (bar.width - width) / 2
+                 : bar.style === "bar" ? (bar.width - width) / 2
+                 : 10
+                y: bar.vertical ? 0 : shapes.barY
+                width: bar.vertical ? bar.thick
+                     : bar.style === "pill" ? pillRow.implicitWidth + 14
+                     : bar.style === "bar" ? Math.min(bar.width - 20, Math.max(barL.implicitWidth + barC.implicitWidth + barR.implicitWidth + 90, bar.width * 0.66))
+                     : islandL.implicitWidth + 26
+                height: bar.vertical ? bar.height : shapes.pillH
+
+                // pill: everything in one row, groups separated by dots
+                Row {
+                    id: pillRow
+                    visible: bar.style === "pill"
+                    anchors.centerIn: parent
+                    spacing: 8
+                    Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; names: bar.style === "pill" ? bar.mods.left : []; anchors.verticalCenter: parent.verticalCenter }
+                    Dot { visible: bar.mods.left.length > 0 && bar.mods.center.length > 0 }
+                    Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; names: bar.style === "pill" ? bar.mods.center : []; anchors.verticalCenter: parent.verticalCenter }
+                    Dot { visible: bar.mods.right.length > 0 }
+                    Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; names: bar.style === "pill" ? bar.mods.right : []; anchors.verticalCenter: parent.verticalCenter }
                     Txt {
-                        id: mediaText
+                        visible: Ui.status !== ""
                         anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width
-                        text: media.player ? (media.player.trackTitle || media.player.identity) : ""
-                        font.family: Theme.serif
-                        font.italic: true
-                        font.pixelSize: Theme.md
-                        color: Ui.panel === "media" ? Theme.accent : Theme.paper
+                        text: Ui.status
+                        font.family: Theme.mono
+                        font.pixelSize: Theme.xs
+                        color: Theme.primary
                     }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Ui.toggle("media") }
                 }
-                Sep { visible: media.visible }
-            }
 
-            Clock {
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: 0
-                height: Theme.barHeight
-            }
+                // bar: three groups pinned left, centre, right
+                Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; id: barL; visible: bar.style === "bar"; names: bar.style === "bar" ? bar.mods.left : []; anchors.left: parent.left; anchors.leftMargin: 16; anchors.verticalCenter: parent.verticalCenter }
+                Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; id: barC; visible: bar.style === "bar"; names: bar.style === "bar" ? bar.mods.center : []; anchors.centerIn: parent }
+                Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; id: barR; visible: bar.style === "bar"; names: bar.style === "bar" ? bar.mods.right : []; anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter }
 
-            RowLayout {
-                anchors.right: parent.right
-                anchors.rightMargin: 12
-                y: 0
-                height: Theme.barHeight
-                spacing: 12
+                // islands: the left one lives here
+                Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; id: islandL; visible: bar.style === "islands"; names: bar.style === "islands" ? bar.mods.left : []; anchors.centerIn: parent }
+
+                // rail: top · middle · bottom
+                Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; visible: bar.vertical; names: bar.vertical ? bar.mods.left : []; anchors.horizontalCenter: parent.horizontalCenter; anchors.top: parent.top; anchors.topMargin: 16 }
+                Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; visible: bar.vertical; names: bar.vertical ? bar.mods.center : []; anchors.centerIn: parent }
+                Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; visible: bar.vertical; names: bar.vertical ? bar.mods.right : []; anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 16 }
+
                 Txt {
-                    visible: Ui.status !== ""
+                    visible: Ui.status !== "" && bar.style === "bar"
+                    anchors.right: barR.left
+                    anchors.rightMargin: 14
+                    anchors.verticalCenter: parent.verticalCenter
                     text: Ui.status
-                    font.family: Theme.serif
-                    font.italic: true
-                    font.pixelSize: Theme.sm
-                    color: Theme.accent
+                    font.family: Theme.mono
+                    font.pixelSize: Theme.xs
+                    color: Theme.primary
                 }
-                Status { Layout.alignment: Qt.AlignVCenter }
+
+                WheelHandler {
+                    target: null
+                    onWheel: e => Hypr.step(e.angleDelta.y < 0 ? 1 : -1)
+                }
             }
 
-            WheelHandler {
-                target: null
-                enabled: !bar.open
-                onWheel: e => Hypr.step(e.angleDelta.y < 0 ? 1 : -1)
+            // ---------------- B, C: the centre and right islands
+            Shell {
+                id: shapeB
+                visible: bar.style === "islands" && bar.mods.center.length > 0
+                width: visible ? islandC.implicitWidth + 26 : 0
+                height: visible ? shapes.pillH : 0
+                x: (bar.width - width) / 2
+                y: shapes.barY
+                Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; id: islandC; names: bar.style === "islands" ? bar.mods.center : []; anchors.centerIn: parent }
             }
+            Shell {
+                id: shapeC
+                visible: bar.style === "islands" && bar.mods.right.length > 0
+                width: visible ? islandR.implicitWidth + 26 : 0
+                height: visible ? shapes.pillH : 0
+                x: bar.width - width - 10
+                y: shapes.barY
+                Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; id: islandR; names: bar.style === "islands" ? bar.mods.right : []; anchors.centerIn: parent }
+            }
+        }
 
-            // ------------------------------------------------------ the panel
-            Hair {
-                y: Theme.barHeight
-                x: pill.pad
-                width: pill.width - pill.pad * 2
-                opacity: bar.open ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.fast } }
-            }
+        // ------------------------------------------------------------ the panel card
+        Rectangle {
+            id: card
+            readonly property Item content: loader.item
+            readonly property real cw: content && bar.shown !== "" ? content.implicitWidth + 36 : 0
+            readonly property real ch: content && bar.shown !== "" ? content.implicitHeight + 36 : 0
+            readonly property real along: Ui.panelX >= 0 ? Ui.panelX : (bar.vertical ? bar.height / 2 : bar.width / 2)
+            width: cw
+            height: ch
+            x: bar.vertical ? bar.thick + 10 : Math.max(10, Math.min(bar.width - cw - 10, along - cw / 2))
+            y: bar.vertical ? Math.max(10, Math.min(bar.height - ch - 10, along - ch / 2))
+             : bar.atBottom ? bar.height - bar.thick - bar.edge - 10 - ch
+             : bar.thick + bar.edge + 10
+            visible: bar.shown !== ""
+            radius: Theme.radius + 8
+            color: Theme.glassStrong
+            border.width: 1
+            border.color: Theme.alpha(Theme.surfaceText, 0.08)
+            opacity: bar.open && loader.status === Loader.Ready ? 1 : 0
+            scale: bar.open ? 1 : 0.97
+            transformOrigin: bar.vertical ? Item.Left : bar.atBottom ? Item.Bottom : Item.Top
+            Behavior on opacity { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutQuad } }
+            Behavior on scale { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutCubic } }
+            Behavior on height { enabled: bar.open; NumberAnimation { duration: Theme.normal; easing.type: Easing.OutCubic } }
+            clip: true
 
             Loader {
                 id: loader
-                x: (pill.width - (item ? item.implicitWidth : 384)) / 2
-                y: Theme.barHeight + 10
+                x: 18
+                y: 18
                 active: bar.shown !== ""
-                opacity: bar.open && status === Loader.Ready ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutQuad } }
                 focus: true
                 sourceComponent: {
                     switch (bar.shown) {

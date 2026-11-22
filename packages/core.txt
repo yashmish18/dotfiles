@@ -1,0 +1,62 @@
+# kajukatli · essentials. always installed. install.sh takes each name from the official
+# repos when it can, and from the AUR otherwise. lines starting with # are comments.
+# the optional pieces live in packages/extras/ and are picked during install.
+
+# --- compositor & session
+hyprland
+hypridle
+hyprlock
+hyprpolkitagent
+hyprsunset
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+polkit
+xdg-user-dirs
+xdg-utils
+
+# --- the shell
+quickshell
+qt6-wayland
+qt6-svg
+qt6-imageformats
+qt6-shadertools
+qt6-5compat
+
+# --- network, bluetooth, sound, power
+networkmanager
+bluez
+bluez-utils
+pipewire
+pipewire-pulse
+pipewire-alsa
+wireplumber
+brightnessctl
+playerctl
+power-profiles-daemon
+upower
+
+# --- the basics the shell calls
+kitty
+grim
+slurp
+wl-clipboard
+cliphist
+jq
+libnotify
+curl
+ffmpeg
+pciutils
+
+# --- wallpaper colours (the fast stage of kk-prep: pillow + numpy, no ai)
+python
+python-pillow
+python-numpy
+
+# --- look (the shell's own typefaces are downloaded separately, ~3 mb)
+ttf-nerd-fonts-symbols
+noto-fonts
+noto-fonts-emoji
+papirus-icon-theme
+adw-gtk-theme
+qt6ct
+bibata-cursor-theme-bin

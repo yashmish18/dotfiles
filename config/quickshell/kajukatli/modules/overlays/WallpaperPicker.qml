@@ -1,19 +1,24 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Widgets
 import qs.services
 import qs.components
 
-// a contact sheet of your wallpapers. thumbnails are black & white until you look at one.
-//   enter / click: use it      r: surprise me      p: parallax on/off
-//   d: re-detect the subject   a: re-detect as anime / drawn art
+// the wallpaper switcher: a carousel. the card in the middle is the one you'd get.
+//   ← → / scroll   move           enter / click the middle card   use it
+//   type           filter by name                   ctrl+r         surprise me
+//   ctrl+a         re-detect the subject as drawn art     ctrl+p   parallax on/off
 Item {
     id: root
     focus: true
-    property int sel: 0
-    readonly property int cols: Math.max(2, Math.floor((width + 18) / (tileW + 18)))
-    readonly property real tileW: 248
-    readonly property real tileH: 155
+
+    property string query: ""
+    readonly property var items: {
+        const q = query.toLowerCase().trim();
+        return q === "" ? Wall.library : Wall.library.filter(w => w.name.toLowerCase().indexOf(q) !== -1);
+    }
+    readonly property var sel: items[strip.currentIndex] || null
 
     Component.onCompleted: {
         Wall.refreshLibrary();
@@ -21,189 +26,262 @@ Item {
     }
     Connections {
         target: Wall
-        function onLibraryChanged() {
-            const i = Wall.current ? Wall.library.findIndex(w => w.path === Wall.current.source) : -1;
-            root.sel = Math.max(0, i);
-        }
+        function onLibraryChanged() { root.jumpToCurrent(); }
     }
-
-    function use(i) {
-        const w = Wall.library[i];
+    function jumpToCurrent() {
+        const i = Wall.current ? items.findIndex(w => w.path === Wall.current.source) : -1;
+        strip.currentIndex = Math.max(0, i);
+        strip.positionViewAtIndex(strip.currentIndex, ListView.Center);
+    }
+    function use(w) {
         if (!w) return;
         Wall.set(w.path);
         Ui.overlay = "";
     }
 
-    Keys.onLeftPressed: sel = Math.max(0, sel - 1)
-    Keys.onRightPressed: sel = Math.min(Wall.library.length - 1, sel + 1)
-    Keys.onUpPressed: sel = Math.max(0, sel - cols)
-    Keys.onDownPressed: sel = Math.min(Wall.library.length - 1, sel + cols)
+    Keys.onLeftPressed: strip.decrementCurrentIndex()
+    Keys.onRightPressed: strip.incrementCurrentIndex()
     Keys.onReturnPressed: use(sel)
+    Keys.onEnterPressed: use(sel)
     Keys.onPressed: e => {
-        if (e.text === "r") { Wall.random(); Ui.overlay = ""; }
-        else if (e.text === "p") Config.s.parallax = !Config.s.parallax;
-        else if (e.text === "d") { Wall.redetect("birefnet-general-lite"); Ui.overlay = ""; }
-        else if (e.text === "a") { Wall.redetect("isnet-anime"); Ui.overlay = ""; }
+        const ctrl = e.modifiers & Qt.ControlModifier;
+        if (ctrl && e.key === Qt.Key_R) { Wall.random(); Ui.overlay = ""; }
+        else if (ctrl && e.key === Qt.Key_P) Config.s.parallax = !Config.s.parallax;
+        else if (ctrl && e.key === Qt.Key_A) { Wall.redetect("isnet-anime"); Ui.overlay = ""; }
+        else if (e.key === Qt.Key_Backspace) query = query.slice(0, -1);
+        else if (e.text && e.text.length === 1 && e.text >= " " && !ctrl) query += e.text;
         else return;
         e.accepted = true;
     }
+    onQueryChanged: { strip.currentIndex = 0; strip.positionViewAtBeginning(); }
 
-    ColumnLayout {
-        anchors.fill: parent
-        spacing: 22
+    component Badge: Rectangle {
+        id: bd
+        property string label: ""
+        property string icon: ""
+        implicitWidth: br.implicitWidth + 16
+        implicitHeight: 24
+        radius: 12
+        color: Theme.alpha("#000000", 0.45)
+        Row {
+            id: br
+            anchors.centerIn: parent
+            spacing: 5
+            Icon { visible: bd.icon !== ""; name: bd.icon; size: 12; color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter }
+            Txt { text: bd.label; font.pixelSize: Theme.xs + 1; color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter }
+        }
+    }
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 18
-            ColumnLayout {
-                spacing: 2
-                Txt {
-                    text: "contact sheet"
-                    font.family: Theme.serif
-                    font.italic: true
-                    font.pixelSize: 40
-                    font.weight: Font.Light
-                }
-                Txt {
-                    text: Config.s.wallpaperDir + "  ·  " + (Wall.listing ? "developing thumbnails…" : Wall.library.length + " frames")
-                    font.family: Theme.mono
-                    font.pixelSize: Theme.xs
-                    color: Theme.faint
-                }
+    // ------------------------------------------------------------ header
+    RowLayout {
+        id: head
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(parent.width, 900)
+        spacing: 12
+        ColumnLayout {
+            spacing: 2
+            Txt {
+                text: "Wallpapers"
+                font.pixelSize: 28
+                font.weight: Font.Bold
+                color: "#ffffff"
             }
-            Item { Layout.fillWidth: true }
-            Btn { text: "parallax: " + (Config.s.parallax ? "on" : "off"); active: Config.s.parallax; onClicked: Config.s.parallax = !Config.s.parallax }
-            Btn { text: "follow cursor: " + (Config.s.cursorParallax ? "on" : "off"); active: Config.s.cursorParallax; enabled: Config.s.parallax; onClicked: Config.s.cursorParallax = !Config.s.cursorParallax }
-            Btn { text: "surprise me"; onClicked: { Wall.random(); Ui.overlay = ""; } }
+            Txt {
+                text: Wall.listing && Wall.library.length === 0 ? "looking in " + Config.s.wallpaperDir + "…"
+                    : root.items.length + (root.query ? " matching" : " in " + Config.s.wallpaperDir)
+                font.pixelSize: Theme.sm
+                color: Theme.alpha("#ffffff", 0.6)
+            }
+        }
+        Item { Layout.fillWidth: true }
+        // the filter, shown once you type
+        Rectangle {
+            visible: root.query !== ""
+            implicitWidth: qrow.implicitWidth + 24
+            implicitHeight: 34
+            radius: 17
+            color: Theme.alpha("#ffffff", 0.12)
+            Row {
+                id: qrow
+                anchors.centerIn: parent
+                spacing: 8
+                Icon { name: "search"; size: 14; color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter }
+                Txt { text: root.query; color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter }
+            }
+        }
+        Btn { icon: "shuffle"; text: "Surprise me"; onClicked: { Wall.random(); Ui.overlay = ""; } }
+        Btn { icon: "external"; text: "Open folder"; onClicked: { Ui.overlay = ""; Quickshell.execDetached(["xdg-open", Config.wallpaperDir]); } }
+    }
+
+    // ------------------------------------------------------------ the strip
+    ListView {
+        id: strip
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: -10
+        height: cardH + 40
+        orientation: ListView.Horizontal
+        spacing: 18
+        model: root.items
+        clip: false
+        cacheBuffer: 600
+        highlightRangeMode: ListView.StrictlyEnforceRange
+        preferredHighlightBegin: (width - cardW) / 2
+        preferredHighlightEnd: (width + cardW) / 2
+        highlightMoveDuration: 260
+        snapMode: ListView.SnapToItem
+        boundsBehavior: Flickable.StopAtBounds
+        readonly property real cardW: Math.min(560, root.width * 0.42)
+        readonly property real cardH: cardW * 10 / 16
+
+        WheelHandler {
+            onWheel: e => (e.angleDelta.y || e.angleDelta.x) < 0 ? strip.incrementCurrentIndex() : strip.decrementCurrentIndex()
         }
 
-        GridView {
-            id: grid
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            cellWidth: root.tileW + 18
-            cellHeight: root.tileH + 44
-            currentIndex: root.sel
-            model: Wall.library
-            boundsBehavior: Flickable.StopAtBounds
-            onCurrentIndexChanged: positionViewAtIndex(currentIndex, GridView.Contain)
+        delegate: Item {
+            id: card
+            required property var modelData
+            required property int index
+            readonly property bool focused: ListView.isCurrentItem
+            readonly property bool current: Wall.current && Wall.current.source === modelData.path
+            width: strip.cardW
+            height: strip.height
+            z: focused ? 2 : 1
 
-            delegate: Item {
-                id: tile
-                required property var modelData
-                required property int index
-                readonly property bool sel: index === root.sel
-                readonly property bool current: Wall.current && Wall.current.source === modelData.path
-                readonly property bool lit: sel || area.containsMouse
-                width: grid.cellWidth
-                height: grid.cellHeight
+            Item {
+                id: frame
+                anchors.centerIn: parent
+                width: strip.cardW
+                height: strip.cardH
+                scale: card.focused ? 1 : 0.8
+                opacity: card.focused ? 1 : 0.55
+                Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                Behavior on opacity { NumberAnimation { duration: 300 } }
 
-                Rectangle {
-                    id: frame
-                    width: root.tileW
-                    height: root.tileH
-                    radius: 4
-                    color: Theme.surface
-                    border.width: 1
-                    border.color: tile.current ? Theme.accent : tile.sel ? Theme.accentDim : Theme.line
-                    clip: true
-
+                ClippingRectangle {
+                    anchors.fill: parent
+                    radius: 22
+                    color: Theme.surfaceHigh
                     Image {
                         id: thumb
                         anchors.fill: parent
-                        anchors.margins: 1
-                        source: tile.modelData.thumb ? "file://" + tile.modelData.thumb : ""
-                        sourceSize: Qt.size(root.tileW * 1.5, root.tileH * 1.5)
+                        source: card.modelData.thumb ? "file://" + card.modelData.thumb : ""
+                        sourceSize: Qt.size(400, 250)
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
-                        visible: tile.lit
                     }
-                    ShaderEffect {
-                        anchors.fill: thumb
-                        visible: !tile.lit && thumb.status === Image.Ready
-                        property var src: thumb
-                        fragmentShader: Qt.resolvedUrl("../../shaders/mono.frag.qsb")
+                    // the one in the middle gets a sharp preview on top
+                    Image {
+                        anchors.fill: parent
+                        visible: card.focused && card.modelData.kind === "image"
+                        source: visible ? "file://" + card.modelData.path : ""
+                        sourceSize: Qt.size(strip.cardW * 1.5, strip.cardH * 1.5)
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                        opacity: status === Image.Ready ? 1 : 0
+                        Behavior on opacity { NumberAnimation { duration: 200 } }
                     }
-                    // film rebate marks along the bottom, like a real contact sheet
-                    Row {
-                        anchors.bottom: parent.bottom
+                    Icon {
+                        anchors.centerIn: parent
+                        visible: thumb.status !== Image.Ready
+                        name: card.modelData.kind === "video" ? "play" : "image"
+                        size: 32
+                        color: Theme.outline
+                    }
+                    // a soft floor so the badges read on bright pictures
+                    Rectangle {
+                        anchors.left: parent.left
                         anchors.right: parent.right
-                        anchors.margins: 6
-                        spacing: 4
-                        Repeater {
-                            model: [tile.modelData.kind === "video" ? "moving" : "", tile.modelData.depth ? "3d" : "", tile.modelData.subject ? "drawn" : ""].filter(s => s)
-                            delegate: Rectangle {
-                                required property string modelData
-                                color: Qt.rgba(0, 0, 0, 0.62)
-                                radius: 2
-                                width: badge.implicitWidth + 8
-                                height: badge.implicitHeight + 2
-                                Txt {
-                                    id: badge
-                                    anchors.centerIn: parent
-                                    text: parent.modelData
-                                    font.family: Theme.mono
-                                    font.pixelSize: 9
-                                    color: Theme.paper
-                                }
-                            }
+                        anchors.bottom: parent.bottom
+                        height: 70
+                        gradient: Gradient {
+                            GradientStop { position: 0; color: "transparent" }
+                            GradientStop { position: 1; color: Theme.alpha("#000000", 0.45) }
                         }
                     }
-                    Txt {
-                        visible: thumb.status !== Image.Ready
-                        anchors.centerIn: parent
-                        text: tile.modelData.kind === "video" ? "a moving one" : "…"
-                        font.family: Theme.serif
-                        font.italic: true
-                        color: Theme.faint
-                    }
                 }
-
+                // the ring around the one you're on now
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: -5
+                    radius: 27
+                    color: "transparent"
+                    border.width: 2.5
+                    border.color: Theme.primary
+                    visible: card.current
+                }
                 Row {
-                    y: root.tileH + 8
-                    spacing: 8
-                    Txt {
-                        text: String(tile.index + 1).padStart(2, "0")
-                        font.family: Theme.mono
-                        font.pixelSize: Theme.xs
-                        color: tile.current ? Theme.accent : Theme.faint
-                    }
-                    Txt {
-                        width: root.tileW - 30
-                        text: tile.modelData.name.toLowerCase()
-                        font.family: Theme.mono
-                        font.pixelSize: Theme.xs
-                        color: tile.lit ? Theme.paper : Theme.muted
-                    }
+                    anchors.left: parent.left
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 14
+                    spacing: 6
+                    Badge { visible: card.current; icon: "check"; label: "in use" }
+                    Badge { visible: card.modelData.kind === "video"; icon: "play"; label: "live" }
+                    Badge { visible: card.modelData.subject; icon: "spark"; label: "depth" }
                 }
-
                 MouseArea {
-                    id: area
-                    width: root.tileW
-                    height: root.tileH
-                    hoverEnabled: true
+                    anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onEntered: root.sel = tile.index
-                    onClicked: root.use(tile.index)
+                    onClicked: card.focused ? root.use(card.modelData) : strip.currentIndex = card.index
                 }
             }
         }
+    }
 
-        Txt {
-            visible: !Wall.listing && Wall.library.length === 0
-            text: "this folder is empty. drop some pictures, gifs or videos into " + Config.s.wallpaperDir + "."
-            font.family: Theme.serif
-            font.italic: true
-            font.pixelSize: Theme.lg
-            color: Theme.muted
+    // ------------------------------------------------------------ what you're looking at
+    ColumnLayout {
+        anchors.top: strip.bottom
+        anchors.topMargin: 6
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: 10
+        visible: root.sel !== null
+        RowLayout {
+            Layout.alignment: Qt.AlignHCenter
+            spacing: 10
+            Rectangle {
+                visible: root.sel && root.sel.seed
+                width: 14
+                height: 14
+                radius: 7
+                color: root.sel && root.sel.seed ? root.sel.seed : "transparent"
+                border.width: 2
+                border.color: Theme.alpha("#ffffff", 0.7)
+            }
+            Txt {
+                text: root.sel ? root.sel.name.replace(/[-_]+/g, " ") : ""
+                font.pixelSize: Theme.lg + 2
+                font.weight: Font.DemiBold
+                color: "#ffffff"
+            }
         }
-
         Txt {
-            text: "enter use  ·  r surprise  ·  p parallax  ·  d re-detect subject  ·  a re-detect (anime / drawn art)  ·  esc close"
+            Layout.alignment: Qt.AlignHCenter
+            text: "enter  use it      ← →  browse      type  filter      ctrl r  surprise      ctrl a  re-detect subject"
             font.family: Theme.mono
-            font.pixelSize: Theme.xs
-            color: Theme.faint
+            font.pixelSize: Theme.xs + 1
+            color: Theme.alpha("#ffffff", 0.5)
+        }
+    }
+
+    // nothing here yet
+    ColumnLayout {
+        anchors.centerIn: parent
+        visible: !Wall.listing && Wall.library.length === 0
+        spacing: 10
+        Icon { Layout.alignment: Qt.AlignHCenter; name: "image"; size: 40; color: Theme.alpha("#ffffff", 0.6) }
+        Txt {
+            Layout.alignment: Qt.AlignHCenter
+            text: "No wallpapers yet"
+            font.pixelSize: Theme.xl
+            font.weight: Font.Bold
+            color: "#ffffff"
+        }
+        Txt {
+            Layout.alignment: Qt.AlignHCenter
+            text: "Put pictures or videos in " + Config.s.wallpaperDir + ", or run ./install.sh --walls"
+            color: Theme.alpha("#ffffff", 0.6)
         }
     }
 }

@@ -1,16 +1,17 @@
--- hairlines, small radii, no blur. cheap on the gpu and on the eyes.
+-- thin borders, soft corners. blur only behind the shell's glass (bar, panels, dock) and only
+-- on ac power: the shell switches it off when you unplug.
 hl.config({
     general = {
         gaps_in     = 5,
         gaps_out    = 12,
-        border_size = 1,
+        border_size = 2,
         resize_on_border = true,
         allow_tearing = false,
         layout = "dwindle",
     },
 
     decoration = {
-        rounding       = 8,
+        rounding       = 12,
         rounding_power = 2,
         active_opacity   = 1.0,
         inactive_opacity = 1.0,
@@ -23,11 +24,14 @@ hl.config({
             color        = 0x66000000,
         },
 
-        -- blur is the most expensive effect hyprland has. nothing here needs it.
+        -- blur is the most expensive effect hyprland has, so it is kept to the shell's own
+        -- translucent surfaces (see rules.lua). opaque windows never pay for it.
         blur = {
-            enabled = false,
-            size    = 6,
-            passes  = 2,
+            enabled           = true,
+            size              = 7,
+            passes            = 2,
+            new_optimizations = true,
+            popups            = false,
         },
     },
 

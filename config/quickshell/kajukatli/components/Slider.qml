@@ -1,100 +1,101 @@
 import QtQuick
 import qs.services
 
-// a hairline you can drag. the label sits on the left, the number on the right.
+// a fat pill slider: the filled part is the value, the icon sits inside it (click it to mute),
+// the number lives at the far end. drag, click, or scroll.
 Item {
     id: root
     property string label: ""
+    property string icon: ""
     property real value: 0          // 0..1
+    property real level: -1         // passed to meter icons (volume waves); defaults to value
     property bool muted: false
-    property string glyph: ""
     signal moved(real v)
     signal labelClicked()
 
     implicitWidth: 320
-    implicitHeight: 30
+    implicitHeight: label !== "" ? 50 : 34
 
-    Item {
-        id: head
-        width: 78
-        height: parent.height
-        Row {
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
-            Glyph {
-                visible: root.glyph !== ""
-                g: root.glyph
-                font.pixelSize: Theme.sm
-                color: root.muted ? Theme.faint : Theme.muted
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            Txt {
-                text: root.label
-                color: root.muted ? Theme.faint : Theme.muted
-                font.family: Theme.mono
-                font.pixelSize: Theme.xs
-                font.strikeout: root.muted
-            }
-        }
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.labelClicked()
-        }
+    Txt {
+        id: cap
+        visible: root.label !== ""
+        text: root.label
+        font.pixelSize: Theme.sm
+        font.weight: Font.Medium
+        color: Theme.surfaceTextDim
     }
 
-    Item {
+    Rectangle {
         id: track
-        anchors.left: head.right
-        anchors.right: num.left
-        anchors.rightMargin: 10
-        height: parent.height
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 34
+        radius: 17
+        color: Theme.surfaceHigh
+        clip: true
 
         Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            width: parent.width
-            height: 1
-            color: Theme.line
+            id: fill
+            readonly property real v: Math.max(0, Math.min(1, root.value))
+            width: Math.max(height, track.width * v)
+            height: parent.height
+            radius: 17
+            color: root.muted ? Theme.outline : Theme.primary
+            Behavior on width { enabled: !drag.pressed; NumberAnimation { duration: Theme.fast; easing.type: Easing.OutCubic } }
+            Behavior on color { ColorAnimation { duration: Theme.normal } }
+            // the grip: a short bar near the end of the fill
+            Rectangle {
+                anchors.right: parent.right
+                anchors.rightMargin: 9
+                anchors.verticalCenter: parent.verticalCenter
+                width: 3
+                height: drag.pressed ? 18 : 12
+                radius: 1.5
+                visible: fill.width > 44
+                color: Theme.alpha(Theme.primaryText, 0.55)
+                Behavior on height { NumberAnimation { duration: Theme.fast } }
+            }
         }
-        Rectangle {
+
+        Icon {
+            id: ic
+            visible: root.icon !== ""
+            x: 11
             anchors.verticalCenter: parent.verticalCenter
-            width: parent.width * Math.max(0, Math.min(1, root.value))
-            height: drag.pressed || drag.containsMouse ? 3 : 2
-            radius: 1
-            color: root.muted ? Theme.faint : Theme.accent
-            Behavior on height { NumberAnimation { duration: Theme.fast } }
-            Behavior on width { enabled: !drag.pressed; NumberAnimation { duration: Theme.fast } }
+            name: root.icon
+            level: root.level >= 0 ? root.level : root.value
+            size: 16
+            color: fill.width > 30 ? Theme.primaryText : Theme.surfaceText
         }
-        Rectangle {
-            x: parent.width * Math.max(0, Math.min(1, root.value)) - width / 2
+
+        Txt {
+            anchors.right: parent.right
+            anchors.rightMargin: 13
             anchors.verticalCenter: parent.verticalCenter
-            width: 1
-            height: drag.pressed || drag.containsMouse ? 12 : 8
-            color: Theme.paper
-            Behavior on height { NumberAnimation { duration: Theme.fast } }
+            text: Math.round(fill.v * 100)
+            font.family: Theme.mono
+            font.pixelSize: Theme.sm
+            color: fill.width > track.width - 40 ? Theme.primaryText : Theme.surfaceTextDim
         }
 
         MouseArea {
             id: drag
             anchors.fill: parent
+            anchors.leftMargin: root.icon !== "" ? 34 : 0
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            function at(x) { return Math.max(0, Math.min(1, x / width)); }
+            function at(x) { return Math.max(0, Math.min(1, (x + anchors.leftMargin) / track.width)); }
             onPressed: e => root.moved(at(e.x))
             onPositionChanged: e => { if (pressed) root.moved(at(e.x)); }
             onWheel: e => root.moved(Math.max(0, Math.min(1, root.value + (e.angleDelta.y > 0 ? 0.05 : -0.05))))
         }
-    }
-
-    Txt {
-        id: num
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        width: 30
-        horizontalAlignment: Text.AlignRight
-        text: Math.round(root.value * 100)
-        color: Theme.muted
-        font.family: Theme.mono
-        font.pixelSize: Theme.xs
+        MouseArea {
+            visible: root.icon !== ""
+            width: 34
+            height: parent.height
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.labelClicked()
+        }
     }
 }

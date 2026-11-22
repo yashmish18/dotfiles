@@ -4,22 +4,23 @@ import Quickshell
 import qs.services
 import qs.components
 
-// leave. the dangerous ones ask twice: press once, it says "again?", press again.
+// leave. five big cards. the ones that lose your work ask once more: press again to confirm.
+// keys: l s o r p, or arrows and enter.
 Item {
     id: root
-    implicitWidth: 380
-    implicitHeight: col.implicitHeight + 6
+    implicitWidth: 440
+    implicitHeight: col.implicitHeight
     focus: true
 
     property int index: 0
     property string armed: ""
 
     readonly property var actions: [
-        { key: "lock", word: "lock", hint: "l", cmd: ["kk-lock"], ask: false },
-        { key: "sleep", word: "sleep", hint: "s", cmd: ["systemctl", "suspend"], ask: false },
-        { key: "logout", word: "log out", hint: "o", cmd: ["sh", "-c", "command -v hyprshutdown >/dev/null && exec hyprshutdown; exec hyprctl dispatch 'hl.dsp.exit()'"], ask: true },
-        { key: "reboot", word: "restart", hint: "r", cmd: ["systemctl", "reboot"], ask: true },
-        { key: "off", word: "shut down", hint: "p", cmd: ["systemctl", "poweroff"], ask: true }
+        { key: "lock", word: "Lock", icon: "lock", hint: "l", cmd: ["kk-lock"], ask: false },
+        { key: "sleep", word: "Sleep", icon: "moon", hint: "s", cmd: ["systemctl", "suspend"], ask: false },
+        { key: "logout", word: "Log out", icon: "logout", hint: "o", cmd: ["sh", "-c", "command -v hyprshutdown >/dev/null && exec hyprshutdown; exec hyprctl dispatch 'hl.dsp.exit()'"], ask: true },
+        { key: "reboot", word: "Restart", icon: "restart", hint: "r", cmd: ["systemctl", "reboot"], ask: true },
+        { key: "off", word: "Shut down", icon: "power", hint: "p", cmd: ["systemctl", "poweroff"], ask: true }
     ]
 
     function run(i) {
@@ -50,37 +51,77 @@ Item {
         width: parent.width
         spacing: 14
 
-        Txt {
-            text: root.armed !== "" ? "again, to be sure." : "leaving already?"
-            font.family: Theme.serif
-            font.italic: true
-            font.pixelSize: Theme.xl - 4
-            color: root.armed !== "" ? Theme.danger : Theme.paper
+        RowLayout {
+            Layout.fillWidth: true
+            Txt {
+                Layout.fillWidth: true
+                text: root.armed !== "" ? "Press again to " + root.actions.find(a => a.key === root.armed).word.toLowerCase() : "See you soon"
+                font.pixelSize: Theme.lg + 2
+                font.weight: Font.Bold
+                color: root.armed !== "" ? Theme.error : Theme.surfaceText
+            }
+            Txt {
+                text: Quickshell.env("USER") || ""
+                font.family: Theme.mono
+                font.pixelSize: Theme.sm
+                color: Theme.outline
+            }
         }
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 4
+            spacing: 8
             Repeater {
                 model: root.actions
-                delegate: Btn {
+                delegate: Rectangle {
+                    id: card
                     required property var modelData
                     required property int index
-                    text: modelData.word
-                    size: Theme.md
-                    mono: false
-                    active: root.index === index
-                    danger: modelData.ask
-                    onClicked: { root.index = index; root.run(index); }
+                    readonly property bool sel: root.index === index
+                    readonly property bool hot: root.armed === modelData.key
+                    Layout.fillWidth: true
+                    implicitHeight: 88
+                    radius: Theme.radius
+                    color: hot ? Theme.error : sel ? Theme.primaryContainer : area.containsMouse ? Theme.surfaceHighest : Theme.surfaceHigh
+                    Behavior on color { ColorAnimation { duration: Theme.fast } }
+                    scale: area.pressed ? 0.95 : 1
+                    Behavior on scale { NumberAnimation { duration: 90 } }
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 8
+                        Icon {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            name: card.modelData.icon
+                            size: 24
+                            color: card.hot ? Theme.errorText : card.sel ? Theme.primaryContainerText : Theme.surfaceText
+                        }
+                        Txt {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: card.modelData.word
+                            font.pixelSize: Theme.sm
+                            font.weight: Font.Medium
+                            color: card.hot ? Theme.errorText : card.sel ? Theme.primaryContainerText : Theme.surfaceTextDim
+                        }
+                    }
+                    Txt {
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.margins: 8
+                        text: card.modelData.hint
+                        font.family: Theme.mono
+                        font.pixelSize: Theme.xs
+                        color: card.hot ? Theme.errorText : Theme.outline
+                    }
+                    MouseArea {
+                        id: area
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onEntered: root.index = card.index
+                        onClicked: root.run(card.index)
+                    }
                 }
             }
-        }
-
-        Txt {
-            text: "l  s  o  r  p   or arrows and enter"
-            font.family: Theme.mono
-            font.pixelSize: Theme.xs
-            color: Theme.faint
         }
     }
 }

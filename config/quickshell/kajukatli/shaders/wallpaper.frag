@@ -6,6 +6,11 @@
 //   0.32–1.00  ink bleeds outward from the subject and reveals the new picture
 //   0.72–1.00  the drawn lines dry and fade
 // at progress 1 only the parallax path runs (one texture fetch per step, nothing else).
+//
+// depth widgets: overlayTex is the desktop clock (and friends) rendered off-screen. it is
+// laid over the picture everywhere except where the subject's soft mask is, so the clock
+// sits *behind* the person. the mask is sampled at the same parallax-displaced uv as the
+// picture, so the cut-out stays glued to the subject while the camera moves.
 
 layout(location = 0) in vec2 qt_TexCoord0;
 layout(location = 0) out vec4 fragColor;
@@ -25,6 +30,9 @@ layout(std140, binding = 0) uniform buf {
     vec4 inkDark;       // ink for light ground
     vec4 inkLight;      // ink for dark ground (chalk-ish)
     vec4 baseColor;
+    float hasOverlay;
+    float hasMask;
+    float useInk;       // 1 = outline + ink bleed, 0 = a plain crossfade
 };
 
 layout(binding = 1) uniform sampler2D fromTex;
@@ -32,6 +40,8 @@ layout(binding = 2) uniform sampler2D fromDepth;
 layout(binding = 3) uniform sampler2D toTex;
 layout(binding = 4) uniform sampler2D toDepth;
 layout(binding = 5) uniform sampler2D inkTex;   // r stroke, g draw order, b distance from subject
+layout(binding = 6) uniform sampler2D overlayTex; // premultiplied widgets layer, screen space
+layout(binding = 7) uniform sampler2D toMask;     // r = subject (soft), picture space
 
 float luma(vec3 c) {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -82,6 +92,14 @@ vec2 parallax(sampler2D depth, vec2 uv, vec2 off) {
     return clamp(p, vec2(0.001), vec2(0.999));
 }
 
+// lay the widgets layer down, then put the subject back on top of it
+vec3 behind(vec3 col, vec2 uv, vec2 tp, float weight) {
+    vec4 o = texture(overlayTex, uv);
+    float m = hasMask > 0.5 ? texture(toMask, tp).r * weight : 0.0;
+    float k = 1.0 - m;
+    return col * (1.0 - o.a * k) + o.rgb * k;
+}
+
 void main() {
     vec2 uv = qt_TexCoord0;
 
@@ -90,6 +108,8 @@ void main() {
     vec3 toC = texture(toTex, tp).rgb;
 
     if (progress >= 0.999) {
+        if (hasOverlay > 0.5)
+            toC = behind(toC, uv, tp, 1.0);
         fragColor = vec4(toC, 1.0) * qt_Opacity;
         return;
     }
@@ -97,6 +117,15 @@ void main() {
     vec2 fu = coverUV(uv, coverFrom);
     vec2 fp = hasFromDepth > 0.5 ? parallax(fromDepth, fu, offset) : fu;
     vec3 fromC = hasFrom > 0.5 ? texture(fromTex, fp).rgb : baseColor.rgb;
+
+    if (useInk < 0.5) {
+        float t = smoothstep(0.0, 1.0, progress);
+        vec3 c = mix(fromC, toC, t);
+        if (hasOverlay > 0.5)
+            c = behind(c, uv, tp, t);
+        fragColor = vec4(c, 1.0) * qt_Opacity;
+        return;
+    }
 
     vec3 ink = texture(inkTex, tu).rgb;
     float stroke = ink.r;
@@ -122,5 +151,7 @@ void main() {
     vec3 col = mix(fromC, toC, reveal);
     col = mix(col, inkFor(col, inkDark, inkLight), wet * 0.85 * (1.0 - bleed * 0.6));
     col = mix(col, inkFor(col, inkDark, inkLight), clamp(drawn * dry * tooth, 0.0, 1.0));
+    if (hasOverlay > 0.5)
+        col = behind(col, uv, tp, reveal);
     fragColor = vec4(col, 1.0) * qt_Opacity;
 }

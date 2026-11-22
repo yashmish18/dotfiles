@@ -84,8 +84,7 @@ Item {
                     anchors.margins: 10
                     anchors.verticalCenter: parent.verticalCenter
                     text: row.modelData.text.replace(/\s+/g, " ")
-                    font.family: row.modelData.text.startsWith("image · ") ? Theme.serif : Theme.mono
-                    font.italic: row.modelData.text.startsWith("image · ")
+                    font.family: Theme.mono
                     font.pixelSize: Theme.sm
                     color: row.sel ? Theme.paper : Theme.muted
                 }
@@ -102,8 +101,6 @@ Item {
         Txt {
             visible: root.shown.length === 0
             text: root.entries.length === 0 ? "nothing copied yet." : "no match."
-            font.family: Theme.serif
-            font.italic: true
             color: Theme.muted
         }
         Txt {

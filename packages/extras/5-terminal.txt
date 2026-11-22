@@ -1,0 +1,9 @@
+# a nicer terminal: prompt, fetch, ls/cat/cd/fzf upgrades, btop · ~30 mb
+# default: on
+starship
+fastfetch
+eza
+bat
+zoxide
+fzf
+btop

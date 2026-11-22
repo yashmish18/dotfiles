@@ -1,0 +1,2 @@
+# subject cut-out for the clock-behind-subject effect + 3d parallax · ~450 mb
+# default: on

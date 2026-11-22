@@ -1,0 +1,5 @@
+# screenshot editor, screen recorder, colour picker · ~30 mb
+# default: on
+satty
+wf-recorder
+hyprpicker

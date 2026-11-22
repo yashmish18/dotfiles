@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # kajukatli · installer for arch linux
 #
-#   ./install.sh              everything, asking before anything that touches the system
-#   ./install.sh --yes        everything, no questions (safe defaults)
-#   ./install.sh --links      only (re)link the dotfiles
-#   ./install.sh --shaders    only recompile the shaders
-#   ./install.sh --ai         only (re)build the wallpaper ai environment
-#   ./install.sh --no-ai      skip the ai environment (no 3d parallax / outlines)
+#   ./install.sh                  essentials, then a menu of extras to pick from
+#   ./install.sh --yes            essentials + the recommended extras, no questions
+#   ./install.sh --minimal        essentials only (no extras, no ai)
+#   ./install.sh --extras=3,5,10  essentials + exactly these extras (numbers from the menu)
+#   ./install.sh --links          only (re)link the dotfiles
+#   ./install.sh --shaders        only recompile the shaders
+#   ./install.sh --fonts          only (re)download the typefaces
+#   ./install.sh --walls          only download the wallpaper pack
+#   ./install.sh --ai             only (re)build the wallpaper ai
 #
-# it is safe to run again: packages use --needed, links are replaced, your own files
-# are moved to ~/.local/share/kajukatli/backup/<date>/ before anything is linked over them.
+# safe to run again: packages use --needed, links are replaced, and your own files are
+# moved to ~/.local/share/kajukatli/backup/<date>/ before anything is linked over them.
 
 set -euo pipefail
 
@@ -20,7 +23,7 @@ if [ -d "$REPO/.git" ] && command -v git >/dev/null; then
     branch="$(git -C "$REPO" branch --show-current 2>/dev/null || true)"
     if [ -n "$branch" ] && [ -z "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
         echo "  · updating dotfiles ($branch)"
-        git -C "$REPO" pull --ff-only origin "$branch" || warn "could not pull origin/$branch; using the checked-out files"
+        git -C "$REPO" pull --ff-only origin "$branch" || echo "  ! could not pull origin/$branch; using the checked-out files"
     elif [ -n "$branch" ]; then
         echo "  ! local changes present; skipping git pull"
     fi
@@ -30,27 +33,33 @@ CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}/kajukatli"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/kajukatli"
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/kajukatli"
+FONTS="${XDG_DATA_HOME:-$HOME/.local/share}/fonts/kajukatli"
 BIN="$HOME/.local/bin"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="$DATA/backup/$STAMP"
 LOG="$DATA/install-$STAMP.log"
 
-YES=0; ONLY=""; AI=1
+YES=0; ONLY=""; MINIMAL=0; EXTRAS_ARG=""
 for a in "$@"; do
     case "$a" in
         --yes|-y) YES=1 ;;
+        --minimal) MINIMAL=1; YES=1 ;;
+        --extras=*) EXTRAS_ARG="${a#--extras=}" ;;
         --links) ONLY=links ;;
         --shaders) ONLY=shaders ;;
+        --fonts) ONLY=fonts ;;
+        --walls) ONLY=walls ;;
         --ai) ONLY=ai ;;
-        --no-ai) AI=0 ;;
-        -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        --no-ai) EXTRAS_ARG="${EXTRAS_ARG:-default}"; NO_AI=1 ;;
+        -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown option: $a (try --help)"; exit 2 ;;
     esac
 done
+NO_AI="${NO_AI:-0}"
 
 # ------------------------------------------------------------------ voice
-c_acc=$'\033[38;2;201;183;156m'; c_dim=$'\033[38;2;143;138;128m'; c_bad=$'\033[38;2;181;101;90m'; c_ok=$'\033[38;2;138;154;123m'; c_0=$'\033[0m'
-say()  { printf '%s\n' "  ${c_acc}·${c_0} $*"; }
+c_acc=$'\033[38;2;233;192;139m'; c_dim=$'\033[38;2;143;138;128m'; c_bad=$'\033[38;2;226;112;100m'; c_ok=$'\033[38;2;150;200;140m'; c_b=$'\033[1m'; c_0=$'\033[0m'
+say()  { printf '%s\n' "  ${c_acc}●${c_0} ${c_b}$*${c_0}"; }
 note() { printf '%s\n' "    ${c_dim}$*${c_0}"; }
 ok()   { printf '%s\n' "  ${c_ok}✓${c_0} $*"; }
 warn() { printf '%s\n' "  ${c_bad}!${c_0} $*"; }
@@ -78,6 +87,57 @@ preflight() {
     ping -c1 -W3 archlinux.org >/dev/null 2>&1 || warn "no internet? package installs will fail."
 }
 
+# ------------------------------------------------------------------ extras
+EXTRA_FILES=()
+EXTRA_ON=()
+load_extras() {
+    local f
+    while IFS= read -r f; do
+        EXTRA_FILES+=("$f")
+        if grep -q '^# default: on' "$f"; then EXTRA_ON+=(1); else EXTRA_ON+=(0); fi
+    done < <(ls "$REPO"/packages/extras/*.txt | sort -t/ -k1 -V)
+}
+extra_name() { basename "$1" .txt | sed 's/^[0-9]*-//'; }
+extra_desc() { sed -n '1s/^# //p' "$1"; }
+extra_chosen() { # extra_chosen <name>
+    local i
+    for i in "${!EXTRA_FILES[@]}"; do
+        [ "$(extra_name "${EXTRA_FILES[$i]}")" = "$1" ] && { [ "${EXTRA_ON[$i]}" = 1 ]; return; }
+    done
+    return 1
+}
+
+choose_extras() {
+    load_extras
+    local i n
+    if [ "$MINIMAL" = 1 ]; then
+        for i in "${!EXTRA_ON[@]}"; do EXTRA_ON[$i]=0; done
+    elif [ -n "$EXTRAS_ARG" ] && [ "$EXTRAS_ARG" != default ]; then
+        for i in "${!EXTRA_ON[@]}"; do EXTRA_ON[$i]=0; done
+        IFS=',' read -ra picks <<< "$EXTRAS_ARG"
+        for n in "${picks[@]}"; do [ "$n" -ge 1 ] 2>/dev/null && [ "$n" -le "${#EXTRA_FILES[@]}" ] && EXTRA_ON[$((n-1))]=1 || true; done
+    elif [ "$YES" != 1 ]; then
+        while true; do
+            echo
+            say "extras · type numbers to switch them on/off, enter when done"
+            for i in "${!EXTRA_FILES[@]}"; do
+                local box="${c_dim}[ ]${c_0}"; [ "${EXTRA_ON[$i]}" = 1 ] && box="${c_ok}[x]${c_0}"
+                printf '    %s %2d  %-16s %s\n' "$box" $((i+1)) "$(extra_name "${EXTRA_FILES[$i]}")" "${c_dim}$(extra_desc "${EXTRA_FILES[$i]}")${c_0}"
+            done
+            printf '  %s›%s ' "$c_acc" "$c_0"
+            local line; read -r line </dev/tty || line=""
+            [ -z "$line" ] && break
+            for n in $line; do
+                [ "$n" -ge 1 ] 2>/dev/null && [ "$n" -le "${#EXTRA_FILES[@]}" ] && EXTRA_ON[$((n-1))]=$((1 - EXTRA_ON[$((n-1))])) || true
+            done
+        done
+    fi
+    [ "$NO_AI" = 1 ] && for i in "${!EXTRA_FILES[@]}"; do [ "$(extra_name "${EXTRA_FILES[$i]}")" = wallpaper-ai ] && EXTRA_ON[$i]=0 || true; done
+    local picked=()
+    for i in "${!EXTRA_FILES[@]}"; do [ "${EXTRA_ON[$i]}" = 1 ] && picked+=("$(extra_name "${EXTRA_FILES[$i]}")") || true; done
+    note "extras: ${picked[*]:-none}"
+}
+
 # ------------------------------------------------------------------ packages
 AUR_HELPER=""
 find_aur_helper() {
@@ -98,26 +158,28 @@ packages() {
     say "updating the system and installing packages"
     sudo pacman -Syu --noconfirm
 
-    local repo=() aur=()
+    local lists=("$REPO/packages/core.txt") i
+    for i in "${!EXTRA_FILES[@]}"; do [ "${EXTRA_ON[$i]}" = 1 ] && lists+=("${EXTRA_FILES[$i]}") || true; done
+
+    local repo=() aur=() p
     while read -r p; do
         [ -z "$p" ] && continue
-        # already satisfied — by the package itself or by something that provides it
+        # already satisfied, by the package itself or by something that provides it
         # (e.g. tuned-ppd provides power-profiles-daemon; installing both would conflict)
         pacman -T "$p" >/dev/null 2>&1 && continue
         if pacman -Si "$p" >/dev/null 2>&1; then repo+=("$p"); else aur+=("$p"); fi
-    done < <(sed -e 's/#.*//' -e 's/[[:space:]]//g' "$REPO/packages/packages.txt")
+    done < <(cat "${lists[@]}" | sed -e 's/#.*//' -e 's/[[:space:]]//g' | sort -u)
 
-    # mesa's video decode/encode for the integrated gpu (mpv, mpvpaper, the recorder)
+    # video decode/encode on the integrated gpu (mpv, mpvpaper, the recorder)
     if grep -q GenuineIntel /proc/cpuinfo; then repo+=(intel-media-driver vulkan-intel); fi
     if grep -q AuthenticAMD /proc/cpuinfo; then repo+=(vulkan-radeon); fi
 
     if [ "${#repo[@]}" -gt 0 ]; then
-        note "${#repo[@]} to install from the official repos"
+        note "${#repo[@]} from the official repos"
         sudo pacman -S --needed --noconfirm "${repo[@]}"
     else
         note "everything from the official repos is already here"
     fi
-
     if [ "${#aur[@]}" -gt 0 ]; then
         note "${#aur[@]} from the aur: ${aur[*]}"
         if find_aur_helper || bootstrap_aur_helper; then
@@ -223,10 +285,12 @@ links() {
     # regenerated by kk-theme
     [ -e "$CONFIG/hypr/modules/theme.lua" ] && [ ! -L "$CONFIG/hypr/modules/theme.lua" ] || \
         { rm -f "$CONFIG/hypr/modules/theme.lua"; install -Dm644 "$REPO/config/hypr/modules/theme.lua" "$CONFIG/hypr/modules/theme.lua"; }
+    mkdir -p "$CONFIG/qt6ct"
+    [ -L "$CONFIG/qt6ct/qt6ct.conf" ] && rm -f "$CONFIG/qt6ct/qt6ct.conf"
     sed "s|@CONFIG@|$CONFIG|g" "$REPO/config/qt6ct/qt6ct.conf.in" > "$CONFIG/qt6ct/qt6ct.conf"
 
     # scripts
-    for f in "$REPO"/bin/*; do backup_and_link "$f" "$BIN/$(basename "$f")"; chmod +x "$f"; done
+    for f in "$REPO"/bin/*; do [ -f "$f" ] || continue; backup_and_link "$f" "$BIN/$(basename "$f")"; chmod +x "$f"; done
     sudo install -Dm755 "$REPO/system/bin/kk-session" /usr/local/bin/kk-session
 
     # shell extras into bash / zsh
@@ -254,35 +318,97 @@ shaders() {
     ok "shaders"
 }
 
-# ------------------------------------------------------------------ ai
-ai_env() {
-    say "building the wallpaper ai (depth for 3d parallax, subject outlines). about 1 gb on disk."
-    local py="$DATA/venv/bin/python"
-    [ -x "$py" ] || python3 -m venv "$DATA/venv"
-    "$py" -m pip install --quiet --upgrade pip
-    "$py" -m pip install --quiet "rembg[cpu]" onnxruntime opencv-python-headless pillow numpy
-    if lspci 2>/dev/null | grep -qi nvidia && ask "also install cuda onnxruntime (faster prep on the nvidia gpu, +2 gb)" n; then
-        "$py" -m pip install --quiet onnxruntime-gpu && note "run kk-prep with KK_PREP_GPU=1 prime-run … to use it"
-    fi
-    if ask "download the models now (~300 mb) instead of on the first wallpaper" y; then
-        "$py" - <<'PY' || warn "model download failed; it'll retry on the first wallpaper"
-from rembg import new_session
-for m in ("birefnet-general-lite", "isnet-anime"):
-    print("    model:", m, flush=True)
-    new_session(m)
-PY
-        local depth="$DATA/models/depth-anything-v2-small.onnx"
-        mkdir -p "$DATA/models"
-        if [ ! -s "$depth" ]; then
-            if curl -fL --progress-bar -o "$depth.part" "https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model.onnx"; then
-                mv "$depth.part" "$depth"
-            else
-                rm -f "$depth.part"
-                warn "depth model download failed; it'll retry on the first wallpaper"
-            fi
+# ------------------------------------------------------------------ typefaces
+# the shell's type, all open-licence (ofl) from google/fonts. ~3 mb in ~/.local/share/fonts.
+#   bricolage grotesque  the interface      dm mono       numbers, the bar, the terminal
+#   syne · unbounded · anton · fraunces · instrument serif   the desktop clocks
+GF="https://github.com/google/fonts/raw/main/ofl"
+FONT_FILES=(
+    "bricolagegrotesque/BricolageGrotesque%5Bopsz,wdth,wght%5D.ttf"
+    "dmmono/DMMono-Light.ttf" "dmmono/DMMono-Regular.ttf" "dmmono/DMMono-Medium.ttf"
+    "syne/Syne%5Bwght%5D.ttf"
+    "unbounded/Unbounded%5Bwght%5D.ttf"
+    "anton/Anton-Regular.ttf"
+    "fraunces/Fraunces%5BSOFT,WONK,opsz,wght%5D.ttf"
+    "instrumentserif/InstrumentSerif-Regular.ttf"
+)
+fonts() {
+    say "typefaces"
+    mkdir -p "$FONTS"
+    local f out got=0
+    for f in "${FONT_FILES[@]}"; do
+        out="$FONTS/$(basename "$f" | sed 's/%5B/[/g; s/%5D/]/g')"
+        [ -s "$out" ] && { got=$((got+1)); continue; }
+        if curl -fsL --retry 2 --max-time 60 -o "$out.part" "$GF/$f"; then mv "$out.part" "$out"; got=$((got+1)); note "$(basename "$out")"
+        else rm -f "$out.part"; warn "couldn't fetch $(basename "$out") (the shell falls back to noto)"; fi
+    done
+    fc-cache -f "$FONTS" >/dev/null 2>&1 || true
+    ok "typefaces ($got of ${#FONT_FILES[@]})"
+}
+
+# ------------------------------------------------------------------ wallpapers
+# public-domain paintings from wikimedia commons, fetched at 2560 px. the clock-behind-subject
+# effect looks its best on pictures with a clear figure (friedrich, vermeer, waterhouse…).
+WALLS=(
+    "great-wave.jpg|Tsunami_by_hokusai_19th_century.jpg"
+    "red-fuji.jpg|Red_Fuji_southern_wind_clear_morning.jpg"
+    "kajikazawa.jpg|Kajikazawa_in_Kai_province.jpg"
+    "wanderer.jpg|Caspar_David_Friedrich_-_Wanderer_above_the_sea_of_fog.jpg"
+    "ninth-wave.jpg|Aivazovsky,_Ivan_-_The_Ninth_Wave.jpg"
+    "pearl-earring.jpg|1665_Girl_with_a_Pearl_Earring.jpg"
+    "starry-night.jpg|Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg"
+    "parasol.jpg|Claude_Monet_-_Woman_with_a_Parasol_-_Madame_Monet_and_Her_Son_-_Google_Art_Project.jpg"
+    "impression-sunrise.jpg|Monet_-_Impression,_Sunrise.jpg"
+    "shalott.jpg|John_William_Waterhouse_-_The_Lady_of_Shalott_-_Google_Art_Project_edit.jpg"
+    "the-kiss.jpg|The_Kiss_-_Gustav_Klimt_-_Google_Cultural_Institute.jpg"
+    "moon-pine.jpg|100_views_edo_089.jpg"
+)
+wallpapers() {
+    say "wallpaper pack"
+    local dir="$HOME/Pictures/wallpapers/paintings" w name file got=0
+    mkdir -p "$dir"
+    for w in "${WALLS[@]}"; do
+        name="${w%%|*}"; file="${w#*|}"
+        [ -s "$dir/$name" ] && { got=$((got+1)); continue; }
+        if curl -fsL --retry 3 --retry-delay 2 --max-time 90 -A "kajukatli-installer/1.0 (arch linux dotfiles)" \
+                -o "$dir/$name.part" "https://commons.wikimedia.org/wiki/Special:FilePath/$file?width=2560"; then
+            mv "$dir/$name.part" "$dir/$name"; got=$((got+1)); note "$name"
+        else
+            rm -f "$dir/$name.part"; warn "couldn't fetch $name"
         fi
+        sleep 1   # wikimedia asks scripts to go gently
+    done
+    ok "wallpapers ($got in ~/Pictures/wallpapers/paintings)"
+}
+
+# ------------------------------------------------------------------ ai
+# a private venv on top of the system's numpy + pillow (so they aren't installed twice):
+# onnxruntime + opencv-headless, ~250 mb, plus the models you pick.
+ai_env() {
+    say "wallpaper ai (subject cut-out for the depth clock, 3d parallax)"
+    local level="anime" r
+    if [ "$YES" != 1 ]; then
+        note "1  lite    u2netp, rough cut-outs, no parallax              ~5 mb of models"
+        note "2  anime   isnet-anime, clean cut-outs of drawn art         ~170 mb  (recommended)"
+        note "3  full    anime + depth for the 3d parallax                ~270 mb"
+        note "4  photo   birefnet for photographs + depth                 ~320 mb"
+        printf '  %s?%s which one %s ' "$c_acc" "$c_0" "[2]"
+        read -r r </dev/tty || r=""
+        case "${r:-2}" in 1) level=lite ;; 3) level=full ;; 4) level=photo ;; *) level=anime ;; esac
     fi
-    ok "wallpaper ai"
+    local model=isnet-anime depth=0
+    case "$level" in lite) model=u2netp ;; full) depth=1 ;; photo) model=birefnet-general-lite; depth=1 ;; esac
+    printf 'model=%s\ndepth=%s\n' "$model" "$depth" > "$DATA/ai.conf"
+
+    local py="$DATA/venv/bin/python"
+    [ -x "$py" ] || python3 -m venv --system-site-packages "$DATA/venv"
+    "$py" -m pip install --quiet --upgrade pip
+    "$py" -m pip install --quiet onnxruntime opencv-python-headless
+    # rembg (and its ~700 mb of numba / scipy / scikit-image) is no longer needed
+    "$py" -m pip uninstall -y --quiet rembg pymatting numba llvmlite scikit-image scipy 2>/dev/null || true
+    note "fetching the model(s) now so the first wallpaper doesn't wait"
+    "$BIN/kk-prep" --fetch-models || warn "model download failed; it'll retry on the first wallpaper"
+    ok "wallpaper ai ($level)"
 }
 
 # ------------------------------------------------------------------ services
@@ -304,15 +430,17 @@ services() {
     systemctl --user enable --now pipewire pipewire-pulse wireplumber 2>/dev/null || true
 
     # login screen
-    local dm
-    dm="$(basename "$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null)" 2>/dev/null || true)"
-    if [ "$dm" = "greetd.service" ]; then
-        note "greetd already set up"
-    elif ask "use greetd + tuigreet as the login screen$([ -n "$dm" ] && [ "$dm" != "display-manager.service" ] && echo " (replaces $dm)")" y; then
-        [ -f /etc/greetd/config.toml ] && sudo cp /etc/greetd/config.toml "/etc/greetd/config.toml.kk-backup-$STAMP"
-        sudo install -Dm644 "$REPO/system/greetd/config.toml" /etc/greetd/config.toml
-        [ -n "$dm" ] && [ "$dm" != "display-manager.service" ] && sudo systemctl disable "$dm" || true
-        sudo systemctl enable greetd.service
+    if extra_chosen greeter; then
+        local dm
+        dm="$(basename "$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null)" 2>/dev/null || true)"
+        if [ "$dm" = "greetd.service" ]; then
+            note "greetd already set up"
+        elif ask "use greetd + tuigreet as the login screen$([ -n "$dm" ] && [ "$dm" != "display-manager.service" ] && echo " (replaces $dm)")" y; then
+            [ -f /etc/greetd/config.toml ] && sudo cp /etc/greetd/config.toml "/etc/greetd/config.toml.kk-backup-$STAMP"
+            sudo install -Dm644 "$REPO/system/greetd/config.toml" /etc/greetd/config.toml
+            [ -n "$dm" ] && [ "$dm" != "display-manager.service" ] && sudo systemctl disable "$dm" || true
+            sudo systemctl enable greetd.service
+        fi
     fi
     ok "services"
 }
@@ -322,43 +450,52 @@ defaults() {
     say "first-run defaults"
     xdg-user-dirs-update 2>/dev/null || true
     mkdir -p "$HOME/Pictures/wallpapers" "$HOME/Pictures/screenshots" "$HOME/Videos/recordings" "$CONFIG/kajukatli"
-    "$BIN/kk-wallpapers" "$HOME/Pictures/wallpapers" >/dev/null
+    # nothing to look at yet? a few generated gradients so the desktop isn't empty
+    if [ -z "$(find "$HOME/Pictures/wallpapers" -type f 2>/dev/null | head -n1)" ]; then
+        python3 "$REPO/bin/kk-wallpapers" "$HOME/Pictures/wallpapers/generated" >/dev/null || true
+    fi
     gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' 2>/dev/null || true
     gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3-dark' 2>/dev/null || true
     gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark' 2>/dev/null || true
     gsettings set org.gnome.desktop.interface cursor-theme 'Bibata-Modern-Classic' 2>/dev/null || true
-    gsettings set org.gnome.desktop.interface font-name 'IBM Plex Sans 10' 2>/dev/null || true
-    # a default accent until the first wallpaper decides one
-    [ -f "$CACHE/theme.json" ] || "$BIN/kk-theme" '#c9b79c' || true
-    fc-cache -f >/dev/null 2>&1 || true
+    gsettings set org.gnome.desktop.interface font-name 'Bricolage Grotesque 10' 2>/dev/null || true
+    gsettings set org.gnome.desktop.interface monospace-font-name 'DM Mono 10' 2>/dev/null || true
+    # colours until the first wallpaper decides them
+    [ -f "$CACHE/theme.json" ] || "$BIN/kk-theme" '#e9a86b' || true
     ok "defaults"
 }
 
 # ------------------------------------------------------------------ run
 echo
-echo "  ${c_acc}kajukatli${c_0}  ${c_dim}· a desktop in black & white, for arch + hyprland${c_0}"
+echo "  ${c_acc}${c_b}kajukatli${c_0}  ${c_dim}a desktop shell for arch + hyprland${c_0}"
 echo "  ${c_dim}log: $LOG${c_0}"
 echo
 
 case "$ONLY" in
     links)   links; exit 0 ;;
     shaders) shaders; exit 0 ;;
+    fonts)   fonts; exit 0 ;;
+    walls)   wallpapers; exit 0 ;;
     ai)      ai_env; exit 0 ;;
 esac
 
 preflight
+choose_extras
 packages
 gpu
 links
 shaders
-[ "$AI" = 1 ] && ai_env || note "skipped the wallpaper ai (--no-ai). wallpapers still ink-fade, just without 3d and outlines."
+fonts
+extra_chosen wallpaper-pack && wallpapers || true
+extra_chosen wallpaper-ai && ai_env || note "no wallpaper ai: wallpapers and colours still work, the clock just stays in front."
 services
 defaults
 
 echo
 ok "done."
-note "reboot, log in from the greeter, then:"
-note "  super + w        pick a wallpaper (put some in ~/Pictures/wallpapers first)"
-note "  super + space    launcher          super + a   control center"
-note "  super + /        every key         kk-doctor   checks everything"
+note "reboot, log in, then:"
+note "  super + w           wallpapers               super + i   settings & looks"
+note "  super + space       launcher                 super + a   control center"
+note "  super + shift + t   cycle looks              super + /   every key"
+note "  something off?      kk-doctor"
 echo

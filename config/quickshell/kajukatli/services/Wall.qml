@@ -5,14 +5,20 @@ import Quickshell.Io
 
 // the wallpaper engine's brain. the pictures themselves are drawn by modules/wallpaper.
 //
-//   set(file) → kk-prep makes/reuses the bundle → every screen runs the ink transition
-//             → kk-theme recolours the desktop → (video) mpvpaper takes over once it settles
+// a switch never waits for anything slow:
+//   0 ms     the picture itself is on screen (decoded by qt at screen size)
+//   ~200 ms  kk-prep --fast: colours → kk-theme recolours the desktop
+//   later    kk-prep --ai at idle priority: subject cut-out + depth slide in quietly
+//            (no second transition). on battery this waits for the charger unless
+//            aiOnBattery is set.
 Singleton {
     id: root
 
     property var current: null          // meta.json of what's on screen
-    property int generation: 0          // +1 per new wallpaper; screens react to this
-    property bool preparing: false
+    property int generation: 0          // +1 per new wallpaper: screens play a transition
+    signal refined()                    // same wallpaper, more detail (cut-out, depth)
+    property bool preparing: false      // the ai stage is working
+    property bool aiMissing: false      // kk-prep said the ai isn't installed
     property string error: ""
     property var library: []            // picker contents, from `kk-prep --list`
     property bool listing: false
@@ -20,58 +26,81 @@ Singleton {
     readonly property bool isVideo: current !== null && current.kind === "video" && current.video !== ""
     readonly property bool videoAllowed: !Power.onBattery || Config.s.videoOnBattery
     property bool videoReady: false     // mpvpaper is up: our own layer can step aside
+    // the subject's cut-out is ready, so desktop widgets can be tucked behind it.
+    // (not for live wallpapers once they play: the subject moves, the mask doesn't)
+    readonly property bool depthReady: current !== null && !!current.mask && !videoReady
 
-    property string _queued: ""
-    property bool _queuedForce: false
-    property string _queuedModel: ""
-
-    function set(file: string) { prep(file, false, ""); }
-    function redetect(model: string) {
-        if (current) prep(current.source, true, model);
+    // the biggest screen's long edge, so nothing is decoded or stored bigger than it needs
+    readonly property int maxEdge: {
+        let m = 1920;
+        for (const s of Quickshell.screens)
+            m = Math.max(m, Math.round(Math.max(s.width, s.height) * (s.devicePixelRatio || 1)));
+        return Math.min(m, 3840);
     }
 
-    function prep(file: string, force: bool, model: string) {
+    function isVideoPath(f: string): bool {
+        return /\.(gif|mp4|webm|mkv|mov|avi|m4v)$/i.test(f);
+    }
+
+    // ---------------------------------------------------------------- switching
+    function set(file: string) {
         if (!file) return;
-        const ext = file.toLowerCase();
-        const previewKind = ext.endsWith(".gif") || ext.endsWith(".mp4") || ext.endsWith(".webm") || ext.endsWith(".mkv") || ext.endsWith(".mov") || ext.endsWith(".avi") || ext.endsWith(".m4v") ? "video" : "image";
-        root.apply({
-            source: file,
-            name: file.split("/").pop().replace(/\.[^.]+$/, ""),
-            kind: previewKind,
-            display: file,
-            thumb: file,
-            dir: "",
-            depth: "",
-            ink: "",
-            video: previewKind === "video" ? file : "",
-            width: 0,
-            height: 0
-        });
-        if (prepProc.running) {          // last request wins
-            _queued = file;
-            _queuedForce = force;
-            _queuedModel = model;
-            return;
-        }
         error = "";
-        preparing = true;
-        Ui.status = "developing…";
-        const cmd = ["nice", "-n", "10", "kk-prep", file, "--model", model || Config.s.subjectModel];
-        if (force) cmd.push("--force");
-        prepProc.command = cmd;
-        prepProc.running = true;
+        if (!isVideoPath(file)) {
+            show({ source: file, name: file.split("/").pop().replace(/\.[^.]+$/, ""), kind: "image",
+                   display: file, thumb: file, dir: "", depth: "", ink: "", mask: "", video: "",
+                   width: 0, height: 0, stage: 0 });
+        }
+        fast.want = file;
+        if (!fast.running) fast.go(file);
     }
 
-    function apply(meta) {
+    function show(meta) {
         stopVideo();
         current = meta;
         generation++;
         Store.s.wallpaper = meta.source;
-        themeProc.command = ["kk-theme", meta.dir];
-        themeProc.running = true;
         if (isVideo) videoStart.restart();
     }
+    // same picture, more known about it: no transition, just the new parts
+    function refine(meta) {
+        current = meta;
+        refined();
+    }
+    function sameSource(meta): bool {
+        return current !== null && meta && current.source === meta.source;
+    }
 
+    function redetect(model: string) {
+        if (current) runAi(current.source, model, true);
+    }
+
+    function theme(dir: string) {
+        if (!dir) return;
+        themeProc.want = dir;
+        if (!themeProc.running) { themeProc.command = ["kk-theme", dir]; themeProc.running = true; }
+    }
+
+    // ---------------------------------------------------------------- the ai stage
+    property string aiPending: ""
+    function runAi(file: string, model: string, force: bool) {
+        if (aiMissing && !force) return;
+        if (Power.onBattery && !Config.s.aiOnBattery && !force) { aiPending = file; return; }
+        aiPending = "";
+        const cmd = ["nice", "-n", "19", "ionice", "-c", "3", "kk-prep", file, "--ai"];
+        if (model) cmd.push("--model", model);
+        if (force) cmd.push("--force");
+        ai.want = cmd;
+        if (!ai.running) ai.go();
+    }
+    Connections {
+        target: Power
+        function onOnBatteryChanged() {
+            if (!Power.onBattery && root.aiPending !== "") root.runAi(root.aiPending, "", false);
+        }
+    }
+
+    // ---------------------------------------------------------------- library
     property int _pendingStep: 0   // 1 next, -1 prev, 2 random, once the library is listed
 
     function step(dir: int) {
@@ -94,9 +123,10 @@ Singleton {
         listProc.running = true;
     }
 
+    // ---------------------------------------------------------------- live wallpapers
     function startVideo() {
         if (!isVideo || !videoAllowed || mpv.running) return;
-        mpv.command = ["mpvpaper", "-p", "-o", "no-audio loop hwdec=auto-safe panscan=1.0", "ALL", current.video];
+        mpv.command = ["mpvpaper", "-p", "-o", "no-audio loop hwdec=auto-safe panscan=1.0 vf=fps=30", "ALL", current.video];
         mpv.running = true;
     }
     function stopVideo() {
@@ -104,10 +134,9 @@ Singleton {
         videoReady = false;      // our still frame comes back first…
         if (mpv.running) mpv.running = false;   // …then the video goes
     }
-
     onVideoAllowedChanged: videoAllowed ? startVideo() : stopVideo()
 
-    // restore the last wallpaper on login (the bundle is cached, so this is quick)
+    // restore the last wallpaper on login (cached, so this is instant)
     Connections {
         target: Store
         function onReadyChanged() {
@@ -119,36 +148,69 @@ Singleton {
         if (Store.ready && Store.s.wallpaper !== "") set(Store.s.wallpaper);
     }
 
+    function lastJson(text: string) {
+        const lines = text.trim().split("\n");
+        try { return JSON.parse(lines[lines.length - 1]); } catch (e) { return null; }
+    }
+
+    // ---------------------------------------------------------------- processes
     Process {
-        id: prepProc
-        stdout: StdioCollector { id: prepOut }
-        stderr: StdioCollector { id: prepErr }
+        id: fast
+        property string want: ""
+        property string file: ""
+        function go(f: string) {
+            file = f;
+            command = ["kk-prep", f, "--fast", "--max-edge", String(root.maxEdge)];
+            running = true;
+        }
+        stdout: StdioCollector { id: fastOut }
+        stderr: StdioCollector { id: fastErr }
+        onExited: code => {
+            const meta = code === 0 ? root.lastJson(fastOut.text) : null;
+            if (file === want) {
+                if (meta) {
+                    if (root.sameSource(meta) && meta.kind !== "video") root.refine(meta);
+                    else root.show(meta);
+                    root.theme(meta.dir);
+                    if ((meta.stage || 1) < 2) root.runAi(meta.source, "", false);
+                } else {
+                    const lines = fastErr.text.trim().split("\n");
+                    root.error = (lines[lines.length - 1] || "kk-prep failed").replace(/^kk-prep:\s*/, "");
+                    Quickshell.execDetached(["notify-send", "-a", "wallpaper", "couldn't open that one", root.error]);
+                }
+            }
+            if (want !== file) Qt.callLater(() => fast.go(fast.want));   // the newest request wins
+        }
+    }
+
+    Process {
+        id: ai
+        property var want: null
+        function go() {
+            command = want;
+            want = null;
+            root.preparing = true;
+            running = true;
+        }
+        stdout: StdioCollector { id: aiOut }
         onExited: code => {
             root.preparing = false;
-            Ui.status = "";
-            if (code === 0) {
-                const lines = prepOut.text.trim().split("\n");
-                try {
-                    root.apply(JSON.parse(lines[lines.length - 1]));
-                } catch (e) {
-                    root.error = "kk-prep gave nothing usable";
-                }
-            } else {
-                const lines = prepErr.text.trim().split("\n");
-                root.error = (lines[lines.length - 1] || "kk-prep failed").replace(/^kk-prep:\s*/, "");
-                Quickshell.execDetached(["notify-send", "-a", "wallpaper", "couldn't develop that one", root.error]);
+            if (code === 3) root.aiMissing = true;
+            else if (code === 0) {
+                const meta = root.lastJson(aiOut.text);
+                if (meta && root.sameSource(meta)) root.refine(Object.assign({}, meta, { display: root.current.display }));
             }
-            if (root._queued !== "") {
-                const f = root._queued, force = root._queuedForce, model = root._queuedModel;
-                root._queued = "";
-                Qt.callLater(() => root.prep(f, force, model));
-            }
+            if (ai.want) Qt.callLater(() => ai.go());
         }
     }
 
     Process {
         id: themeProc
-        onExited: Theme.reload()
+        property string want: ""
+        onExited: {
+            Theme.reload();
+            if (want !== command[1]) Qt.callLater(() => { themeProc.command = ["kk-theme", themeProc.want]; themeProc.running = true; });
+        }
     }
 
     Process {
@@ -171,10 +233,10 @@ Singleton {
         }
     }
 
-    // let the ink finish before the video replaces it
+    // let the fade finish before the video replaces it
     Timer {
         id: videoStart
-        interval: 0
+        interval: 600
         onTriggered: root.startVideo()
     }
 

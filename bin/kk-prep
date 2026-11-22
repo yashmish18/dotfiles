@@ -1,19 +1,27 @@
 #!/usr/bin/env python3
 """
-kk-prep — turn an image, gif or video into a kajukatli wallpaper bundle.
+kk-prep — turn an image, gif or video into a kajukatli wallpaper bundle, in two stages.
 
-for every wallpaper it writes, once, into ~/.cache/kajukatli/walls/<key>/:
-    display.jpg   the picture, sized for the screen (first frame for videos)
+  stage 1 · fast (a fraction of a second, no ai):
+    display.jpg   the picture at screen size (skipped when the file already is: no copy)
     thumb.jpg     small preview for the picker
-    depth.png     depth map (white = near) for the 3d parallax
-    ink.png       r = outline strokes, g = drawing order along each stroke,
-                  b = distance from the subject (where the ink starts bleeding)
-    palette.json  muted accent colour + brightness, used by kk-theme
-    meta.json     everything above, printed to stdout as the last line
+    palette.json  seed colour, swatches, brightness (overall and of the top of the frame)
+  stage 2 · ai (in the background, at idle priority; the desktop never waits for it):
+    mask.png      soft subject cut-out. the shell draws the clock behind it
+    depth.png     depth map (white = near) for the 3d parallax          (full only)
+    ink.png       outline strokes + drawing order + distance from subject
 
-it never runs again for the same file unless you pass --force.
-the ai parts (depth, subject) are optional: if a model is missing or fails,
-the bundle is still made and the shell falls back to a plain ink fade.
+everything lands in ~/.cache/kajukatli/walls/<key>/ with a meta.json, which is also printed
+as the last line of stdout. nothing is redone for the same file unless you pass --force.
+
+    kk-prep FILE              both stages
+    kk-prep FILE --fast       stage 1 only (what the shell calls first)
+    kk-prep FILE --ai         stage 2 (does stage 1 first if needed)
+    kk-prep --list DIR        the picker's library, as json
+
+ai: onnx models run directly with onnxruntime (no rembg, so no numba / scipy / scikit-image).
+    --model isnet-anime (drawn art, default) · birefnet-general-lite (photos) · u2netp (4 mb, quick)
+    --no-depth skips the parallax depth map.
 """
 from __future__ import annotations
 
@@ -32,15 +40,32 @@ HOME = Path.home()
 CACHE = Path(os.environ.get("XDG_CACHE_HOME", HOME / ".cache")) / "kajukatli"
 DATA = Path(os.environ.get("XDG_DATA_HOME", HOME / ".local" / "share")) / "kajukatli"
 WALLS = CACHE / "walls"
+THUMBS = CACHE / "thumbs"
+INDEX = CACHE / "index.json"
 MODELS = DATA / "models"
 VENV = DATA / "venv"
 
-BUNDLE_VERSION = 3  # bump to rebuild every cached bundle
+BUNDLE_VERSION = 5  # bump to rebuild every cached bundle
 VIDEO_EXT = {".mp4", ".webm", ".mkv", ".mov", ".avi", ".m4v", ".gif"}
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
+REUSE_EXT = {".jpg", ".jpeg", ".png", ".webp"}   # shown as-is when already screen-sized
 
 DEPTH_URL = "https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model.onnx"
 DEPTH_FILE = MODELS / "depth-anything-v2-small.onnx"
+
+# subject models, run directly with onnxruntime. pre/post-processing matches what rembg does.
+REMBG = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/"
+IMAGENET = ((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+SUBJECT_MODELS = {
+    # name: (file, size, mean, std, post)
+    "isnet-anime": ("isnet-anime.onnx", 1024, IMAGENET[0], (1.0, 1.0, 1.0), "minmax"),
+    "isnet-general-use": ("isnet-general-use.onnx", 1024, IMAGENET[0], (1.0, 1.0, 1.0), "minmax"),
+    "birefnet-general-lite": ("BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx", 1024, IMAGENET[0], IMAGENET[1], "sigmoid"),
+    "u2netp": ("u2netp.onnx", 320, IMAGENET[0], IMAGENET[1], "minmax"),
+}
+
+AI_CONF = DATA / "ai.conf"     # written by install.sh: model=…, depth=0|1
+NO_AI_EXIT = 3                 # the shell reads this as "ai isn't installed, stop asking"
 
 DEFAULT_ACCENT = "#c9b79c"
 INK_DARK = "#0c0c0c"
@@ -82,19 +107,158 @@ def run(cmd: list[str]) -> bool:
         return False
 
 
+def on_battery() -> bool:
+    for p in Path("/sys/class/power_supply").glob("*"):
+        try:
+            if (p / "type").read_text().strip() == "Mains":
+                return (p / "online").read_text().strip() == "0"
+        except OSError:
+            continue
+    return False
+
+
 def ort_threads() -> int:
-    # leave half the cores free so the desktop stays smooth while we work
-    return max(2, (os.cpu_count() or 4) // 2)
+    # leave most of the cpu to you: two threads on battery, half the cores on ac
+    return 2 if on_battery() else max(2, (os.cpu_count() or 4) // 2)
 
 
-def ort_providers() -> list[str]:
+def ort_session(model: Path):
     import onnxruntime as ort
+    so = ort.SessionOptions()
+    so.intra_op_num_threads = ort_threads()
+    so.inter_op_num_threads = 1
+    so.enable_mem_pattern = False          # lower peak memory, barely slower
     have = ort.get_available_providers()
-    want = [p for p in ("CUDAExecutionProvider",) if p in have and os.environ.get("KK_PREP_GPU") == "1"]
-    return want + ["CPUExecutionProvider"]
+    prov = [p for p in ("CUDAExecutionProvider",) if p in have and os.environ.get("KK_PREP_GPU") == "1"]
+    return ort.InferenceSession(str(model), so, providers=prov + ["CPUExecutionProvider"])
 
 
-# ---------------------------------------------------------------- media
+def download(url: str, dest: Path, what: str) -> Path | None:
+    if dest.exists() and dest.stat().st_size > 1_000_000:
+        return dest
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    log(f"downloading {what} (once)…")
+    tmp = dest.with_suffix(".part")
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "kk-prep"})
+        with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "wb") as f:
+            shutil.copyfileobj(r, f, 1 << 20)
+        tmp.replace(dest)
+        return dest
+    except Exception as e:  # offline, moved, …
+        log(f"{what} unavailable:", e)
+        tmp.unlink(missing_ok=True)
+        return None
+
+
+def ai_conf() -> dict:
+    conf = {"model": "isnet-anime", "depth": "0"}
+    try:
+        for line in AI_CONF.read_text().splitlines():
+            k, _, v = line.partition("=")
+            if k.strip() in conf:
+                conf[k.strip()] = v.strip()
+    except OSError:
+        pass
+    return conf
+
+
+def have_ai() -> bool:
+    try:
+        import cv2  # noqa: F401
+        import onnxruntime  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+# ---------------------------------------------------------------- stage 1: fast (pillow + numpy only)
+
+def open_fast(path: Path, edge: int):
+    """decode at (close to) the size we need. jpegs decode at 1/2, 1/4, 1/8 scale straight
+    from the file, which is most of what makes a switch feel instant."""
+    from PIL import Image, ImageOps
+    im = Image.open(path)
+    full = im.size
+    im.draft("RGB", (edge, edge))
+    im = ImageOps.exif_transpose(im).convert("RGB")
+    if max(im.size) > edge:
+        im.thumbnail((edge, edge), Image.LANCZOS, reducing_gap=2.0)
+    return im, full
+
+
+def srgb_to_lab(rgb):
+    """numpy sRGB (0..255, n×3) → cie lab, so the palette doesn't need opencv."""
+    import numpy as np
+    c = rgb.astype(np.float32) / 255.0
+    c = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    m = np.array([[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]], np.float32)
+    xyz = c @ m.T / np.array([0.95047, 1.0, 1.08883], np.float32)
+    f = np.where(xyz > 0.008856, np.cbrt(xyz), 7.787 * xyz + 16 / 116)
+    L = 116 * f[:, 1] - 16
+    a = 500 * (f[:, 0] - f[:, 1])
+    b = 200 * (f[:, 1] - f[:, 2])
+    return np.stack([L, a, b], 1)
+
+
+def lab_to_hex(L: float, a: float, b: float) -> str:
+    import numpy as np
+    fy = (L + 16) / 116
+    fx, fz = fy + a / 500, fy - b / 200
+    inv = lambda t: t ** 3 if t ** 3 > 0.008856 else (t - 16 / 116) / 7.787
+    xyz = np.array([inv(fx) * 0.95047, inv(fy), inv(fz) * 1.08883])
+    m = np.array([[3.2406, -1.5372, -0.4986], [-0.9689, 1.8758, 0.0415], [0.0557, -0.2040, 1.0570]])
+    c = np.clip(m @ xyz, 0, 1)
+    c = np.where(c <= 0.0031308, 12.92 * c, 1.055 * c ** (1 / 2.4) - 0.055)
+    r, g, bb = (int(round(v * 255)) for v in np.clip(c, 0, 1))
+    return f"#{r:02x}{g:02x}{bb:02x}"
+
+
+def kmeans(x, k: int, iters: int = 10):
+    import numpy as np
+    rng = np.random.default_rng(7)
+    centers = [x[rng.integers(len(x))]]
+    for _ in range(1, k):        # k-means++ seeding
+        d = np.min(((x[:, None, :] - np.array(centers)[None]) ** 2).sum(-1), 1)
+        centers.append(x[rng.choice(len(x), p=d / d.sum())] if d.sum() > 0 else x[rng.integers(len(x))])
+    c = np.array(centers)
+    for _ in range(iters):
+        lab = ((x[:, None, :] - c[None]) ** 2).sum(-1).argmin(1)
+        for j in range(k):
+            pts = x[lab == j]
+            if len(pts):
+                c[j] = pts.mean(0)
+    lab = ((x[:, None, :] - c[None]) ** 2).sum(-1).argmin(1)
+    return c, np.bincount(lab, minlength=k) / len(x)
+
+
+def palette(im) -> dict:
+    """seed = the most characterful colour (chroma weighted by how much of the frame it covers).
+    kk-theme builds every colour on the desktop from it."""
+    import numpy as np
+    small = np.asarray(im.resize((64, 64)))
+    lab = srgb_to_lab(small.reshape(-1, 3))
+    luma = float(lab[:, 0].mean()) / 100
+    # desktop clocks usually sit near the top: that decides pale or dark clock text
+    luma_top = float(lab.reshape(64, 64, 3)[:26, :, 0].mean()) / 100
+    centers, counts = kmeans(lab, 6)
+    best, score = None, 0.0
+    for c, n in zip(centers, counts):
+        chroma = float(np.hypot(c[1], c[2]))
+        s = chroma * np.sqrt(n)
+        if chroma > 8 and s > score:
+            best, score = c, s
+    swatches = [lab_to_hex(*centers[i]) for i in np.argsort(-counts)]
+    if best is None:
+        seed, accent = "", DEFAULT_ACCENT
+    else:
+        seed = lab_to_hex(*best)
+        k = min(1.0, 26.0 / max(float(np.hypot(best[1], best[2])), 1e-6))
+        accent = lab_to_hex(75, best[1] * k, best[2] * k)   # the muted print tone, for "mono"
+    return {"seed": seed, "accent": accent, "swatches": swatches,
+            "luma": round(luma, 3), "luma_top": round(luma_top, 3),
+            "ink": INK_DARK if luma > 0.5 else INK_LIGHT}
+
 
 def extract_still(src: Path, out: Path) -> bool:
     """a frame from half a second in (the very first one is often black)."""
@@ -111,80 +275,75 @@ def gif_to_mp4(src: Path, out: Path) -> bool:
         "ffmpeg", "-v", "error", "-y", "-i", str(src),
         "-movflags", "+faststart", "-pix_fmt", "yuv420p",
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-        "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-an", str(out),
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-an", str(out),
     ])
 
 
-def load_rgb(path: Path):
-    import numpy as np
-    from PIL import Image, ImageOps
-    with Image.open(path) as im:
-        im = ImageOps.exif_transpose(im)
-        im = im.convert("RGB")
-        return np.array(im)
-
-
-def save_jpg(rgb, path: Path, quality: int = 92) -> None:
-    from PIL import Image
-    Image.fromarray(rgb).save(path, "JPEG", quality=quality, optimize=True, progressive=True)
-
-
-def fit_long_edge(rgb, edge: int):
-    import cv2
-    h, w = rgb.shape[:2]
-    s = edge / max(h, w)
-    if s >= 1:
-        return rgb
-    return cv2.resize(rgb, (round(w * s), round(h * s)), interpolation=cv2.INTER_AREA)
-
-
-def make_thumb(rgb, path: Path, tw: int = 384, th: int = 240) -> None:
-    import cv2
-    h, w = rgb.shape[:2]
-    s = max(tw / w, th / h)
-    r = cv2.resize(rgb, (max(tw, round(w * s)), max(th, round(h * s))), interpolation=cv2.INTER_AREA)
-    y = (r.shape[0] - th) // 2
-    x = (r.shape[1] - tw) // 2
-    save_jpg(r[y:y + th, x:x + tw], path, 86)
-
-
-# ---------------------------------------------------------------- depth
-
-def ensure_depth_model() -> Path | None:
-    if DEPTH_FILE.exists() and DEPTH_FILE.stat().st_size > 1_000_000:
-        return DEPTH_FILE
-    MODELS.mkdir(parents=True, exist_ok=True)
-    log("downloading depth model (once, ~100 MB)…")
-    tmp = DEPTH_FILE.with_suffix(".part")
+def stage_fast(src: Path, out: Path, key: str, args) -> dict:
+    from PIL import ImageOps
+    tmp = Path(tempfile.mkdtemp(prefix=f".{key}-", dir=WALLS))
     try:
-        with urllib.request.urlopen(DEPTH_URL, timeout=60) as r, open(tmp, "wb") as f:
-            shutil.copyfileobj(r, f, 1 << 20)
-        tmp.replace(DEPTH_FILE)
-        return DEPTH_FILE
-    except Exception as e:  # network down, hf moved the file, …
-        log("depth model unavailable:", e)
-        tmp.unlink(missing_ok=True)
-        return None
+        ext = src.suffix.lower()
+        kind = "video" if ext in VIDEO_EXT else "image"
+        video = ""
+        if kind == "video":
+            still = tmp / "display.jpg"
+            if not extract_still(src, still):
+                raise RuntimeError("could not read a frame from the video (is ffmpeg installed?)")
+            if ext == ".gif":
+                if not gif_to_mp4(src, tmp / "loop.mp4"):
+                    raise RuntimeError("could not convert the gif")
+                video = str(out / "loop.mp4")
+            else:
+                video = str(src)
+            im, full = open_fast(still, args.max_edge)
+            display = str(out / "display.jpg")
+        else:
+            im, full = open_fast(src, args.max_edge)
+            if ext in REUSE_EXT and max(full) <= args.max_edge * 1.05:
+                display = str(src)                     # already screen-sized: show the file itself
+            else:
+                im.save(tmp / "display.jpg", "JPEG", quality=90, optimize=False)
+                display = str(out / "display.jpg")
+        ImageOps.fit(im, (384, 240)).save(tmp / "thumb.jpg", "JPEG", quality=84)
+        pal = palette(im)
+        (tmp / "palette.json").write_text(json.dumps(pal, indent=2))
+        meta = {
+            "version": BUNDLE_VERSION, "stage": 1, "key": key,
+            "source": str(src), "name": src.stem, "kind": kind, "video": video,
+            "dir": str(out), "display": display, "thumb": str(out / "thumb.jpg"),
+            "depth": "", "ink": "", "mask": "", "has_subject": False, "ai_model": "",
+            "width": im.size[0], "height": im.size[1],
+            "accent": pal["accent"], "seed": pal["seed"], "swatches": pal["swatches"],
+            "ink_color": pal["ink"], "luma": pal["luma"], "luma_top": pal["luma_top"],
+        }
+        (tmp / "meta.json").write_text(json.dumps(meta, indent=2))
+        if out.exists():
+            shutil.rmtree(out)
+        tmp.replace(out)  # atomic: a half-built bundle is never visible
+        return meta
+    finally:
+        if tmp.exists():
+            shutil.rmtree(tmp, ignore_errors=True)
 
+
+# ---------------------------------------------------------------- stage 2: ai
 
 def estimate_depth(rgb):
     """returns float32 0..1 at the image size (1 = nearest), or None."""
     import cv2
     import numpy as np
-    model = ensure_depth_model()
+    model = download(DEPTH_URL, DEPTH_FILE, "depth model (~100 MB)")
     if model is None:
         return None
     try:
-        import onnxruntime as ort
-        so = ort.SessionOptions()
-        so.intra_op_num_threads = ort_threads()
-        sess = ort.InferenceSession(str(model), so, providers=ort_providers())
+        sess = ort_session(model)
         inp = sess.get_inputs()[0]
         size = 518  # multiple of 14, what the model was trained at
-        x = cv2.resize(rgb, (size, size), interpolation=cv2.INTER_CUBIC).astype(np.float32) / 255.0
-        x = (x - np.array([0.485, 0.456, 0.406], np.float32)) / np.array([0.229, 0.224, 0.225], np.float32)
-        x = x.transpose(2, 0, 1)[None]
-        out = sess.run(None, {inp.name: x})[0]
+        x = cv2.resize(rgb, (size, size), interpolation=cv2.INTER_AREA).astype(np.float32) / 255.0
+        x = (x - np.array(IMAGENET[0], np.float32)) / np.array(IMAGENET[1], np.float32)
+        out = sess.run(None, {inp.name: x.transpose(2, 0, 1)[None]})[0]
+        del sess
         d = np.squeeze(out).astype(np.float32)
         if d.ndim != 2:
             log("unexpected depth output shape", out.shape)
@@ -202,33 +361,46 @@ def estimate_depth(rgb):
         return None
 
 
-# ---------------------------------------------------------------- subject
-
 def subject_mask(rgb, model_name: str):
-    """returns uint8 mask 0/255 at image size, or None when there's no clear subject."""
+    """returns (hard uint8 mask 0/255, soft uint8 mask 0..255) at image size,
+    or (None, None) when there's no clear subject."""
     import cv2
     import numpy as np
+    spec = SUBJECT_MODELS.get(model_name) or SUBJECT_MODELS["isnet-anime"]
+    fname, size, mean, std, post = spec
+    model = download(REMBG + fname, MODELS / fname, f"subject model {model_name}")
+    if model is None:
+        return None, None
     try:
-        from PIL import Image
-        from rembg import new_session, remove
-        sess = new_session(model_name)
-        m = remove(Image.fromarray(rgb), session=sess, only_mask=True)
-        m = np.array(m.convert("L"))
+        sess = ort_session(model)
+        x = cv2.resize(rgb, (size, size), interpolation=cv2.INTER_AREA).astype(np.float32)
+        x = x / max(float(x.max()), 1e-6)
+        x = (x - np.array(mean, np.float32)) / np.array(std, np.float32)
+        out = sess.run(None, {sess.get_inputs()[0].name: x.transpose(2, 0, 1)[None].astype(np.float32)})[0]
+        del sess
+        p = out[0, 0].astype(np.float32)
+        if post == "sigmoid":
+            p = 1.0 / (1.0 + np.exp(-p))
+        else:
+            p = (p - p.min()) / max(float(p.max() - p.min()), 1e-6)
     except Exception as e:
         log("subject detection failed:", e)
-        return None
+        return None, None
     h, w = rgb.shape[:2]
-    if m.shape != (h, w):
-        m = cv2.resize(m, (w, h), interpolation=cv2.INTER_LINEAR)
-    m = (m > 127).astype(np.uint8) * 255
+    raw = (cv2.resize(p, (w, h), interpolation=cv2.INTER_LINEAR) * 255).astype(np.uint8)
+    m = (raw > 127).astype(np.uint8) * 255
     k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     m = cv2.morphologyEx(m, cv2.MORPH_OPEN, k)
     m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, k, iterations=2)
     frac = float(m.mean()) / 255.0
     if frac < 0.01 or frac > 0.92:
         log(f"no clear subject (covers {frac:.0%} of the frame)")
-        return None
-    return m
+        return None, None
+    # the soft mask keeps the model's anti-aliased edge (hair!) but drops the specks
+    # that the cleaned hard mask threw away
+    keep = cv2.dilate(m, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))) > 0
+    soft = cv2.GaussianBlur(np.where(keep, raw, 0).astype(np.float32), (0, 0), 0.8)
+    return m, np.clip(soft, 0, 255).astype(np.uint8)
 
 
 # ---------------------------------------------------------------- ink map
@@ -297,46 +469,54 @@ def build_ink(rgb, mask):
     return cv2.merge([(dist * 255).astype(np.uint8), order, stroke]), True
 
 
-# ---------------------------------------------------------------- palette
-
-def palette(rgb) -> dict:
-    """one muted accent. loud colours get pulled toward the grey of old prints."""
+def stage_ai(meta: dict, args) -> dict:
+    """adds the cut-out, depth and ink map to a stage-1 bundle, in place."""
     import cv2
     import numpy as np
-    small = cv2.resize(rgb, (96, 96), interpolation=cv2.INTER_AREA)
-    lab = cv2.cvtColor(small, cv2.COLOR_RGB2LAB).reshape(-1, 3).astype(np.float32)
-    luma = float(lab[:, 0].mean()) / 255.0
-    crit = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0)
-    _, labels, centers = cv2.kmeans(lab, 6, None, crit, 3, cv2.KMEANS_PP_CENTERS)
-    counts = np.bincount(labels.ravel(), minlength=6).astype(np.float32) / len(labels)
-    best, score = None, 0.0
-    for c, n in zip(centers, counts):
-        chroma = float(np.hypot(c[1] - 128, c[2] - 128))
-        s = chroma * np.sqrt(n)
-        if chroma > 8 and s > score:
-            best, score = c, s
-    if best is None:
-        accent = DEFAULT_ACCENT
-    else:
-        L, a, b = best
-        ca, cb = a - 128, b - 128
-        chroma = float(np.hypot(ca, cb))
-        k = min(1.0, 26.0 / max(chroma, 1e-6))  # cap saturation
-        lab_px = np.uint8([[[190, 128 + ca * k, 128 + cb * k]]])  # light enough to read on ink
-        r, g, bb = cv2.cvtColor(lab_px, cv2.COLOR_LAB2RGB)[0, 0]
-        accent = f"#{r:02x}{g:02x}{bb:02x}"
-    return {"accent": accent, "luma": round(luma, 3), "ink": INK_DARK if luma > 0.5 else INK_LIGHT}
+    from PIL import Image
+    out = Path(meta["dir"])
+    with Image.open(meta["display"]) as im:
+        im.draft("RGB", (1280, 1280))
+        im.thumbnail((1280, 1280), Image.LANCZOS)     # the maps are sampled smoothly anyway
+        work = np.asarray(im.convert("RGB"))
+    mask = soft = None
+    has_depth = False
+    if not args.no_depth:
+        log("estimating depth…")
+        d = estimate_depth(work)
+        if d is not None:
+            cv2.imwrite(str(out / ".depth.png"), (d * 255).astype(np.uint8))
+            os.replace(out / ".depth.png", out / "depth.png")
+            has_depth = True
+    log(f"finding the subject ({args.model})…")
+    mask, soft = subject_mask(work, args.model)
+    ink, has_subject = build_ink(work, mask)
+    cv2.imwrite(str(out / ".ink.png"), ink)
+    os.replace(out / ".ink.png", out / "ink.png")
+    if soft is not None:
+        cv2.imwrite(str(out / ".mask.png"), soft)
+        os.replace(out / ".mask.png", out / "mask.png")
+    elif (out / "mask.png").exists():
+        (out / "mask.png").unlink()
+    meta.update({
+        "stage": 2,
+        "ai_model": args.model,
+        "depth": str(out / "depth.png") if has_depth else "",
+        "ink": str(out / "ink.png"),
+        "mask": str(out / "mask.png") if soft is not None else "",
+        "has_subject": has_subject,
+    })
+    tmp = out / ".meta.json"
+    tmp.write_text(json.dumps(meta, indent=2))
+    tmp.replace(out / "meta.json")
+    return meta
 
 
 # ---------------------------------------------------------------- library (for the picker)
 
-THUMBS = CACHE / "thumbs"
-INDEX = CACHE / "index.json"
-
-
 def list_library(folder: Path) -> list[dict]:
     """every wallpaper in the folder with a thumbnail. cheap after the first run:
-    keys are remembered by (size, mtime) and thumbnails are made once."""
+    keys are remembered by (size, mtime); thumbnails come from the bundles."""
     try:
         index = json.loads(INDEX.read_text())
     except (OSError, ValueError):
@@ -347,7 +527,6 @@ def list_library(folder: Path) -> list[dict]:
             if p.is_file() and not p.name.startswith(".") and p.suffix.lower() in VIDEO_EXT | IMAGE_EXT:
                 if len(p.relative_to(folder).parts) <= 3:
                     files.append(p)
-    THUMBS.mkdir(parents=True, exist_ok=True)
     out, new_index = [], {}
     for p in files:
         try:
@@ -359,20 +538,20 @@ def list_library(folder: Path) -> list[dict]:
         key = cached["key"] if cached and cached.get("sig") == sig else file_key(p)
         new_index[str(p)] = {"sig": sig, "key": key}
         kind = "video" if p.suffix.lower() in VIDEO_EXT else "image"
-        entry = {"path": str(p), "name": p.stem, "kind": kind, "thumb": "", "prepared": False, "depth": False, "subject": False}
+        entry = {"path": str(p), "name": p.stem, "kind": kind, "thumb": "", "prepared": False,
+                 "depth": False, "subject": False, "seed": ""}
         meta_path = WALLS / key / "meta.json"
         if meta_path.exists():
             try:
                 meta = json.loads(meta_path.read_text())
-                entry.update(thumb=meta.get("thumb", ""), prepared=True,
+                entry.update(thumb=meta.get("thumb", ""), prepared=True, seed=meta.get("seed", ""),
                              depth=bool(meta.get("depth")), subject=bool(meta.get("has_subject")))
             except (OSError, ValueError):
                 pass
         if not entry["thumb"]:
-            # Return the source itself immediately. The thumbnail cache is populated
-            # only after selection, so opening the picker is never blocked by image work.
+            # the picker decodes the source at thumbnail size itself; no work here
             t = THUMBS / f"{key}.jpg"
-            entry["thumb"] = str(t) if t.exists() else str(p)
+            entry["thumb"] = str(t) if t.exists() else (str(p) if kind == "image" else "")
         out.append(entry)
     try:
         INDEX.write_text(json.dumps(new_index))
@@ -383,92 +562,18 @@ def list_library(folder: Path) -> list[dict]:
 
 # ---------------------------------------------------------------- main
 
-def prepare(src: Path, args) -> dict:
-    import cv2
-    import numpy as np
-
+def load_bundle(src: Path, force: bool) -> tuple[dict | None, Path, str]:
     key = file_key(src)
     out = WALLS / key
     meta_path = out / "meta.json"
-    if meta_path.exists() and not args.force:
-        meta = json.loads(meta_path.read_text())
-        if meta.get("version") == BUNDLE_VERSION and (out / "display.jpg").exists():
-            return meta
-
-    WALLS.mkdir(parents=True, exist_ok=True)
-    tmp = Path(tempfile.mkdtemp(prefix=f".{key}-", dir=WALLS))
-    try:
-        ext = src.suffix.lower()
-        kind = "video" if ext in VIDEO_EXT else "image"
-        video = ""
-        if kind == "video":
-            still = tmp / "still.jpg"
-            if not extract_still(src, still):
-                raise RuntimeError("could not read a frame from the video (is ffmpeg installed?)")
-            if ext == ".gif":
-                mp4 = tmp / "loop.mp4"
-                if not gif_to_mp4(src, mp4):
-                    raise RuntimeError("could not convert the gif")
-                video = str(out / "loop.mp4")
-            else:
-                video = str(src)
-            rgb = load_rgb(still)
-            still.unlink()
-        else:
-            rgb = load_rgb(src)
-
-        disp = fit_long_edge(rgb, args.max_edge)
-        save_jpg(disp, tmp / "display.jpg")
-        make_thumb(disp, tmp / "thumb.jpg")
-        h, w = disp.shape[:2]
-
-        # the maps don't need full resolution; they're sampled smoothly anyway
-        work = fit_long_edge(disp, 1280)
-        has_depth = has_subject = False
-        mask = None
-        if not args.no_ai:
-            log("estimating depth…")
-            d = estimate_depth(work)
-            if d is not None:
-                cv2.imwrite(str(tmp / "depth.png"), (d * 255).astype(np.uint8))
-                has_depth = True
-            log(f"finding the subject ({args.model})…")
-            mask = subject_mask(work, args.model)
-
-        ink, has_subject = build_ink(work, mask)
-        cv2.imwrite(str(tmp / "ink.png"), ink)
-
-        pal = palette(work)
-        (tmp / "palette.json").write_text(json.dumps(pal, indent=2))
-
-        meta = {
-            "version": BUNDLE_VERSION,
-            "key": key,
-            "source": str(src),
-            "name": src.stem,
-            "kind": kind,
-            "video": video,
-            "dir": str(out),
-            "display": str(out / "display.jpg"),
-            "thumb": str(out / "thumb.jpg"),
-            "depth": str(out / "depth.png") if has_depth else "",
-            "ink": str(out / "ink.png"),
-            "has_subject": has_subject,
-            "width": w,
-            "height": h,
-            "accent": pal["accent"],
-            "ink_color": pal["ink"],
-            "luma": pal["luma"],
-        }
-        (tmp / "meta.json").write_text(json.dumps(meta, indent=2))
-
-        if out.exists():
-            shutil.rmtree(out)
-        tmp.replace(out)  # atomic: a half-built bundle is never visible
-        return meta
-    finally:
-        if tmp.exists():
-            shutil.rmtree(tmp, ignore_errors=True)
+    if meta_path.exists() and not force:
+        try:
+            meta = json.loads(meta_path.read_text())
+            if meta.get("version") == BUNDLE_VERSION and Path(meta.get("display", "")).exists():
+                return meta, out, key
+        except (OSError, ValueError):
+            pass
+    return None, out, key
 
 
 def main() -> int:
@@ -476,21 +581,33 @@ def main() -> int:
     ap = argparse.ArgumentParser(prog="kk-prep", description=__doc__.split("\n\n")[0])
     ap.add_argument("file", type=Path, nargs="?")
     ap.add_argument("--list", type=Path, metavar="DIR", help="print the wallpaper library in DIR as json")
+    ap.add_argument("--fast", action="store_true", help="stage 1 only: picture, thumbnail, colours")
+    ap.add_argument("--ai", action="store_true", help="stage 2: subject cut-out, depth, ink map")
     ap.add_argument("--force", action="store_true", help="rebuild even if cached")
-    ap.add_argument("--no-ai", action="store_true", help="skip depth + subject detection")
-    ap.add_argument("--model", default=os.environ.get("KK_SUBJECT_MODEL", "birefnet-general-lite"),
-                    help="rembg model: birefnet-general-lite (default), isnet-anime, isnet-general-use, u2net")
-    ap.add_argument("--max-edge", type=int, default=int(os.environ.get("KK_MAX_EDGE", "3840")))
+    conf = ai_conf()
+    ap.add_argument("--no-depth", action="store_true", default=conf["depth"] != "1",
+                    help="skip the parallax depth map in stage 2")
+    ap.add_argument("--depth", dest="no_depth", action="store_false", help="make the depth map")
+    ap.add_argument("--fetch-models", action="store_true", help="download the models from ai.conf and exit")
+    ap.add_argument("--model", default=os.environ.get("KK_SUBJECT_MODEL", conf["model"]),
+                    help="subject model: " + ", ".join(SUBJECT_MODELS))
+    ap.add_argument("--max-edge", type=int, default=int(os.environ.get("KK_MAX_EDGE", "2560")),
+                    help="long edge of the shown picture (the shell passes your screen's)")
     args = ap.parse_args()
 
     WALLS.mkdir(parents=True, exist_ok=True)
+    if args.fetch_models:
+        spec = SUBJECT_MODELS.get(args.model) or SUBJECT_MODELS["isnet-anime"]
+        ok = download(REMBG + spec[0], MODELS / spec[0], f"subject model {args.model}") is not None
+        if not args.no_depth:
+            ok = download(DEPTH_URL, DEPTH_FILE, "depth model (~100 MB)") is not None and ok
+        return 0 if ok else 1
     if args.list is not None:
         print(json.dumps(list_library(args.list.expanduser())), flush=True)
         return 0
     if args.file is None:
         ap.print_help()
         return 2
-
     src = args.file.expanduser().resolve()
     if not src.is_file():
         log("no such file:", src)
@@ -498,9 +615,21 @@ def main() -> int:
     if src.suffix.lower() not in VIDEO_EXT | IMAGE_EXT:
         log("not an image or video:", src.suffix)
         return 2
-    WALLS.mkdir(parents=True, exist_ok=True)
+
     try:
-        meta = prepare(src, args)
+        # --ai --force redoes only the ai stage (re-detecting a subject keeps the picture)
+        meta, out, key = load_bundle(src, args.force and not args.ai)
+        if meta is None:
+            meta = stage_fast(src, out, key, args)
+        want_ai = args.ai or not args.fast
+        if want_ai and not have_ai():
+            if args.ai:
+                print(json.dumps(meta), flush=True)
+                log("the wallpaper ai isn't installed (./install.sh --ai)")
+                return NO_AI_EXIT
+            want_ai = False
+        if want_ai and (args.force or meta.get("stage", 1) < 2 or meta.get("ai_model") != args.model):
+            meta = stage_ai(meta, args)
     except Exception as e:
         log("failed:", e)
         return 1

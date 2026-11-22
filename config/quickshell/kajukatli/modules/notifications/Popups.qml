@@ -18,7 +18,7 @@ PanelWindow {
     WlrLayershell.namespace: "kajukatli-notifications"
     exclusionMode: ExclusionMode.Ignore
     anchors { top: true; right: true }
-    margins { top: Theme.barHeight + 14; right: 12 }
+    margins { top: Ui.topInset + 12; right: 12 }
     implicitWidth: 372
     implicitHeight: Math.max(1, stack.implicitHeight + 12)
     color: "transparent"

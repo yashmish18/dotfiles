@@ -6,6 +6,7 @@ import qs.services
 Item {
     id: root
     required property var modelData
+    property int menuEdge: Edges.Bottom    // which side the bar's menu opens toward
     implicitWidth: 14
     implicitHeight: 14
 
@@ -22,8 +23,8 @@ Item {
         id: menu
         menu: root.modelData.menu
         anchor.item: root
-        anchor.edges: Edges.Bottom
-        anchor.gravity: Edges.Bottom
+        anchor.edges: root.menuEdge
+        anchor.gravity: root.menuEdge
     }
 
     MouseArea {

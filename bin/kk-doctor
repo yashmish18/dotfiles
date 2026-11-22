@@ -7,13 +7,20 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 echo; echo "  kajukatli doctor"; echo
 
-for c in Hyprland qs kitty nautilus hypridle hyprlock grim slurp wl-copy cliphist brightnessctl playerctl \
-         nmcli blueman-manager mpvpaper ffmpeg jq notify-send wf-recorder hyprsunset satty python3; do
+for c in Hyprland qs kitty hypridle hyprlock grim slurp wl-copy cliphist brightnessctl playerctl          nmcli ffmpeg jq notify-send hyprsunset python3 curl kk-sys kk-prep kk-theme; do
     have "$c" && pass "$c" || fail "$c missing" "run install.sh again, or: sudo pacman -S <package for $c>"
+done
+# extras: only a note when they're missing (you may have left them out on purpose)
+for c in cava mpvpaper satty wf-recorder hyprpicker nautilus blueman-manager pavucontrol starship; do
+    have "$c" && pass "$c" || echo "  note  $c not installed (an optional extra: ./install.sh to add it)"
+done
+
+for f in "Bricolage Grotesque" "DM Mono" "Syne"; do
+    fc-list | grep -qi "$f" && pass "font $f" || fail "font $f missing" "./install.sh --fonts"
 done
 
 qs_dir="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/kajukatli"
-for s in wallpaper film grain mono; do
+for s in wallpaper film grain mono round; do
     [ -s "$qs_dir/shaders/$s.frag.qsb" ] && pass "shader $s" || fail "shader $s not compiled" "./install.sh --shaders"
 done
 
@@ -22,6 +29,12 @@ if [ -x "$venv" ] && "$venv" -c "import onnxruntime, rembg, cv2, PIL" 2>/dev/nul
     pass "wallpaper ai (depth + subject)"
 else
     fail "wallpaper ai env" "./install.sh --ai   (wallpapers still work without it, just no 3d/outline)"
+fi
+
+cur="${XDG_CACHE_HOME:-$HOME/.cache}/kajukatli/current/meta.json"
+if [ -f "$cur" ]; then
+    if grep -q '"mask": "/' "$cur"; then pass "depth clock: this wallpaper has a subject cut-out"
+    else echo "  note  depth clock: no subject found in this wallpaper (try: settings → looks → re-detect subject, or kk-prep <file> --force --model isnet-anime)"; fi
 fi
 
 if pgrep -x qs >/dev/null 2>&1 || pgrep -f "quickshell" >/dev/null 2>&1; then pass "shell running"; else fail "shell not running" "qs -c kajukatli   (and read what it prints)"; fi

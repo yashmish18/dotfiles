@@ -180,8 +180,6 @@ Item {
             Txt {
                 visible: Config.s.lockPoetry
                 text: root.line
-                font.family: Theme.serif
-                font.italic: true
                 font.pixelSize: 19
                 color: Theme.muted
                 Layout.bottomMargin: 6
@@ -192,7 +190,6 @@ Item {
                 spacing: 0
                 Txt {
                     text: Qt.formatTime(clock.date, Config.s.clock24h ? "HH" : "h")
-                    font.family: Theme.serif
                     font.weight: Font.ExtraLight
                     font.pixelSize: 168
                     font.letterSpacing: -4
@@ -201,7 +198,6 @@ Item {
                 // the colon breathes, slower than a second, like someone asleep
                 Txt {
                     text: ":"
-                    font.family: Theme.serif
                     font.weight: Font.ExtraLight
                     font.pixelSize: 168
                     color: Theme.accent
@@ -213,9 +209,7 @@ Item {
                 }
                 Txt {
                     text: Qt.formatTime(clock.date, "mm")
-                    font.family: Theme.serif
                     font.weight: Font.ExtraLight
-                    font.italic: true
                     font.pixelSize: 168
                     font.letterSpacing: -4
                     color: Theme.paper
@@ -274,7 +268,6 @@ Item {
                         anchors.bottomMargin: 8
                         visible: root.ctx.password.length > 0
                         text: "·".repeat(Math.min(root.ctx.password.length, 24))
-                        font.family: Theme.serif
                         font.pixelSize: 30
                         font.letterSpacing: 7
                         color: root.ctx.phase === "checking" ? Theme.accent : Theme.paper
@@ -292,8 +285,6 @@ Item {
                         anchors.bottomMargin: 10
                         visible: root.ctx.password.length === 0
                         text: root.ctx.phase === "wrong" ? root.ctx.note : "say the word"
-                        font.family: Theme.serif
-                        font.italic: true
                         font.pixelSize: Theme.lg + 1
                         color: root.ctx.phase === "wrong" ? Theme.danger : Theme.faint
                     }
@@ -336,8 +327,6 @@ Item {
                     Layout.alignment: Qt.AlignRight
                     Layout.maximumWidth: 360
                     text: root.player ? (root.player.trackTitle || "") : ""
-                    font.family: Theme.serif
-                    font.italic: true
                     font.pixelSize: Theme.lg + 2
                     horizontalAlignment: Text.AlignRight
                 }
