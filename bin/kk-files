@@ -1,0 +1,14 @@
+#!/bin/sh
+# kk-files [path]   a file manager window (super + e). uses the first one installed: thunar, then
+#                   nautilus, nemo, pcmanfm, dolphin. none? it offers to install thunar.
+set -u
+for fm in thunar nautilus nemo pcmanfm dolphin; do
+    if command -v "$fm" >/dev/null 2>&1; then
+        case "$fm" in
+            nautilus) exec nautilus --new-window "$@" ;;
+            *) exec "$fm" "$@" ;;
+        esac
+    fi
+done
+notify-send -a Files "No file manager installed" "Opening a terminal to install Thunar." 2>/dev/null
+exec kitty -e sh -c 'echo "no file manager found. installing thunar (files, drives, archives, thumbnails):"; sudo pacman -S --needed thunar thunar-volman thunar-archive-plugin gvfs tumbler file-roller; echo; echo "done. press super + e again."; read -r _'

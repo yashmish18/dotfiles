@@ -2,7 +2,7 @@
 KK = {
     mod      = "SUPER",
     terminal = "kitty",
-    files    = "thunar",          -- a new window every time
+    files    = (os.getenv("HOME") or "") .. "/.local/bin/kk-files",   -- a file manager window: thunar, or whichever is installed
     browser  = "firefox",
     -- quickshell registers global shortcuts as "kajukatli:<name>"
     shell    = "kajukatli",

@@ -1,0 +1,25 @@
+#!/bin/sh
+# kk-shell   runs the desktop shell and starts it again if it ever dies, so a crash costs you a
+#            second, not your whole session (every shell shortcut goes through it).
+#            hyprland starts this at login; it does nothing if a shell is already running.
+set -u
+fast=0
+while :; do
+    if qs -c kajukatli ipc show >/dev/null 2>&1; then
+        sleep 5                       # one is already up: just keep watch
+        continue
+    fi
+    started="$(date +%s)"
+    qs -n -c kajukatli
+    rc=$?
+    ran=$(( $(date +%s) - started ))
+    # ran for under 10 seconds, over and over: something is wrong at load. don't spin.
+    if [ "$ran" -lt 10 ]; then fast=$((fast + 1)); else fast=0; fi
+    if [ "$fast" -ge 5 ]; then
+        notify-send -u critical -a kajukatli "The shell keeps stopping" "See: qs -c kajukatli (run it in a terminal to read why). Trying again in a minute." 2>/dev/null
+        sleep 60; fast=0
+    else
+        [ "$rc" -ne 0 ] && notify-send -a kajukatli "The shell stopped and was restarted" "exit code $rc" 2>/dev/null
+        sleep 1
+    fi
+done

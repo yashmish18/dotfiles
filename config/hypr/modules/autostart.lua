@@ -4,8 +4,8 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("systemctl --user start hyprpolkitagent")
 
     -- the whole desktop: bar, wallpaper, control center, notifications, lock screen
-    -- -n: never start a second shell over this one (dbus name clash, double RSS, reload races)
-    hl.exec_cmd("qs -n -c kajukatli")
+    -- kk-shell keeps it running: if the shell ever crashes it comes straight back (and never starts a second one over it)
+    hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/kk-shell")
     -- after an auto-login: make sure the screen ends up locked even if the shell doesn't start
     hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/kk-startlock")
 

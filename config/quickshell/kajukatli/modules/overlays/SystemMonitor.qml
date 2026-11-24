@@ -446,7 +446,7 @@ Item {
                         Layout.fillWidth: true
                         Txt { text: root.trash.length + (root.trash.length === 1 ? " item" : " items") + " · " + root.human(root.trash.reduce((s, t) => s + (t.size || 0), 0)); Layout.fillWidth: true; font.weight: Font.DemiBold }
                         Btn { icon: "restart"; onClicked: root.loadTrash() }
-                        Btn { text: "Open in Files"; icon: "external"; onClicked: { Ui.overlay = ""; Quickshell.execDetached(["sh", "-c", "thunar trash:/// || xdg-open trash:///"]); } }
+                        Btn { text: "Open in Files"; icon: "external"; onClicked: { Ui.overlay = ""; Quickshell.execDetached(["sh", "-c", "kk-files trash:/// || xdg-open trash:///"]); } }
                         Btn { text: "Empty"; danger: true; enabled: root.trash.length > 0; onClicked: root.storage(["trash", "empty"], "trash") }
                     }
                     ListView {
