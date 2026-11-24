@@ -99,7 +99,7 @@ Variants {
             // a brand-new picture shows up before kk-prep has made its ink map: give the fast
             // stage a moment (it's usually ~0.2 s) so the switch can still ink in
             if (!m.ink && (m.stage || 0) === 0 && waitedMs < 4000) return;
-            const wantInk = !!m.ink && !Config.s.reducedMotion && !Power.saveInk;   // reduced motion: a short fade
+            const wantInk = !!m.ink && !Config.s.reducedMotion;   // reduced motion: a short fade
             if (wantInk && !settled(inkImg.status)) return;
             inkRun = wantInk;
             waiting = false;

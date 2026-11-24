@@ -11,9 +11,9 @@ Singleton {
 
     property int consumers: 0           // visualisers on screen register themselves
     // unplugged: at most 32 bars at 24 fps (about a third of the work), never off
-    readonly property int bars: Math.max(8, Math.min(Power.onBattery ? 32 : 96, Config.s.visualizerBars))
-    readonly property int fps: Power.onBattery ? 24 : 30
-    readonly property bool wanted: consumers > 0 && Media.playing && !Power.saveAudio   // unplugged with the battery saver: no audio analysis at all
+    readonly property int bars: Math.max(8, Math.min(96, Config.s.visualizerBars))
+    readonly property int fps: 30
+    readonly property bool wanted: consumers > 0 && Media.playing
     property var values: []             // 0..1, `bars` long
     property real level: 0              // overall loudness, 0..1
     property real bass: 0               // the low end (first eighth of the bars), 0..1

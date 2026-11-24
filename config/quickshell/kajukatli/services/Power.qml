@@ -75,12 +75,9 @@ Singleton {
     // (also once at login: booting on battery is the common case, and there's no "change" then)
     readonly property bool saving: onBattery && Config.s.batterySaver
     // each saving can be turned off on its own (settings → power)
-    readonly property bool saveAudio: saving && Config.s.saverAudio
-    readonly property bool saveInk: saving && Config.s.saverInk
     readonly property bool saveParallax: saving && Config.s.saverParallax
     readonly property bool saveAnimations: saving && Config.s.saverAnimations
     readonly property bool saveFun: saving && Config.s.saverFun
-    readonly property bool saveSlowApps: saving && Config.s.saverSlowApps
     onSaveAnimationsChanged: applyPower()
     onOnBatteryChanged: applyPower()
     onSavingChanged: applyPower()
