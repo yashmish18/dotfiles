@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Visualiser: any style full width (bottom, top, middle) or in a box; height, bars, gap, rounding, see-through, smoothness, colour (wallpaper, accent, album, rainbow).
+- Music fun: a bouncing clock, sparks on the beat, an edge glow in the album's colour.
+- The visualiser restarts by itself when its audio input changes (it used to freeze after a wallpaper or output change).
+- Keeping things: clipboard history capped and emptied at each login, the recycle bin empties itself, optional ages for screenshots and recordings; a tidy every three hours.
+- Example live wallpapers made locally with ffmpeg (kk-livewalls); kk-showcase records readme screenshots and clips.
+- Cheatsheet lists the keys inside the shell's own screens; readme rewritten.
 - Control center: one tap switches Wi-Fi and Bluetooth (the arrow opens the list); a battery page with health, watts, cycles, energy and the last 24 hours.
 - Bluetooth: paired devices are trusted and saved, reconnect after Bluetooth is switched off and on, retry a failed connect, and have their own controls (auto-connect, block, send file, pair again, forget).
 - Phone panel over KDE Connect (new `phone` extra): battery, ring, files, clipboard, browse storage, texts.

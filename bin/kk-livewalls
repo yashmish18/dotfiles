@@ -1,0 +1,40 @@
+#!/bin/sh
+# kk-livewalls [folder]
+#   a few example live wallpapers, made right here with ffmpeg (nothing downloaded): seamless
+#   loops of a few mb each, into ~/Pictures/wallpapers/live. pick them in super + w like any
+#   other wallpaper. they freeze to a still on battery unless you say otherwise in settings.
+#     aurora     slow ribbons of green and violet light
+#     plasma     a warm, shifting lava glow
+#     tide       deep blue swells
+#     life       conway's game of life, softly coloured
+#     gradient   colours drifting into each other
+set -u
+dir="${1:-${XDG_PICTURES_DIR:-$HOME/Pictures}/wallpapers/live}"
+mkdir -p "$dir"
+command -v ffmpeg >/dev/null || { echo "kk-livewalls: needs ffmpeg" >&2; exit 1; }
+W=1280; H=720; FPS=24; D=10        # rendered small and smooth; scaled up on screen
+enc="-c:v libx264 -preset slow -crf 28 -pix_fmt yuv420p -movflags +faststart -an"
+
+make() { # make NAME FILTER
+    out="$dir/$1.mp4"
+    [ -s "$out" ] && { echo "  $1 (already there)"; return; }
+    printf '  %s… ' "$1"
+    # shellcheck disable=SC2086
+    if nice -n 15 ffmpeg -v error -y -f lavfi -i "$2" -t "$D" $enc "$out.part.mp4" 2>/dev/null; then
+        mv "$out.part.mp4" "$out"
+        echo "$(du -h "$out" | cut -f1)"
+    else
+        rm -f "$out.part.mp4"; echo "skipped (this ffmpeg can't make it)"
+    fi
+}
+
+# every one loops: time only appears as sin/cos of 2π·t/D
+P="2*PI*T/$D"
+make aurora "color=c=black:s=${W}x${H}:r=$FPS,format=rgb24,geq=r='18+40*pow(sin(Y/90+3*sin(X/260+$P)),8)+30*pow(sin(Y/70+2*cos(X/310-$P)),12)':g='30+150*pow(sin(Y/90+3*sin(X/260+$P)),8)':b='45+120*pow(sin(Y/70+2*cos(X/310-$P)),12)'"
+make plasma "color=c=black:s=${W}x${H}:r=$FPS,format=rgb24,geq=r='128+110*sin(X/97+sin(Y/71+$P))':g='60+55*sin((X+Y)/131+cos($P))':b='40+35*sin(hypot(X-640,Y-360)/60-$P)'"
+make tide "color=c=black:s=${W}x${H}:r=$FPS,format=rgb24,geq=r='8+12*sin(X/150+$P)':g='30+30*sin(Y/50+2*sin(X/200+$P))':b='70+60*sin(Y/40+3*sin(X/180-$P))'"
+make life "life=s=320x180:mold=10:r=$FPS:ratio=0.12:death_color=#0b1020:life_color=#7fd1ff:stitch=1,scale=${W}:${H}:flags=neighbor,gblur=sigma=1.2"
+make gradient "gradients=s=${W}x${H}:r=$FPS:c0=0x1d2b64:c1=0xf8cdda:c2=0x5f2c82:c3=0x49a09d:speed=0.012:type=radial"
+
+echo "in $dir"
+qs -c kajukatli ipc call wall refresh >/dev/null 2>&1 || true

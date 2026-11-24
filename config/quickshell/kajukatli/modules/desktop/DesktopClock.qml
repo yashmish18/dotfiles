@@ -27,6 +27,21 @@ Item {
 
     implicitWidth: face.item ? face.item.implicitWidth : 0
     transformOrigin: Item.Center
+
+    // music: the clock bounces on the bass (settings → desktop → music fun)
+    readonly property bool pulsing: Config.s.musicPulse && Media.playing && live && !Config.s.reducedMotion
+    Uses { service: Cava; active: root.pulsing }
+    property real kick: 0
+    Connections {
+        target: Cava
+        enabled: root.pulsing
+        function onBeat(strength) { root.kick = 0.035 + 0.045 * strength; kickBack.restart(); }
+    }
+    NumberAnimation { id: kickBack; target: root; property: "kick"; to: 0; duration: 260; easing.type: Easing.OutCubic }
+    transform: Scale {
+        origin.x: root.width / 2; origin.y: root.height / 2
+        xScale: 1 + root.kick; yScale: 1 + root.kick
+    }
     implicitHeight: face.item ? face.item.implicitHeight : 0
 
     SystemClock { id: clock; precision: root.needsSeconds ? SystemClock.Seconds : SystemClock.Minutes }

@@ -35,6 +35,7 @@ ShellRoot {
     Osd {}
     Overlay {}
     HotCorners {}
+    BeatGlow {}
     EmojiPicker {}
     Lock { id: lock }
     // apply touchpad / keyboard / scale settings at login
@@ -46,6 +47,15 @@ ShellRoot {
     Process {
         running: true
         command: ["sh", "-c", 'mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli" "${XDG_STATE_HOME:-$HOME/.local/state}/kajukatli" "${XDG_CACHE_HOME:-$HOME/.cache}/kajukatli"']
+    }
+
+    // keep things short-lived: clipboard, caches, the recycle bin, old screenshots if you asked
+    // (settings → behaviour → keeping things). every three hours, quietly
+    Timer {
+        interval: 3 * 3600 * 1000
+        repeat: true
+        running: true
+        onTriggered: Quickshell.execDetached([Config.bin + "kk-storage", "tidy"])
     }
 
     // battery saver: when unplugged, drop the expensive bits; restore them on ac

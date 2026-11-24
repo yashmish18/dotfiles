@@ -142,6 +142,23 @@ Singleton {
             property string visualizer: "off"      // off | wave | bars | mirror
             property bool visualizerBehind: true
             property int visualizerBars: 48
+            property string visualizerSpan: "auto"     // auto (wave across the screen, bars in a box) | full | widget
+            property string visualizerEdge: "bottom"   // full width: bottom | top | middle
+            property real visualizerHeight: 0.24      // full width: how tall, as a part of the screen
+            property string visualizerColor: "wallpaper" // wallpaper | accent | album | rainbow
+            property real visualizerOpacity: 0.6
+            property int visualizerGap: 2             // pixels between bars
+            property bool visualizerRound: true       // rounded bar ends
+            property int visualizerSmooth: 60         // ms each bar takes to follow the music
+            // ------------------------------------------- what's kept, and for how long (kk-storage tidy)
+            property int clipboardKeep: 30            // clipboard history: this many entries at most
+            property bool clipboardClearAtLogin: true  // and none from the last session
+            property int screenshotsDays: 0           // delete screenshots older than this (0 = keep)
+            property int recordingsDays: 0            // same for screen recordings
+            property int trashDays: 30                // empty what's been in the recycle bin this long
+            property bool musicPulse: false           // the clock bounces on the bass
+            property bool musicSparks: false          // sparks fly off the visualizer on every beat
+            property bool musicGlow: false            // the screen edges glow in the album's colour on the beat
             property bool showCalendar: false
             property string mediaWidget: "card"     // off | card | lyrics | portrait (shown while music plays)
             property bool showStats: false

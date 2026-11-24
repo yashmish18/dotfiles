@@ -256,6 +256,21 @@ LazyLoader {
                         Switch { on: Config.s.followLogins; onToggled: Config.s.followLogins = !Config.s.followLogins } }
                 }
                 Group {
+                    title: "Keeping things"
+                    Setting { label: "Clipboard history"; detail: "At most this many things, trimmed as you go."
+                        Choice { options: [10, 30, 50].map(v => ({ value: v, label: v + " items" })); value: Config.s.clipboardKeep; onPicked: v => Config.s.clipboardKeep = v } }
+                    Setting { label: "Start each session with an empty clipboard history"
+                        Switch { on: Config.s.clipboardClearAtLogin; onToggled: Config.s.clipboardClearAtLogin = !Config.s.clipboardClearAtLogin } }
+                    Setting { label: "Recycle bin"; detail: "Empty what's been there longer than this."
+                        Choice { options: [{ value: 7, label: "7 days" }, { value: 30, label: "30 days" }, { value: 0, label: "keep" }]; value: Config.s.trashDays; onPicked: v => Config.s.trashDays = v } }
+                    Setting { label: "Screenshots"; detail: "Delete the ones older than this (they're yours: kept by default)."
+                        Choice { options: [{ value: 7, label: "7 days" }, { value: 30, label: "30 days" }, { value: 0, label: "keep" }]; value: Config.s.screenshotsDays; onPicked: v => Config.s.screenshotsDays = v } }
+                    Setting { label: "Screen recordings"
+                        Choice { options: [{ value: 7, label: "7 days" }, { value: 30, label: "30 days" }, { value: 0, label: "keep" }]; value: Config.s.recordingsDays; onPicked: v => Config.s.recordingsDays = v } }
+                    Setting { label: "Tidy up now"; detail: "Caches, the clipboard, old packages and logs. Runs by itself every three hours."
+                        Btn { text: "Tidy"; onClicked: Quickshell.execDetached([Config.bin + "kk-storage", "tidy"]) } }
+                }
+                Group {
                     title: "Apps"
                     Setting { label: "One tap on a tray icon opens its menu"; detail: "Everything the app offers, in one tap. Right-click opens the app itself."
                         Switch { on: Config.s.trayTapMenu; onToggled: Config.s.trayTapMenu = !Config.s.trayTapMenu } }
@@ -479,12 +494,38 @@ LazyLoader {
                 }
                 Group {
                     title: "Music visualiser"
-                    Setting { label: "Style"; detail: "Wave runs along the bottom of the screen; bars and mirror are a small block you can move."
-                        Choice { options: [{ value: "off", label: "off" }, { value: "wave", label: "wave" }, { value: "bars", label: "bars" }, { value: "both", label: "wave + bars" }, { value: "mirror", label: "mirror" }]; value: Config.s.visualizer; onPicked: v => Config.s.visualizer = v } }
+                    Setting { label: "Style"
+                        Choice { options: [{ value: "off", label: "off" }, { value: "wave", label: "wave" }, { value: "bars", label: "bars" }, { value: "mirror", label: "mirror" }, { value: "both", label: "wave + bars" }]; value: Config.s.visualizer; onPicked: v => Config.s.visualizer = v } }
+                    Setting { label: "Where"; visible: Config.s.visualizer !== "off"
+                        detail: "Full width runs edge to edge (full-width bars too); a box is small and you drag it anywhere."
+                        Choice { options: [{ value: "auto", label: "auto" }, { value: "full", label: "full width" }, { value: "widget", label: "a box" }]; value: Config.s.visualizerSpan; onPicked: v => Config.s.visualizerSpan = v } }
+                    Setting { label: "Edge"; visible: Config.s.visualizer !== "off" && Config.s.visualizerSpan !== "widget"
+                        Choice { options: ["bottom", "top", "middle"]; value: Config.s.visualizerEdge; onPicked: v => Config.s.visualizerEdge = v } }
+                    Setting { label: "Height"; visible: Config.s.visualizer !== "off" && Config.s.visualizerSpan !== "widget"; detail: Math.round(Config.s.visualizerHeight * 100) + "% of the screen"
+                        Knob { from: 0.05; to: 0.6; step: 0.01; value: Config.s.visualizerHeight; onMoved: v => Config.s.visualizerHeight = Math.round(v * 100) / 100 } }
+                    Setting { label: "Colour"; visible: Config.s.visualizer !== "off"
+                        Choice { options: [{ value: "wallpaper", label: "wallpaper" }, { value: "accent", label: "accent" }, { value: "album", label: "the album's" }, { value: "rainbow", label: "rainbow" }]; value: Config.s.visualizerColor; onPicked: v => Config.s.visualizerColor = v } }
+                    Setting { label: "Bars"; visible: Config.s.visualizer !== "off"; detail: Config.s.visualizerBars + " bars"
+                        Knob { from: 16; to: 128; step: 4; value: Config.s.visualizerBars; onMoved: v => Config.s.visualizerBars = Math.round(v) } }
+                    Setting { label: "Gap"; visible: Config.s.visualizer !== "off"; detail: Config.s.visualizerGap + " px between bars"
+                        Knob { from: 0; to: 12; step: 1; value: Config.s.visualizerGap; onMoved: v => Config.s.visualizerGap = Math.round(v) } }
+                    Setting { label: "See-through"; visible: Config.s.visualizer !== "off"; detail: Math.round(Config.s.visualizerOpacity * 100) + "% solid"
+                        Knob { from: 0.1; to: 1; step: 0.05; value: Config.s.visualizerOpacity; onMoved: v => Config.s.visualizerOpacity = Math.round(v * 100) / 100 } }
+                    Setting { label: "Smoothness"; visible: Config.s.visualizer !== "off"; detail: Config.s.visualizerSmooth < 40 ? "snappy" : Config.s.visualizerSmooth > 120 ? "liquid" : "smooth"
+                        Knob { from: 0; to: 250; step: 10; value: Config.s.visualizerSmooth; onMoved: v => Config.s.visualizerSmooth = Math.round(v) } }
+                    Setting { label: "Rounded bars"; visible: Config.s.visualizer !== "off"
+                        Switch { on: Config.s.visualizerRound; onToggled: Config.s.visualizerRound = !Config.s.visualizerRound } }
                     Setting { label: "Behind the subject"; visible: Config.s.visualizer !== "off"
                         Switch { on: Config.s.visualizerBehind; onToggled: Config.s.visualizerBehind = !Config.s.visualizerBehind } }
-                    Setting { label: "Detail"; visible: Config.s.visualizer !== "off"
-                        Knob { from: 16; to: 96; step: 4; value: Config.s.visualizerBars; onMoved: v => Config.s.visualizerBars = Math.round(v) } }
+                }
+                Group {
+                    title: "Music fun"
+                    Setting { label: "Bouncing clock"; detail: "The clock kicks on every beat."
+                        Switch { on: Config.s.musicPulse; onToggled: Config.s.musicPulse = !Config.s.musicPulse } }
+                    Setting { label: "Sparks"; detail: "A burst off the visualiser on every beat (needs the visualiser on)."
+                        Switch { on: Config.s.musicSparks; onToggled: Config.s.musicSparks = !Config.s.musicSparks } }
+                    Setting { label: "Edge glow"; detail: "The screen edges flash in the album's colour on the beat, even over windows. Off in fullscreen."
+                        Switch { on: Config.s.musicGlow; onToggled: Config.s.musicGlow = !Config.s.musicGlow } }
                 }
                 Group {
                     title: "Widgets"

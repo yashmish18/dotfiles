@@ -13,6 +13,20 @@ Item {
     Keys.onPressed: e => { Ui.overlay = ""; e.accepted = true; }
 
     property var binds: []
+    // keys that work inside the shell's own screens (hyprland doesn't know these)
+    readonly property var inside: [
+        { keys: ["overview", "← →"], what: "move the highlight · enter: go there" },
+        { keys: ["overview", "super + tab"], what: "again: next one · let go of super: go" },
+        { keys: ["overview", "n"], what: "a new workspace" },
+        { keys: ["overview", "drag"], what: "a window to a workspace, a new one, or another screen" },
+        { keys: ["overview", "middle-click"], what: "close that window" },
+        { keys: ["emoji", "type"], what: "search · tab: next group · enter: put it in" },
+        { keys: ["control center", "icon"], what: "switch it on/off · the rest of the tile: its page" },
+        { keys: ["tray icon", "click"], what: "everything the app offers · right-click: open it" },
+        { keys: ["widgets", "ctrl + scroll"], what: "bigger / smaller · double-click: back to normal" },
+        { keys: ["launcher", "right-click"], what: "start that app on the nvidia card" },
+        { keys: ["displays", "drag"], what: "arrange your screens (they snap edge to edge)" }
+    ]
 
     function mods(mask): string {
         const out = [];
@@ -41,9 +55,9 @@ Item {
                         seen[b.description] = true;
                         out.push({ keys: root.mods(b.modmask).concat([root.keyName(b.key)]), what: b.description });
                     }
-                    root.binds = out;
+                    root.binds = out.concat(root.inside);
                 } catch (e) {
-                    root.binds = [];
+                    root.binds = root.inside;
                 }
             }
         }

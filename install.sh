@@ -834,6 +834,11 @@ links
 shaders
 fonts
 extra_chosen wallpaper-pack && wallpapers || true
+# a few example live wallpapers, made here with ffmpeg (a few mb each), in the background
+if extra_chosen live-wallpapers; then
+    nohup nice -n 19 "$BIN/kk-livewalls" >"$CACHE/livewalls.log" 2>&1 &
+    note "making example live wallpapers in the background (~/Pictures/wallpapers/live)"
+fi
 extra_chosen wallpaper-ai && ai_env || note "no wallpaper ai: wallpapers and colours still work, the clock just stays in front."
 services
 extra_chosen terminal && terminal || true

@@ -10,19 +10,38 @@ A desktop shell for Arch Linux and Hyprland that builds its colours and clock fr
 
 ## Features
 
-- Wallpaper-aware **Material You-style themes**: vibrant, tonal, or monochrome; dark, light, or automatic.
-- **Six clock layouts** with optional depth compositing behind the subject of an anime or photo wallpaper.
-- A responsive **desktop shell** with docks, floating bars, islands, rails, widgets, panels, notifications, and a lock screen.
-- **Live visuals**: Cava waves, bars, or mirrors; lyrics, calendars, system stats, weather, and media controls.
-- **Seven looks** that configure the whole desktop in one click.
-- **Automatic power saving** on battery, including disabling blur, shadows, live wallpapers, and cursor parallax.
-- A **guided installer** that separates essential packages from optional extras and asks before changing system files. It also keeps a copy of everything it changes, so `--rollback` and `./uninstall.sh --all` can put it back.
-- A **control center** where one tap switches Wi-Fi or Bluetooth. Bluetooth devices stay saved and reconnect by themselves, each device has its own controls, and the battery page shows health, watts, cycles and the last 24 hours.
-- **Your phone** on the desktop through KDE Connect: battery, ring it, send files and the clipboard, browse its storage, read texts.
-- A **task manager** (`Ctrl + Shift + Esc`) with processes, memory, storage clean-up, the recycle bin and drives (mount, eject, format).
-- **Software** (`Super + Shift + I`): the official repos, the AUR and Flathub in one search, plus installed apps, updates and one-click developer setups.
-- **Every running app one tap away**, including the ones without a window, with quit and force quit.
-- **Graphics control** on hybrid laptops: integrated, both, or NVIDIA only; switch the NVIDIA card off completely; heavy apps (games, Blender) start on it.
+Kajukatli is Hyprland plus its own desktop. It uses no GNOME or KDE desktop pieces: the control center, task manager, software centre, display settings, phone link and sound modes are all built into the shell. The apps it installs (Thunar, imv, mpv, GParted) are small, standalone ones.
+
+### The look
+
+- **Colours from your wallpaper:** Material You-style, vibrant, tonal or monochrome; dark, light or automatic. Bar, apps, terminal, GTK and Qt apps, the lock screen and the boot menu all follow it.
+- **Six clock faces** that can tuck behind the person in the picture (depth from on-device AI), or find the calmest open spot on their own.
+- **Seven looks** (`Super + Shift + T`) that set up the whole desktop at once. Every part can be changed afterwards.
+- **Live wallpapers:** MP4, WebM, MKV, MOV and GIF, plus example loops made on your machine (`kk-livewalls`).
+
+### Music
+
+- **A visualiser you control completely:** wave, bars, mirror, or wave plus bars. Full width (bottom, top or middle) or a box you drag anywhere. Height, bar count, gap, rounded or square bars, see-through, smoothness, and colour (wallpaper, accent, the album's, rainbow).
+- **Music fun:** the clock bounces on the beat, sparks fly off the bars, and the screen edges glow in the album's colour.
+- **Now playing** with the cover art in the bar, a player card, synced lyrics, and the accent colour taken from the album.
+- **Sound modes:** Music, Movie, Voice, Laptop speakers, and Dolby Atmos with your own laptop's tuning file. Dolby makes no Linux driver; this runs inside PipeWire.
+
+### Everyday
+
+- **Control center** (`Super + A`): tap a tile's icon to switch it on or off; tap the rest of the tile for its page. Wi-Fi, Bluetooth (devices stay saved and reconnect, with per-device controls), sound, NVIDIA, sound mode, and a battery page with health, watts, cycles and the last 24 hours.
+- **Your phone** (`Super + Shift + M`): `kk-phone` speaks the KDE Connect protocol by itself, so the free KDE Connect app on your phone pairs with it. You get its battery, ring it, send files and the clipboard both ways, browse its storage, and see its notifications.
+- **Every running app** (`Super + Shift + A`), including the ones without a window: go to it, its menu, quit, force quit, and optionally no apps in the background.
+- **Emoji** (`Super + .`) floats by the pointer and types straight into the app you were in.
+- **Workspaces** with no gaps. The overview (`Super + Tab`) steps with the keys and scrolls while you drag, and you can drop windows on other screens. Sign-in pages bring you to the browser.
+
+### The system
+
+- **Task manager** (`Ctrl + Shift + Esc`): processes, memory, storage with one-tap clean-ups, the recycle bin, and drives (mount, eject, format).
+- **Software** (`Super + Shift + I`): the official repos, the AUR and Flathub in one search; installed apps, updates, developer setups.
+- **Displays** (`Super + D`): quick modes (laptop, external, extend, duplicate), or arrange screens by dragging and set resolution, refresh rate, scale, rotation, mirroring, adaptive sync and 10-bit colour. Changes that might black out the screen undo themselves after 15 seconds unless you keep them.
+- **Graphics** on hybrid laptops: integrated, both, or NVIDIA only; heavy apps start on NVIDIA; switching the card off moves the apps on it to the integrated graphics first.
+- **Nothing piles up:** clipboard history is short and starts empty each session; caches, old packages, logs and crash dumps stay capped; the recycle bin empties itself. `kk-storage why` shows what fills your disk.
+- **Battery saving** when unplugged, an **installer** that keeps a copy of everything it changes, `--update` without reboots, `--rollback`, and `./uninstall.sh --all` to get your old Arch back.
 
 ## Looks
 
@@ -57,7 +76,7 @@ Choose a minimal profile, create a regular user with `sudo`, enable NetworkManag
 ```sh
 sudo pacman -S --needed git
 # only the dotfiles: the newest version, without history or the preview screenshots
-git clone --depth 1 --filter=blob:none --sparse https://github.com/yashmish18/dotfiles.git ~/dotfiles
+git clone --depth 1 --filter=blob:none --sparse https://github.com/yashmish18/kajukatli-shell.git ~/dotfiles
 cd ~/dotfiles
 git sparse-checkout set --no-cone '/*' '!/assets/'
 ./install.sh
@@ -67,19 +86,17 @@ The installer creates a backup before linking configuration and offers these ext
 
 | # | Extra | Contents |
 |---|---|---|
-| 1 | Apps | File manager, browser, video player, mixer, Bluetooth and Wi-Fi tools |
+| 1 | Apps | Thunar files, Firefox, mpv, imv, GParted, mixer, Bluetooth (no GNOME or KDE) |
 | 2 | Capture | Screenshot editor, recorder, and colour picker |
 | 3 | Visualiser | Cava |
-| 4 | Live wallpapers | MP4, WebM, MKV, MOV, and GIF support through mpvpaper |
+| 4 | Live wallpapers | MP4, WebM, MKV, MOV and GIF through mpvpaper, plus example loops |
 | 5 | Terminal | Starship, Fastfetch, Eza, Bat, Zoxide, FZF, and Btop |
 | 6 | CJK fonts | Chinese, Japanese, and Korean text |
-| 7 | KDE helpers | Archive manager and Qt thumbnails |
 | 8 | Greeter | greetd and tuigreet login screen |
 | 9 | Wallpaper pack | Public-domain paintings (off by default; ~45 MB) |
 | 10 | Wallpaper AI | Subject cut-out and optional 3D depth |
-| 11 | Audio effects | EasyEffects: equaliser, surround, loudness |
 | 12 | Developer | Containers, distrobox, mise |
-| 13 | Phone | KDE Connect for the phone panel |
+| 13 | Phone | Browsing the phone's storage (sshfs); the phone link itself is built in |
 | 14 | Security toolkit | nmap, Wireshark, Burp, Metasploit, Ghidra, hashcat… (off by default; `kk-cybersec`) |
 
 Useful installer flags:
@@ -126,7 +143,6 @@ Press `Super + /` to show the live keybinding overlay.
 | `Super + Alt + Shift + ←/→` | Window to the screen on the left/right |
 | `Super + L` | Lock |
 | `Super + Escape` | Lock, sleep, log out, restart, or shut down |
-| `Super + Q` | Close window |
 | `Super + F` | Fullscreen |
 | `Super + Shift + F` | Maximize |
 | `Super + T` | Toggle floating/tiled |
@@ -139,6 +155,8 @@ Press `Super + /` to show the live keybinding overlay.
 | `Super + Shift + Print` | Screenshot the whole screen |
 | `Super + Shift + R` | Start/stop screen recording |
 | `Super + Shift + C` | Colour picker |
+| `Super + Q` | Close (kill) the window |
+| `Super + Shift + Ctrl + R` | Reload Hyprland's config after editing it |
 | `Super + Shift + B` | Hide/show the bar |
 | `Super + Shift + T` | Next look |
 | `Super + Shift + E` | Arrange desktop widgets |
@@ -272,3 +290,7 @@ Run `./install.sh --ai` after changing wallpaper detection models or dependencie
 ## Credits
 
 Built on [Hyprland](https://hypr.land), [Quickshell](https://quickshell.org), [Cava](https://github.com/karlstav/cava), [lrclib](https://lrclib.net), [wttr.in](https://wttr.in), [mpvpaper](https://github.com/GhostNaN/mpvpaper), and Depth Anything V2.
+
+## Showcase
+
+`kk-showcase` records the screenshots and short clips for this page on your own desktop. It opens each part in turn (overview, control center, task manager, displays, the visualiser) and saves them to `assets/showcase/`. Commit that folder to update the previews.

@@ -1,27 +1,49 @@
 import QtQuick
 import QtQuick.Shapes
+import QtQuick.Particles
 import qs.services
 import qs.components
 
 // the audio visualiser, drawn three ways:
-//   wave    a filled, smoothed mountain range (the full-width one along the bottom)
-//   bars    thin bars standing on a baseline
+//   wave    a filled, smoothed mountain range
+//   bars    bars standing on a baseline (flip: hanging from the top)
 //   mirror  bars reflected around the middle, like a recorded waveform
+// colours: wallpaper (the colour it's given) · accent · album (the cover's colour) · rainbow.
+// sparks: a little burst off the tops of the bars on every beat.
 // it asks Cava to run only while it's visible.
 Item {
     id: root
     property string style: "bars"
     property int count: Cava.bars         // how many bars to show (resampled from cava)
     property color color: Theme.wallText
+    property string colorMode: "wallpaper"
     property real fillOpacity: 0.55
     property real gap: 2
     property real minBar: 2
+    property bool round: true
+    property int smooth: 60               // ms a bar takes to follow
+    property bool flip: false             // hang from the top edge instead of standing on the bottom
+    property bool sparks: false
     property bool active: visible
 
     implicitWidth: 360
     implicitHeight: 64
 
     Uses { service: Cava; active: root.active && root.width > 0 }
+
+    // the colour of bar i (of n)
+    property real hueShift: 0
+    NumberAnimation on hueShift {
+        running: root.colorMode === "rainbow" && root.active && !Config.s.reducedMotion
+        from: 0; to: 1; duration: 12000; loops: Animation.Infinite
+    }
+    readonly property color baseColor: colorMode === "accent" ? Theme.primary
+                                     : colorMode === "album" ? (Media.artReady ? Media.artTint : Theme.primary)
+                                     : color
+    function colorAt(i, n) {
+        if (colorMode !== "rainbow") return baseColor;
+        return Qt.hsla(((i / Math.max(1, n)) + hueShift) % 1, 0.78, 0.62, 1);
+    }
 
     // cava's bars → `count` values (average when shrinking, interpolate when growing)
     readonly property var vals: {
@@ -39,34 +61,101 @@ Item {
         return out;
     }
 
-    // ---------------------------------------------------------------- bars / mirror
-    Row {
-        id: barsRow
-        visible: root.style === "bars" || root.style === "mirror"
+    // everything is drawn standing up; flip turns it upside down (bars hanging from the top)
+    Item {
+        id: canvas
         anchors.fill: parent
-        spacing: root.gap
-        readonly property real barW: Math.max(1, (root.width - root.gap * (root.count - 1)) / root.count)
-        Repeater {
-            model: barsRow.visible ? root.count : 0
-            delegate: Item {
-                required property int index
-                width: barsRow.barW
-                height: root.height
-                readonly property real v: root.vals[index] || 0
-                Rectangle {
-                    width: parent.width
-                    radius: Math.min(width / 2, 2)
-                    color: root.color
-                    opacity: root.fillOpacity + (1 - root.fillOpacity) * parent.v
-                    height: Math.max(root.minBar, parent.v * (root.style === "mirror" ? root.height : root.height))
-                    y: root.style === "mirror" ? (root.height - height) / 2 : root.height - height
-                    Behavior on height { NumberAnimation { duration: 60 } }
+        transform: Scale { origin.y: root.height / 2; yScale: root.flip ? -1 : 1 }
+
+        // ------------------------------------------------------------ bars / mirror
+        Row {
+            id: barsRow
+            visible: root.style === "bars" || root.style === "mirror"
+            anchors.fill: parent
+            spacing: root.gap
+            readonly property real barW: Math.max(1, (root.width - root.gap * (root.count - 1)) / root.count)
+            Repeater {
+                model: barsRow.visible ? root.count : 0
+                delegate: Item {
+                    required property int index
+                    width: barsRow.barW
+                    height: root.height
+                    readonly property real v: root.vals[index] || 0
+                    Rectangle {
+                        width: parent.width
+                        radius: root.round ? Math.min(width / 2, 6) : 0
+                        color: root.colorAt(parent.index, root.count)
+                        opacity: root.fillOpacity + (1 - root.fillOpacity) * parent.v
+                        height: Math.max(root.minBar, parent.v * root.height)
+                        y: root.style === "mirror" ? (root.height - height) / 2 : root.height - height
+                        Behavior on height { NumberAnimation { duration: root.smooth } }
+                    }
                 }
             }
         }
+
+        // ------------------------------------------------------------ wave
+        Shape {
+            visible: root.style === "wave"
+            anchors.fill: parent
+            preferredRendererType: Shape.CurveRenderer
+            ShapePath {
+                strokeColor: root.colorMode === "rainbow" ? Theme.alpha("#ffffff", 0.7) : Theme.alpha(root.baseColor, 0.9)
+                strokeWidth: 2
+                joinStyle: ShapePath.RoundJoin
+                fillGradient: root.colorMode === "rainbow" ? rainbowFill : solidFill
+                PathPolyline { path: root.wavePath }
+            }
+        }
+        LinearGradient {
+            id: solidFill
+            x1: 0; y1: 0; x2: 0; y2: root.height
+            GradientStop { position: 0; color: Theme.alpha(root.baseColor, root.fillOpacity) }
+            GradientStop { position: 1; color: Theme.alpha(root.baseColor, root.fillOpacity * 0.35) }
+        }
+        LinearGradient {
+            id: rainbowFill
+            x1: 0; y1: 0; x2: root.width; y2: 0
+            GradientStop { position: 0.0; color: Qt.hsla((root.hueShift + 0.0) % 1, 0.78, 0.62, root.fillOpacity) }
+            GradientStop { position: 0.25; color: Qt.hsla((root.hueShift + 0.25) % 1, 0.78, 0.62, root.fillOpacity) }
+            GradientStop { position: 0.5; color: Qt.hsla((root.hueShift + 0.5) % 1, 0.78, 0.62, root.fillOpacity) }
+            GradientStop { position: 0.75; color: Qt.hsla((root.hueShift + 0.75) % 1, 0.78, 0.62, root.fillOpacity) }
+            GradientStop { position: 1.0; color: Qt.hsla((root.hueShift + 1.0) % 1, 0.78, 0.62, root.fillOpacity) }
+        }
+
+        // ------------------------------------------------------------ sparks on the beat
+        ParticleSystem {
+            id: sys
+            running: root.sparks && root.active && !Config.s.reducedMotion
+        }
+        ItemParticle {
+            system: sys
+            fade: true
+            delegate: Rectangle {
+                width: 4; height: 4; radius: 2
+                color: root.colorAt(Math.random() * root.count, root.count)
+            }
+        }
+        Emitter {
+            id: burst
+            system: sys
+            enabled: false
+            width: root.width
+            height: 2
+            y: root.height * 0.35
+            lifeSpan: 900
+            lifeSpanVariation: 300
+            size: 4
+            velocity: AngleDirection { angle: 270; angleVariation: 40; magnitude: 160; magnitudeVariation: 80 }
+            acceleration: PointDirection { y: 260 }
+        }
+        Connections {
+            target: Cava
+            enabled: root.sparks && root.active
+            function onBeat(strength) { burst.burst(Math.round(10 + 30 * strength)); }
+        }
     }
 
-    // ---------------------------------------------------------------- wave
     readonly property var wavePath: {
         if (style !== "wave") return [];
         const v = vals;
@@ -88,22 +177,5 @@ Item {
         pts.push(P(n - 1));
         pts.push(Qt.point(w, h));
         return pts;
-    }
-
-    Shape {
-        visible: root.style === "wave"
-        anchors.fill: parent
-        preferredRendererType: Shape.CurveRenderer
-        ShapePath {
-            strokeColor: Theme.alpha(root.color, 0.9)
-            strokeWidth: 2
-            joinStyle: ShapePath.RoundJoin
-            fillGradient: LinearGradient {
-                x1: 0; y1: 0; x2: 0; y2: root.height
-                GradientStop { position: 0; color: Theme.alpha(root.color, root.fillOpacity) }
-                GradientStop { position: 1; color: Theme.alpha(root.color, root.fillOpacity * 0.35) }
-            }
-            PathPolyline { path: root.wavePath }
-        }
     }
 }

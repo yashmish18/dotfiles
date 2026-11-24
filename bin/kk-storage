@@ -170,8 +170,30 @@ case "${1:-report}" in
         # safe, automatic, and quiet: nothing you made, nothing you'd miss
         rm -rf "$CACHE/pip" "$CACHE/paru/clone" "$CACHE/yay" "$CACHE/go-build" 2>/dev/null
         find "$CACHE/thumbnails" -type f -atime +30 -delete 2>/dev/null
-        # clipboard history: the last 80 things (images included)
-        command -v cliphist >/dev/null && cliphist list 2>/dev/null | tail -n +81 | cliphist delete 2>/dev/null
+        # what you chose to keep (settings → storage), read from settings.json
+        set_="${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli/settings.json"
+        pref() { jq -r --arg k "$1" --arg d "$2" '.[$k] // $d' "$set_" 2>/dev/null || echo "$2"; }
+        keep_clip="$(pref clipboardKeep 30)"
+        # clipboard history: wiped at login (unless you said not to), never more than your limit
+        if command -v cliphist >/dev/null; then
+            if [ "${2:-}" = --login ] && [ "$(pref clipboardClearAtLogin true)" = true ]; then
+                cliphist wipe 2>/dev/null
+            else
+                cliphist list 2>/dev/null | tail -n +"$((keep_clip + 1))" | cliphist delete 2>/dev/null
+            fi
+        fi
+        # your screenshots / recordings: only if you set an age (they're yours: kept by default)
+        d="$(pref screenshotsDays 0)"; [ "$d" -gt 0 ] 2>/dev/null && find "${XDG_PICTURES_DIR:-$HOME/Pictures}/screenshots" -type f -mtime +"$d" -delete 2>/dev/null
+        d="$(pref recordingsDays 0)"; [ "$d" -gt 0 ] 2>/dev/null && find "${XDG_VIDEOS_DIR:-$HOME/Videos}/recordings" -type f -mtime +"$d" -delete 2>/dev/null
+        # the recycle bin: what's been there longer than your limit
+        d="$(pref trashDays 30)"
+        if [ "$d" -gt 0 ] 2>/dev/null; then
+            for info in "$DATA"/Trash/info/*.trashinfo; do
+                [ -f "$info" ] && [ -n "$(find "$info" -mtime +"$d" 2>/dev/null)" ] || continue
+                n="$(basename "$info" .trashinfo)"
+                rm -rf "$DATA/Trash/files/$n" "$info"
+            done
+        fi
         # wallpaper workspace: unused for 30 days, and never more than 1.5 gb in all
         "$0" clean walls
         keep="$(current_wall_dir)"

@@ -1,0 +1,41 @@
+#!/bin/sh
+# kk-showcase [folder]
+#   screenshots and short clips of kajukatli for the readme, taken on your own desktop:
+#   it opens each part in turn, waits for it to settle, and captures the focused screen.
+#   play some music first (for the visualiser), and keep your hands off for ~2 minutes.
+#   saved into assets/showcase/ of the dotfiles (or the folder you give).
+set -u
+here="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+out="${1:-$here/assets/showcase}"
+mkdir -p "$out"
+for t in grim wf-recorder qs hyprctl jq; do command -v "$t" >/dev/null || { echo "kk-showcase: needs $t" >&2; exit 1; }; done
+mon="$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')"
+ipc() { qs -c kajukatli ipc call shell "$@" >/dev/null 2>&1; }
+shot() { sleep "${2:-1.2}"; grim -o "$mon" "$out/$1.png" && echo "  $1.png"; }
+clip() { # clip NAME SECONDS
+    wf-recorder -o "$mon" -f "$out/$1.mp4" -c libx264 -p crf=30 -p preset=veryfast >/dev/null 2>&1 &
+    p=$!; sleep "$2"; kill -INT "$p"; wait "$p" 2>/dev/null; echo "  $1.mp4"
+}
+
+echo "recording into $out (don't touch anything)"
+ipc close; sleep 1
+shot desktop 0.5
+clip desktop-music 8
+ipc toggle control;       shot control-center
+ipc close
+ipc overlay overview;     shot overview
+ipc close
+ipc run system;           shot task-manager
+ipc close
+ipc run displays;         shot displays
+ipc close
+ipc run packages;         shot software
+ipc close
+ipc toggle running;       shot running-apps
+ipc close
+ipc overlay wallpapers;   shot wallpapers
+ipc close
+ipc run emoji;            shot emoji
+ipc close
+ipc run look_next;        clip look-switch 6
+echo "done. look through them, then commit assets/showcase."

@@ -25,8 +25,14 @@ Item {
     readonly property bool visBehind: Config.s.visualizerBehind && depthOk
     readonly property string vis: Config.s.visualizer
 
-    readonly property bool hasBars: vis === "bars" || vis === "mirror" || vis === "both"
-    readonly property bool hasWave: vis === "wave" || vis === "both"
+    // full width across the screen, or in a box you can move: any style can be either
+    // (settings → desktop → visualiser). "auto": the wave across, bars in a box. "both": a wave
+    // across and bars in a box.
+    readonly property string span: Config.s.visualizerSpan
+    readonly property bool hasWave: vis !== "off" && (vis === "both" || span === "full" || (span === "auto" && vis === "wave"))
+    readonly property bool hasBars: vis !== "off" && (vis === "both" || span === "widget" || (span === "auto" && vis !== "wave"))
+    readonly property string fullStyle: vis === "both" ? "wave" : vis
+    readonly property string boxStyle: vis === "both" ? "bars" : vis
     // the copy in front is always there to be grabbed; it's only invisible while the one
     // behind the subject is the one you see
     readonly property bool clockHere: Config.s.clockStyle !== "off" && (behind ? clockBehind : true)
@@ -202,18 +208,25 @@ Item {
     readonly property int padBottom: barShown && Config.s.barStyle !== "rail" && Config.s.barPosition === "bottom" ? Theme.barHeight + 10 : 0
     readonly property int padLeft: barShown && Config.s.barStyle === "rail" ? 46 : 0
 
-    // the long wave along the bottom edge
+    // the full-width one: along the bottom, hanging from the top, or through the middle
     Visualizer {
+        readonly property string edge: Config.s.visualizerEdge
         visible: layer.waveHere
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        height: Math.round(parent.height * 0.24)
-        style: "wave"
+        height: Math.round(parent.height * Math.max(0.05, Math.min(0.6, Config.s.visualizerHeight)))
+        y: edge === "top" ? 0 : edge === "middle" ? (parent.height - height) / 2 : parent.height - height
+        flip: edge === "top"
+        style: edge === "middle" && layer.fullStyle === "bars" ? "mirror" : layer.fullStyle
         active: visible && !layer.covered
-        count: Cava.bars
+        count: layer.fullStyle === "wave" ? Cava.bars : Math.max(16, Config.s.visualizerBars)
         color: Theme.wallText
-        fillOpacity: 0.5
+        colorMode: Config.s.visualizerColor
+        fillOpacity: Config.s.visualizerOpacity
+        gap: Config.s.visualizerGap
+        round: Config.s.visualizerRound
+        smooth: Config.s.visualizerSmooth
+        sparks: Config.s.musicSparks && !layer.behind
     }
 
     // rain or snow, when it's falling outside
@@ -238,14 +251,18 @@ Item {
             editable: !layer.behind
             shown: layer.barsHere
             Visualizer {
-                implicitWidth: layer.vis === "mirror" ? 620 : 320
-                implicitHeight: layer.vis === "mirror" ? 160 : 60
-                style: layer.vis === "mirror" ? "mirror" : "bars"
-            active: visible && !layer.covered
-                count: layer.vis === "mirror" ? 96 : 64
-                gap: 1
-                color: layer.vis === "mirror" ? Theme.primary : Theme.wallText
-                fillOpacity: 0.7
+                implicitWidth: layer.boxStyle === "mirror" ? 620 : layer.boxStyle === "wave" ? 520 : 320
+                implicitHeight: layer.boxStyle === "mirror" ? 160 : layer.boxStyle === "wave" ? 120 : 60
+                style: layer.boxStyle
+                active: visible && !layer.covered
+                count: layer.boxStyle === "mirror" ? 96 : Math.max(16, Math.min(96, Config.s.visualizerBars))
+                gap: Math.min(Config.s.visualizerGap, 3)
+                color: Theme.wallText
+                colorMode: Config.s.visualizerColor
+                fillOpacity: Config.s.visualizerOpacity
+                round: Config.s.visualizerRound
+                smooth: Config.s.visualizerSmooth
+                sparks: Config.s.musicSparks && !layer.behind
             }
         }
 

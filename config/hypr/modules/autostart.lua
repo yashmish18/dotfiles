@@ -14,6 +14,9 @@ hl.on("hyprland.start", function()
     hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/kk-phone daemon")
     -- clipboard history: the last 80 things. every screenshot is copied as a full-size image,
     -- so an unlimited history grew to gigabytes
-    hl.exec_cmd("wl-paste --type text --watch cliphist -max-items 80 store")
-    hl.exec_cmd("wl-paste --type image --watch cliphist -max-items 80 store")
+    -- clipboard history: small and short-lived. kk-storage tidy wipes it at login (unless you
+    -- turned that off) and trims it to your limit; this cap holds in between
+    hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/kk-storage tidy --login")
+    hl.exec_cmd("wl-paste --type text --watch cliphist -max-items 50 store")
+    hl.exec_cmd("wl-paste --type image --watch cliphist -max-items 50 store")
 end)

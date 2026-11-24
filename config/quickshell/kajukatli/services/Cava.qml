@@ -16,6 +16,11 @@ Singleton {
     readonly property bool wanted: consumers > 0 && Media.playing
     property var values: []             // 0..1, `bars` long
     property real level: 0              // overall loudness, 0..1
+    property real bass: 0               // the low end (first eighth of the bars), 0..1
+    property real bassAvg: 0            // its recent average: a hit is bass well above it
+    property double lastFrame: 0
+    signal beat(real strength)          // a kick / bass hit (sparks, the pulsing clock)
+    property double lastBeat: 0
 
     readonly property string conf: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/kajukatli/cava.conf"
     readonly property string confText: [
@@ -82,8 +87,37 @@ Singleton {
                 }
                 root.values = v;
                 root.level = sum / n;
+                // the beat: bass jumping well above its recent average, at most ~4 a second
+                const k = Math.max(1, Math.floor(n / 8));
+                let b = 0;
+                for (let i = 0; i < k; i++) b += v[i];
+                b /= k;
+                root.bass = b;
+                root.bassAvg = root.bassAvg * 0.92 + b * 0.08;
+                const now = Date.now();
+                root.lastFrame = now;
+                if (b > 0.25 && b > root.bassAvg * 1.35 && now - root.lastBeat > 240) {
+                    root.lastBeat = now;
+                    root.beat(Math.min(1, b));
+                }
             }
         }
+        // cava stopped by itself (the audio device changed: a sound mode, headphones, a new
+        // wallpaper's video): start it again instead of leaving the bars frozen
+        onExited: if (root.wanted) again.restart()
+    }
+    Timer { id: again; interval: 800; onTriggered: root.restart() }
+    // and if it's running but silent while music plays, it lost its input: restart
+    Timer {
+        interval: 4000
+        repeat: true
+        running: root.wanted
+        onTriggered: if (proc.running && Media.playing && Date.now() - root.lastFrame > 6000) root.restart()
+    }
+    // a new wallpaper rebuilds the desktop layers; make sure the feed survives it
+    Connections {
+        target: Wall
+        function onCurrentChanged() { if (root.wanted && !proc.running) again.restart(); }
     }
 
     // ease back to silence when playback stops, instead of freezing mid-shout
