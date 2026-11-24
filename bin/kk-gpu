@@ -7,6 +7,7 @@
 #   nvidia   everything on the nvidia card: fastest, every port works, the most power
 # kk-gpu off | on            take the nvidia card off the bus (no power at all) until `on` or
 #                            a reboot. only while the desktop isn't drawing with it.
+# kk-gpu free               close every app of yours that is using the nvidia card (nothing reopens)
 # kk-gpu run <app> [args]    start one app on the nvidia card (like prime-run)
 # kk-gpu hint <addr> <class> a heavy app opened on the integrated card: offer to restart it
 set -u
@@ -145,6 +146,33 @@ NVD_BACKEND=direct" ;;
         [ "$n" -gt 0 ] && notify-send -a Graphics "Moved to the integrated graphics" "${names# }" 2>/dev/null
         [ "${relaunch:-0}" = 1 ] && exit 1
         exit 0
+        ;;
+    free)
+        # close every app of yours that is using the nvidia card (so the card can be switched off,
+        # or a different graphics mode applied without anything holding on to it). nothing is
+        # started again: save your work first. the desktop itself is never touched.
+        hp="$(hypr_pid)"
+        pids=""
+        for p in $(fuser /dev/nvidia* 2>/dev/null | tr -s ' ' '
+' | sort -u); do
+            [ -n "$p" ] && [ "$p" != "$hp" ] && [ -r "/proc/$p/comm" ] || continue
+            [ "$(stat -c %u "/proc/$p")" = "$(id -u)" ] || continue
+            case "$(cat "/proc/$p/comm" 2>/dev/null)" in quickshell|qs|Hyprland|hyprland|Xwayland|xwayland) continue ;; esac
+            pids="$pids $p"
+        done
+        [ -n "$pids" ] || { echo "nothing of yours is using the nvidia card"; exit 0; }
+        names="$(for p in $pids; do cat "/proc/$p/comm" 2>/dev/null; done | sort -u | paste -sd' ' -)"
+        # shellcheck disable=SC2086
+        kill $pids 2>/dev/null
+        i=0
+        while [ "$i" -lt 15 ]; do
+            left=""; for p in $pids; do [ -d "/proc/$p" ] && left="$left $p"; done
+            [ -z "$left" ] && break
+            sleep 0.2; i=$((i + 1))
+        done
+        # shellcheck disable=SC2086
+        [ -n "$left" ] && kill -9 $left 2>/dev/null
+        echo "closed: $names"
         ;;
     on)
         [ -n "$pci" ] && [ -e "/sys/bus/pci/devices/$pci" ] && { echo "already on"; exit 0; }

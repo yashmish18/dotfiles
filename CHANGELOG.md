@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Graphics: "Close them all" (and `kk-gpu free`) closes every app using the NVIDIA card so a mode switch or switching the card off has nothing holding on to it; the desktop and the shell are never touched.
 - Crash guard: a closed overlay or emoji picker keeps its empty window for a third of a second before it is destroyed, so Qt never tears down a surface that still has a focused text field (the last thing in the shell logs before it died).
 - Right-click to edit: a desktop widget's menu (bigger, smaller, put back, let the shell place it, hide); the bar's menu on its empty space or the logo (style, top or bottom, hide, choose modules). The logo is now a kitty.
 - Our own apps (software centre, task manager, running apps, clipboard, phone) sit in the bar's tray, ahead of other apps' icons.

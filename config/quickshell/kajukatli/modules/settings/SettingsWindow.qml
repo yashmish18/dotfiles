@@ -681,6 +681,12 @@ LazyLoader {
                         }
                     }
                     Setting {
+                        visible: Gpu.users.length > 0
+                        label: "Apps on the NVIDIA card"
+                        detail: Gpu.users.join(", ") + ". Close them all to free the card (save your work first; nothing reopens)."
+                        Btn { text: "Close them all"; danger: true; onClicked: Gpu.freeCard() }
+                    }
+                    Setting {
                         visible: Gpu.message !== ""
                         label: Gpu.message
                     }

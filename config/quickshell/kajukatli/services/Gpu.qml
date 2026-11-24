@@ -52,6 +52,13 @@ Singleton {
         setProc.running = true;
     }
 
+    // close everything of yours that is using the card (nothing reopens): so it can go off,
+    // or a new mode applied at the next login with nothing holding on to it
+    function freeCard() {
+        setProc.command = [Config.bin + "kk-gpu", "free"];
+        setProc.running = true;
+    }
+
     // should this desktop entry / window class run on the nvidia card?
     function wants(app: var): bool {
         if (!hybrid || !powered) return false;
