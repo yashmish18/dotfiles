@@ -42,7 +42,7 @@ Singleton {
         }
     }
 
-    function entryFor(name: string) {
+    function entryFor(name: string): var {
         if (!name) return null;
         return DesktopEntries.heuristicLookup(name) || null;
     }

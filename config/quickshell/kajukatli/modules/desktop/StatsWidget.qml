@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Shapes
 import qs.services
 import qs.components
 
@@ -17,27 +16,43 @@ Item {
     readonly property color fg: Theme.wallText
     readonly property color dim: Theme.wallTextDim
 
-    component Spark: Shape {
+    // Canvas paints on demand instead of binding geometry to width/height. Shape's
+    // PathPolyline fed its bounding rect back into the layout, which Qt saw as a
+    // binding loop on every stats tick (and rebuilt the path each time).
+    component Spark: Canvas {
         id: sp
         property var values: []
         property real max: 1
         property color color: Theme.wallText
-        preferredRendererType: Shape.CurveRenderer
-        readonly property var pts: {
-            const v = values, n = v.length, w = width, h = height;
-            const out = [Qt.point(0, h)];
-            for (let i = 0; i < n; i++)
-                out.push(Qt.point(n > 1 ? i / (n - 1) * w : 0, h - Math.min(1, (v[i] || 0) / Math.max(1e-9, max)) * h * 0.92));
-            out.push(Qt.point(w, h));
-            return out;
+        implicitWidth: 0
+        implicitHeight: 0
+        onPaint: {
+            const ctx = getContext("2d");
+            const w = width, h = height, n = values.length;
+            ctx.clearRect(0, 0, w, h);
+            if (n === 0 || w <= 0 || h <= 0) return;
+            ctx.beginPath();
+            ctx.moveTo(0, h);
+            for (let i = 0; i < n; i++) {
+                const x = n > 1 ? i / (n - 1) * w : 0;
+                const y = h - Math.min(1, (values[i] || 0) / Math.max(1e-9, max)) * h * 0.92;
+                ctx.lineTo(x, y);
+            }
+            ctx.lineTo(w, h);
+            ctx.closePath();
+            ctx.fillStyle = Theme.alpha(color, 0.25);
+            ctx.fill();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.lineJoin = "round";
+            ctx.stroke();
         }
-        ShapePath {
-            strokeColor: sp.color
-            strokeWidth: 1.5
-            fillColor: Theme.alpha(sp.color, 0.25)
-            joinStyle: ShapePath.RoundJoin
-            PathPolyline { path: sp.pts }
-        }
+        onValuesChanged: requestPaint()
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        onMaxChanged: requestPaint()
+        onColorChanged: requestPaint()
+        Component.onCompleted: requestPaint()
     }
 
     component Stat: RowLayout {

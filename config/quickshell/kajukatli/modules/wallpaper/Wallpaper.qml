@@ -43,13 +43,13 @@ Variants {
         readonly property var fromMeta: fromSlot === 0 ? metaA : metaB
         readonly property real dpr: modelData.devicePixelRatio || 1
 
-        function fileUrl(p) { return p ? "file://" + p : ""; }
+        function fileUrl(p): string { return p ? "file://" + p : ""; }
 
         // every picture is decoded at screen size (plus the parallax margin), never at full
         // resolution: a 6000 px photo costs what a screen-sized one does, and decodes in a blink
         readonly property size decode: Qt.size(Math.ceil(win.width * dpr * (Config.s.parallax ? 1.07 : 1)),
                                                Math.ceil(win.height * dpr * (Config.s.parallax ? 1.07 : 1)))
-        function cover(img) {
+        function cover(img): vector2d {
             if (!img || img.implicitWidth <= 0 || win.height === 0) return Qt.vector2d(1, 1);
             const S = win.width / win.height, I = img.implicitWidth / img.implicitHeight;
             const zoom = Config.s.parallax ? 0.94 : 1.0;     // room for the camera to move
@@ -86,7 +86,7 @@ Variants {
             const merged = Object.assign({}, m, { display: cur.display });
             if (slot === 0) metaA = merged; else metaB = merged;
         }
-        function settled(st) { return st === Image.Ready || st === Image.Error || st === Image.Null; }
+        function settled(st): bool { return st === Image.Ready || st === Image.Error || st === Image.Null; }
         function tryStart() {
             const img = pendingSlot === 0 ? imgA : imgB;
             waitedMs += 30;
@@ -147,10 +147,12 @@ Variants {
 
         Image { id: imgA; visible: false; asynchronous: true; cache: false; fillMode: Image.PreserveAspectCrop; sourceSize: win.decode; source: win.fileUrl(win.metaA ? win.metaA.display : "") }
         Image { id: imgB; visible: false; asynchronous: true; cache: false; fillMode: Image.PreserveAspectCrop; sourceSize: win.decode; source: win.fileUrl(win.metaB ? win.metaB.display : "") }
-        Image { id: depA; visible: false; asynchronous: true; cache: false; source: win.fileUrl(win.metaA && Config.s.parallax ? win.metaA.depth : "") }
-        Image { id: depB; visible: false; asynchronous: true; cache: false; source: win.fileUrl(win.metaB && Config.s.parallax ? win.metaB.depth : "") }
-        Image { id: maskA; visible: false; asynchronous: true; cache: false; source: win.fileUrl(win.metaA ? (win.metaA.mask || "") : "") }
-        Image { id: maskB; visible: false; asynchronous: true; cache: false; source: win.fileUrl(win.metaB ? (win.metaB.mask || "") : "") }
+        // depth/mask/ink are sampled at screen size too — without sourceSize Qt decodes the
+        // full-resolution PNGs (tens of MB each, per screen) and that is most of the shell's RSS.
+        Image { id: depA; visible: false; asynchronous: true; cache: false; sourceSize: win.decode; source: win.fileUrl(win.metaA && Config.s.parallax ? win.metaA.depth : "") }
+        Image { id: depB; visible: false; asynchronous: true; cache: false; sourceSize: win.decode; source: win.fileUrl(win.metaB && Config.s.parallax ? win.metaB.depth : "") }
+        Image { id: maskA; visible: false; asynchronous: true; cache: false; sourceSize: win.decode; source: win.fileUrl(win.metaA ? (win.metaA.mask || "") : "") }
+        Image { id: maskB; visible: false; asynchronous: true; cache: false; sourceSize: win.decode; source: win.fileUrl(win.metaB ? (win.metaB.mask || "") : "") }
 
         // ---------------------------------------------------------------- behind the subject
         // the shader samples this as a texture. it sits under the (opaque) wallpaper effect, so
@@ -177,6 +179,7 @@ Variants {
             visible: false
             asynchronous: true
             cache: false
+            sourceSize: win.decode
             readonly property var m: win.pendingSlot === 0 ? win.metaA : win.pendingSlot === 1 ? win.metaB : null
             source: win.fileUrl(m ? m.ink : "")
         }

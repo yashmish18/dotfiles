@@ -69,7 +69,7 @@ Singleton {
         if (!fast.running) fast.go(file);
     }
 
-    function cachedMeta(file: string) {
+    function cachedMeta(file: string): var {
         const last = Store.s.wallMeta;
         if (last && last.source === file && last.display) return last;
         const e = library.find(w => w.path === file);
@@ -210,8 +210,7 @@ Singleton {
         stdout: StdioCollector { id: getOut }
         onExited: code => {
             root.fetching = false;
-            const l = getOut.text.trim().split("
-");
+            const l = getOut.text.trim().split("\n");
             root.fetchNote = code === 0 ? l[l.length - 1] : "couldn't reach wallhaven";
             root.refreshLibrary();
         }
@@ -251,7 +250,7 @@ Singleton {
         else random();
     }
 
-    function lastJson(text: string) {
+    function lastJson(text: string): var {
         const lines = text.trim().split("\n");
         try { return JSON.parse(lines[lines.length - 1]); } catch (e) { return null; }
     }

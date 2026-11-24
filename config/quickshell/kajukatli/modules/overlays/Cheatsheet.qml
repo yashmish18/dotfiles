@@ -14,7 +14,7 @@ Item {
 
     property var binds: []
 
-    function mods(mask) {
+    function mods(mask): string {
         const out = [];
         if (mask & 64) out.push("super");
         if (mask & 4) out.push("ctrl");
@@ -22,7 +22,7 @@ Item {
         if (mask & 1) out.push("shift");
         return out;
     }
-    function keyName(k) {
+    function keyName(k): string {
         const map = { "Return": "enter", "Space": "space", "slash": "/", "grave": "`", "period": ".", "comma": ",", "Escape": "esc", "Tab": "tab", "Print": "print" };
         return map[k] || k.toLowerCase();
     }

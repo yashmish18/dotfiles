@@ -11,7 +11,7 @@ Singleton {
 
     readonly property var monitors: Hyprland.monitors.values
 
-    function lua(v) { return typeof v === "string" ? '"' + v.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"' : String(v); }
+    function lua(v): string { return typeof v === "string" ? '"' + v.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"' : String(v); }
 
     function applyInput() {
         const s = Config.s;

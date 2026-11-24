@@ -56,7 +56,7 @@ Singleton {
     property bool fullscreen: false
 
     readonly property var focusedWs: Hyprland.focusedWorkspace
-    readonly property int focusedId: focusedWs ? focusedWs.id : 1
+    readonly property int focusedId: Number(focusedWs && focusedWs.id) || 1
 
     // normal (positive id) workspaces on a monitor, sorted
     function workspacesOn(monitor): var {

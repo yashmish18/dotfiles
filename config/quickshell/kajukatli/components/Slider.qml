@@ -86,7 +86,7 @@ Item {
             anchors.leftMargin: root.icon !== "" ? 34 : 0
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            function at(x) { return Math.max(0, Math.min(1, (x + anchors.leftMargin) / track.width)); }
+            function at(x): real { return Math.max(0, Math.min(1, (x + anchors.leftMargin) / track.width)); }
             onPressed: e => root.moved(at(e.x))
             onPositionChanged: e => { if (pressed) root.moved(at(e.x)); }
             onWheel: e => root.moved(Math.max(0, Math.min(1, root.value + (e.angleDelta.y > 0 ? 0.05 : -0.05))))

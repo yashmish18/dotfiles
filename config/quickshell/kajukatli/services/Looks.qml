@@ -112,7 +112,7 @@ Singleton {
         }
     })
 
-    function apply(name: string) {
+    function apply(name: string): bool {
         const p = presets[name];
         if (!p) return false;
         const schemeBefore = Config.s.themeScheme;

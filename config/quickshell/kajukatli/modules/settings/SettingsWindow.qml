@@ -345,7 +345,7 @@ LazyLoader {
                 readonly property var all: ["workspaces", "clock", "notifs", "control", "apps", "phone", "tray", "media", "visualizer", "weather", "logo", "volume", "brightness", "network", "bluetooth", "battery", "cpu", "mem", "temp", "power"]
                 readonly property var labels: ({ workspaces: "Workspaces", clock: "Clock", notifs: "Notifications", control: "Control pill", apps: "Running apps", phone: "Phone", tray: "Tray", media: "Now playing", visualizer: "Music bars", weather: "Weather", logo: "Logo", volume: "Volume", brightness: "Brightness", network: "Network", bluetooth: "Bluetooth", battery: "Battery", cpu: "CPU", mem: "Memory", temp: "Temperature", power: "Power" })
                 property string target: "right"
-                function mods() { const m = Config.s.barModules || {}; return { left: (m.left || []).slice(), center: (m.center || []).slice(), right: (m.right || []).slice() }; }
+                function mods(): var { const m = Config.s.barModules || {}; return { left: (m.left || []).slice(), center: (m.center || []).slice(), right: (m.right || []).slice() }; }
                 function setMods(m) { Config.s.barModules = m; }
                 function remove(side, i) { const m = mods(); m[side].splice(i, 1); setMods(m); }
                 function move(side, i, d) { const m = mods(); const a = m[side]; const j = i + d; if (j < 0 || j >= a.length) return; const t = a[i]; a[i] = a[j]; a[j] = t; setMods(m); }

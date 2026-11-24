@@ -15,8 +15,8 @@ Singleton {
     readonly property real micVolume: source && source.audio ? source.audio.volume : 0
     readonly property bool micMuted: source && source.audio ? source.audio.muted : false
 
-    readonly property var sinks: Pipewire.nodes.values.filter(n => n.audio && n.isSink && !n.isStream)
-    readonly property var streams: Pipewire.nodes.values.filter(n => n.audio && n.isStream && !n.isSink)
+    readonly property var sinks: (Pipewire.nodes.values || []).filter(n => n.audio && n.isSink && !n.isStream)
+    readonly property var streams: (Pipewire.nodes.values || []).filter(n => n.audio && n.isStream && !n.isSink)
 
     function name(node): string {
         if (!node) return "";
@@ -48,6 +48,6 @@ Singleton {
 
     // volume and mute are only live on bound nodes
     PwObjectTracker {
-        objects: [root.sink, root.source].concat(root.sinks).concat(root.streams)
+        objects: [root.sink, root.source].concat(root.sinks || []).concat(root.streams || []).filter(Boolean)
     }
 }

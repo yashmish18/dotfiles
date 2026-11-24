@@ -121,7 +121,7 @@ Item {
             font.family: Theme.mono
             font.pixelSize: Theme.xs
             color: Theme.muted
-            function weekNumber(d) {
+            function weekNumber(d): int {
                 const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
                 const day = t.getUTCDay() || 7;
                 t.setUTCDate(t.getUTCDate() + 4 - day);

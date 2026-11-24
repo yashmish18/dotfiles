@@ -73,19 +73,42 @@ Singleton {
     property color artTint: "#888888"
     property color artTintText: "#000000"
     property var _quant: null
+    // ColorQuantizer only reads local files. mpris gives remote URLs for streaming players
+    // (spotify's i.scdn.co among them), which made it log a failed image load on every track.
+    // fetch those once into a small cache file instead of pointing it at the URL.
+    readonly property string coverCache: Config.home + "/.cache/kajukatli/cover.jpg"
+    Process {
+        id: artFetch
+        property string want: ""
+        command: ["curl", "-sfL", "--max-time", "8", "-o", root.coverCache, want]
+        onExited: code => {
+            if (code === 0 && want === root.art && _quant) _quant.source = "file://" + root.coverCache;
+        }
+    }
+    function setArtSource(u: string): void {
+        if (!_quant) return;
+        if (!u) { _quant.source = ""; return; }
+        if (u.indexOf("file://") === 0) _quant.source = u;
+        else if (u.charAt(0) === "/") _quant.source = "file://" + u;
+        else {
+            if (artFetch.running) artFetch.running = false;
+            artFetch.want = u;
+            artFetch.running = true;
+        }
+    }
     Component.onCompleted: {
         try {
             _quant = Qt.createQmlObject('import Quickshell; ColorQuantizer { depth: 3; rescaleSize: 48 }', root, "artcolour");
             _quant.colorsChanged.connect(pickArtColor);
-            if (art !== "") _quant.source = art;
+            if (art !== "") setArtSource(art);
         } catch (e) {
             _quant = null;
         }
     }
     onArtChanged: {
         artReady = false;
-        if (_quant && art !== "") _quant.source = art;
-        else if (art === "") { artColor = Theme.primary; artText = Theme.primaryText; }
+        if (art === "") { artColor = Theme.primary; artText = Theme.primaryText; }
+        setArtSource(art);
     }
     function pickArtColor() {
         const cs = _quant ? _quant.colors : [];

@@ -21,9 +21,9 @@ Item {
     readonly property string q: field.text.trim()
     readonly property string mode: q.startsWith("=") ? "calc" : q.startsWith(">") ? "run" : q.startsWith("?") ? "web" : q.startsWith("/") ? "files" : "apps"
     readonly property var launches: Store.s.launches || ({})
-    function used(app) { return launches[app.id] || 0; }
+    function used(app): int { return launches[app.id] || 0; }
 
-    function score(app, s) {
+    function score(app, s): real {
         const name = (app.name || "").toLowerCase();
         if (!s) return 1;
         if (name.startsWith(s)) return 100 - name.length * 0.1;

@@ -40,7 +40,7 @@ Item {
     readonly property var launches: Store.s.launches || ({})
     property int index: 0
 
-    function score(app, s) {
+    function score(app, s): real {
         const name = (app.name || "").toLowerCase();
         if (name.startsWith(s)) return 100 - name.length * 0.1;
         if (name.split(/[\s\-_]/).some(w => w.startsWith(s))) return 60;

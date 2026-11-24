@@ -25,7 +25,7 @@ Item {
         { key: "drives", label: "Drives", icon: "usb" }
     ]
 
-    function human(b) {
+    function human(b): string {
         b = Number(b) || 0;
         const u = ["B", "KB", "MB", "GB", "TB"];
         let i = 0;

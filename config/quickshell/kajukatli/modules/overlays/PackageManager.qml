@@ -26,7 +26,7 @@ Item {
     property string filter: ""
     Keys.onEscapePressed: Ui.overlay = ""
 
-    function jsonLines(text) {
+    function jsonLines(text): var {
         const out = [];
         for (const l of text.split("\n")) { try { if (l.trim()) out.push(JSON.parse(l)); } catch (e) {} }
         return out;

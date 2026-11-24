@@ -11,7 +11,9 @@ CACHE="${XDG_CACHE_HOME:-$HOME/.cache}"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/kajukatli"
 
-size() { du -sb "$1" 2>/dev/null | cut -f1 || echo 0; }
+# don't append a fallback 0: with pipefail, du exiting non-zero on an unreadable
+# subdir (e.g. pacman's download-* dirs) would emit a second line and break the JSON.
+size() { local s; s="$(du -sb "$1" 2>/dev/null | head -n1 | cut -f1)"; echo "${s:-0}"; }
 sizeq() { local s; s="$(size "$1")"; echo "${s:-0}"; }
 jstr() { printf '%s' "$1" | jq -Rs .; }
 
