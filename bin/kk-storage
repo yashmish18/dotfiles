@@ -225,13 +225,13 @@ case "${1:-report}" in
                 rm -rf "$DATA/Trash/files/$n" "$info"
             done
         fi
-        # wallpaper workspace: unused for 30 days, and never more than 768 mb in all
+        # wallpaper workspace: unused for 30 days, and never more than 1.5 gb in all (smaller and prepared wallpapers get thrown out and re-made over and over)
         "$0" clean walls old >/dev/null
         keep="$(current_wall_dir)"
         total=$(sizeq "$CACHE/kajukatli/walls")
-        if [ "$total" -gt $((768 * 1024 * 1024)) ]; then
+        if [ "$total" -gt $((1536 * 1024 * 1024)) ]; then
             find "$CACHE/kajukatli/walls" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null | sort -n | while read -r _ d; do
-                [ "$(sizeq "$CACHE/kajukatli/walls")" -gt $((512 * 1024 * 1024)) ] || break
+                [ "$(sizeq "$CACHE/kajukatli/walls")" -gt $((1024 * 1024 * 1024)) ] || break
                 [ "$d" = "$keep" ] || rm -rf "$d"
             done
         fi

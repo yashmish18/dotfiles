@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# kk-close   super + q: close the focused window outright (killed, no waiting for it to answer)
+#            except the shell's own: the settings window belongs to the shell process, and a
+#            terminal that is running the shell would take it down with it. those are closed
+#            politely (or, for the terminal, left alone with a note).
+set -u
+j="$(hyprctl activewindow -j 2>/dev/null)" || exit 0
+addr="$(printf '%s' "$j" | jq -r '.address // empty')"
+cls="$(printf '%s' "$j" | jq -r '.class // empty')"
+pid="$(printf '%s' "$j" | jq -r '.pid // empty')"
+[ -n "$addr" ] || exit 0
+
+lua() { hyprctl dispatch "$1" >/dev/null 2>&1; }
+close_polite() {
+    lua "hl.dsp.window.close({ window = \"address:$addr\" })" || hyprctl dispatch closewindow "address:$addr" >/dev/null 2>&1
+}
+
+# the shell's own window (settings, floating panels)
+case "$cls" in
+    org.quickshell|quickshell|qs|*kajukatli*) close_polite; exit 0 ;;
+esac
+
+# a terminal (or anything) that has the shell somewhere under it
+runs_shell() {
+    local p c
+    for c in $(pgrep -P "$1" 2>/dev/null); do
+        case "$(cat "/proc/$c/comm" 2>/dev/null)" in qs|quickshell) return 0 ;; esac
+        runs_shell "$c" && return 0
+    done
+    return 1
+}
+if [ -n "$pid" ] && runs_shell "$pid"; then
+    notify-send -a kajukatli "Not closing this one" "The shell is running inside this terminal; closing it would stop the shell. Restart the session to run it on its own." 2>/dev/null
+    exit 0
+fi
+
+# everything else: killed outright, as before
+lua "hl.dsp.window.kill()" || hyprctl dispatch forcekillactive >/dev/null 2>&1 || close_polite
+exit 0

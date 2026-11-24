@@ -38,8 +38,9 @@ bind(M .. " + SHIFT + X", hl.dsp.exec_cmd(B .. "kk-ocr"), { description = "copy 
 bind(M .. " + SHIFT + P", sh("timer"),      { description = "start / pause the timer" })
 
 -- windows
--- super + q kills the window outright (no "are you sure", no waiting for it to answer)
-bind(M .. " + Q",         hl.dsp.window.kill(),                        { description = "kill window" })
+-- super + q kills the window outright (no "are you sure", no waiting for it to answer): kk-close,
+-- which never takes the shell down with it (its settings window; a terminal it runs in)
+bind(M .. " + Q",         hl.dsp.exec_cmd(B .. "kk-close"),            { description = "kill window" })
 bind(M .. " + SHIFT + CTRL + R", hl.dsp.exec_cmd("hyprctl reload"),    { description = "reload hyprland's config" })
 bind(M .. " + F",         hl.dsp.window.fullscreen({ mode = "fullscreen" }), { description = "fullscreen" })
 bind(M .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = "maximized" }),  { description = "maximize" })
