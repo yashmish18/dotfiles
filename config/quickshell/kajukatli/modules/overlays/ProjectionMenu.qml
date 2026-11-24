@@ -68,6 +68,7 @@ Item {
         busy = true;
         pending = mode;
         Ui.projectionMode = mode;
+        System.forgetLayout();
         status = "Switching…";
         applyProc.command = [Config.bin + "kk-display", mode];
         applyProc.running = true;
@@ -102,6 +103,7 @@ Item {
                     }
                 }
                 Item { Layout.fillWidth: true }
+                Btn { text: "Arrange & tune"; icon: "sliders"; onClicked: Ui.overlay = "displays" }
                 Btn { icon: "close"; onClicked: Ui.overlay = "" }
             }
 

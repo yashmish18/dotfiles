@@ -149,7 +149,18 @@ case "$MODE" in
         printf '%s %s %s %s\n' "$(date -Iseconds)" "$old" "$new" "$file" >> "$DATA/updates.log"
         ok "updated $(git -C "$REPO" log -1 --format=%h "$old")..$(git -C "$REPO" log -1 --format=%h "$new")"
         note "something wrong? ./install.sh --rollback puts the old version and your settings back"
-        exec "$REPO/install.sh" --links
+        "$REPO/install.sh" --links
+        "$REPO/bin/kk-storage" tidy || true
+        # what the update needs: the shell restarts by itself, hyprland reloads its config;
+        # only gpu or login-screen changes need a log out
+        hyprctl reload >/dev/null 2>&1 || true
+        pkill -x qs 2>/dev/null; (setsid qs -c kajukatli >/dev/null 2>&1 &) || true
+        if git -C "$REPO" diff --name-only "$old" "$new" | grep -qE "^system/|gpu|kk-session|greetd"; then
+            note "this update changed system or graphics files: log out and back in once"
+        else
+            ok "applied: the shell restarted, no reboot or log out needed"
+        fi
+        exit 0
         ;;
     rollback)
         last="$(tail -n1 "$DATA/updates.log" 2>/dev/null || true)"
@@ -442,10 +453,8 @@ links() {
     # quickshell: the whole folder, so compiled shaders sit next to the qml that loads them
     backup_and_link "$REPO/config/quickshell/kajukatli" "$CONFIG/quickshell/kajukatli"
     backup_and_link "$REPO/config/quickshell/kk-photobooth" "$CONFIG/quickshell/kk-photobooth"
-    # right-click → scripts in the file manager: format a drive, disk usage, send to phone, admin
-    for f in "$REPO"/system/nautilus-scripts/*; do
-        [ -f "$f" ] && install -Dm755 "$f" "${XDG_DATA_HOME:-$HOME/.local/share}/nautilus/scripts/$(basename "$f")"
-    done
+    # thunar's right-click actions (terminal here, send to phone, storage, edit as admin): once, yours after
+    [ -e "$CONFIG/Thunar/uca.xml" ] || install -Dm644 "$REPO/system/thunar/uca.xml" "$CONFIG/Thunar/uca.xml"
     # our own apps in the app drawer
     for f in "$REPO"/system/applications/*.desktop; do
         [ -f "$f" ] && install -Dm644 "$f" "$HOME/.local/share/applications/$(basename "$f")"
@@ -722,8 +731,8 @@ defaults() {
     fi
     # folders open in the file manager, pictures and videos in their viewers (not the terminal)
     if command -v xdg-mime >/dev/null; then
-        [ -f /usr/share/applications/org.gnome.Nautilus.desktop ] && xdg-mime default org.gnome.Nautilus.desktop inode/directory
-        [ -f /usr/share/applications/org.gnome.Loupe.desktop ] && xdg-mime default org.gnome.Loupe.desktop image/png image/jpeg image/webp image/gif
+        [ -f /usr/share/applications/thunar.desktop ] && xdg-mime default thunar.desktop inode/directory
+        [ -f /usr/share/applications/imv.desktop ] && xdg-mime default imv.desktop image/png image/jpeg image/webp image/gif
         [ -f /usr/share/applications/mpv.desktop ] && xdg-mime default mpv.desktop video/mp4 video/webm video/x-matroska
     fi
     gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' 2>/dev/null || true
@@ -732,14 +741,6 @@ defaults() {
     gsettings set org.gnome.desktop.interface cursor-theme 'Bibata-Modern-Classic' 2>/dev/null || true
     gsettings set org.gnome.desktop.interface font-name 'Bricolage Grotesque 10' 2>/dev/null || true
     gsettings set org.gnome.desktop.interface monospace-font-name 'DM Mono 10' 2>/dev/null || true
-    # the file manager: folders first, a tidy grid, a terminal from the right-click menu, and
-    # "delete permanently" next to "move to trash"
-    gsettings set org.gtk.gtk4.Settings.FileChooser sort-directories-first true 2>/dev/null || true
-    gsettings set org.gnome.nautilus.preferences default-folder-viewer 'icon-view' 2>/dev/null || true
-    gsettings set org.gnome.nautilus.preferences show-delete-permanently true 2>/dev/null || true
-    gsettings set org.gnome.nautilus.preferences show-create-link true 2>/dev/null || true
-    gsettings set org.gnome.nautilus.icon-view default-zoom-level 'medium' 2>/dev/null || true
-    gsettings set com.github.stunkymonkey.nautilus-open-any-terminal terminal kitty 2>/dev/null || true
     # colours until the first wallpaper decides them
     [ -f "$CACHE/theme.json" ] || "$BIN/kk-theme" '#e9a86b' || true
     ok "defaults"
@@ -756,6 +757,8 @@ savings() {
     sys_install 644 "$REPO/system/udev/63-kajukatli-pci-pm.rules" /etc/udev/rules.d/63-kajukatli-pci-pm.rules
     sys_install 644 "$REPO/system/networkmanager/30-kajukatli-wifi-powersave.conf" /etc/NetworkManager/conf.d/30-kajukatli-wifi-powersave.conf
     sys_install 644 "$REPO/system/journald/kajukatli.conf" /etc/systemd/journald.conf.d/kajukatli.conf
+    # crash dumps: small and few (one crashing app could fill gigabytes)
+    sys_install 644 "$REPO/system/coredump/kajukatli.conf" /etc/systemd/coredump.conf.d/kajukatli.conf
     sudo sysctl --system >/dev/null 2>&1 || true
     sudo systemctl restart systemd-journald 2>/dev/null || true
     sudo journalctl --vacuum-size=200M >/dev/null 2>&1 || true
@@ -837,6 +840,9 @@ extra_chosen terminal && terminal || true
 defaults
 savings || true
 grub_theme || true
+
+# the safe clean-ups and caps on what grows (clipboard images, caches, old packages)
+"$BIN/kk-storage" tidy || true
 
 echo
 ok "done."

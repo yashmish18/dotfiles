@@ -11,9 +11,9 @@ hl.window_rule({
 -- small utility windows float in the middle
 local floaters = {
     "^(org\\.pulseaudio\\.pavucontrol|pavucontrol)$",
-    "^(nm-connection-editor)$",
+    "^(gparted|GParted)$",
     "^(\\.?blueman-manager(-wrapped)?)$",
-    "^(org\\.kde\\.ark)$",
+    "^(xarchiver)$",
     "^(xdg-desktop-portal-gtk)$",
     "^(qt6ct|nwg-look)$",
     "^(kk-float)$",

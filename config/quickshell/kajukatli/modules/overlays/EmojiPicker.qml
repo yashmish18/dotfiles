@@ -6,8 +6,8 @@ import Quickshell.Hyprland
 import qs.services
 import qs.components
 
-// the emoji picker: super + period. a small card floating in the bottom-left corner of the
-// window you're typing in.
+// the emoji picker: super + period. a small card floating right by the pointer (where you
+// were working), never stuck in a corner. drag it by its search bar to move it.
 // type to search, arrows to move, enter (or a click) types it into the window you were in,
 // and copies it too. tabs along the top narrow it down; the first one is what you used last.
 LazyLoader {
@@ -24,35 +24,46 @@ LazyLoader {
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
         exclusionMode: ExclusionMode.Ignore
         anchors { left: true; top: true }
-        margins { left: spotX; top: spotY }
+        margins { left: Math.max(0, spotX); top: Math.max(0, spotY) }
         implicitWidth: 348
         implicitHeight: 392
         color: "transparent"
 
-        // where it floats: inside the bottom-left corner of the window you're typing in, or
-        // the screen's corner above the bar when nothing has focus. worked out once when it
-        // opens, so it never jumps while you look.
-        property int spotX: 14
-        property int spotY: 14
-        function findSpot() {
+        // where it floats: right by the pointer (just above it, or below when there's no room),
+        // inside the screen and clear of the bar. worked out once when it opens; drag the
+        // search bar to move it somewhere else.
+        property int spotX: -1
+        property int spotY: -1
+        visible: spotX >= 0
+        function place(cx, cy) {
             const sw = screen ? screen.width : 1920, sh = screen ? screen.height : 1080;
             const sx = screen ? screen.x : 0, sy = screen ? screen.y : 0;
-            const w = implicitWidth, h = implicitHeight, pad = 14;
+            const w = implicitWidth, h = implicitHeight, pad = 14, gap = 18;
             const barBottom = Ui.barVisible && Config.s.barStyle !== "none" && Config.s.barStyle !== "rail" && Config.s.barPosition === "bottom" ? Theme.barHeight + 10 : 0;
-            const barTop = Ui.topInset;
-            let x = pad, y = sh - h - pad - barBottom;
-            const t = Hyprland.activeToplevel;
-            const ipc = t && t.lastIpcObject ? t.lastIpcObject : null;
-            if (ipc && ipc.at && ipc.size && !ipc.fullscreen) {
-                x = ipc.at[0] - sx + pad;
-                y = ipc.at[1] - sy + ipc.size[1] - h - pad;
-                // a window too short for the card: hang it from the window's top edge instead
-                if (ipc.size[1] < h + 2 * pad) y = ipc.at[1] - sy + pad;
-            }
+            const top = pad + Ui.topInset, bottom = sh - h - pad - barBottom;
+            let x = cx - sx - w / 2;
+            let y = cy - sy - h - gap;                    // above the pointer
+            if (y < top) y = cy - sy + gap;                // no room: below it
+            if (cx < 0) { x = (sw - w) / 2; y = (sh - h) / 2; }   // no pointer: the middle
             spotX = Math.round(Math.max(pad, Math.min(sw - w - pad, x)));
-            spotY = Math.round(Math.max(pad + barTop, Math.min(sh - h - pad - barBottom, y)));
+            spotY = Math.round(Math.max(top, Math.min(bottom, y)));
         }
-        Component.onCompleted: findSpot()
+        Process {
+            id: cursor
+            running: true
+            command: ["hyprctl", "cursorpos", "-j"]
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    try { const c = JSON.parse(text); win.place(c.x, c.y); } catch (e) { win.place(-1, -1); }
+                }
+            }
+            onExited: code => { if (code !== 0 && win.spotX < 0) win.place(-1, -1); }
+        }
+        function moveBy(dx, dy) {
+            const sw = screen ? screen.width : 1920, sh = screen ? screen.height : 1080;
+            spotX = Math.round(Math.max(0, Math.min(sw - implicitWidth, spotX + dx)));
+            spotY = Math.round(Math.max(0, Math.min(sh - implicitHeight, spotY + dy)));
+        }
 
         // a click anywhere else closes it
         HyprlandFocusGrab {
@@ -132,6 +143,24 @@ LazyLoader {
             Component.onCompleted: { opacity = 1; scale = 1; }
             Behavior on opacity { NumberAnimation { duration: 160 } }
             Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+
+            // the grip along the top: drag it to move the card
+            Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 5
+                width: 36; height: 4; radius: 2
+                color: Theme.alpha(Theme.surfaceText, grip.containsMouse || grip.pressed ? 0.4 : 0.18)
+            }
+            MouseArea {
+                id: grip
+                width: parent.width
+                height: 14
+                hoverEnabled: true
+                cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                property point from
+                onPressed: m => from = Qt.point(m.x, m.y)
+                onPositionChanged: m => { if (pressed) win.moveBy(m.x - from.x, m.y - from.y); }
+            }
 
             // search
             Item {

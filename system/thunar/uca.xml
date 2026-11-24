@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- kajukatli · right-click actions in thunar. copied once by install.sh; edit them in
+     thunar → edit → configure custom actions. -->
+<actions>
+<action>
+	<icon>utilities-terminal</icon>
+	<name>Open terminal here</name>
+	<submenu></submenu>
+	<unique-id>kk-terminal</unique-id>
+	<command>kitty --directory %f</command>
+	<description>A terminal in this folder</description>
+	<range></range>
+	<patterns>*</patterns>
+	<startup-notify/>
+	<directories/>
+</action>
+<action>
+	<icon>phone</icon>
+	<name>Send to phone</name>
+	<submenu></submenu>
+	<unique-id>kk-phone-send</unique-id>
+	<command>kk-phone send auto %F</command>
+	<description>The selected files to your paired phone</description>
+	<range>*</range>
+	<patterns>*</patterns>
+	<audio-files/>
+	<image-files/>
+	<other-files/>
+	<text-files/>
+	<video-files/>
+</action>
+<action>
+	<icon>drive-harddisk</icon>
+	<name>Disks, storage and clean-up</name>
+	<submenu></submenu>
+	<unique-id>kk-storage</unique-id>
+	<command>qs -c kajukatli ipc call shell run system</command>
+	<description>What fills the disk, drives, formatting, the recycle bin</description>
+	<range></range>
+	<patterns>*</patterns>
+	<directories/>
+</action>
+<action>
+	<icon>accessories-text-editor</icon>
+	<name>Edit as administrator</name>
+	<submenu></submenu>
+	<unique-id>kk-sudoedit</unique-id>
+	<command>kitty -e sudoedit %f</command>
+	<description>Edit a system file (asks for your password)</description>
+	<range>1</range>
+	<patterns>*</patterns>
+	<text-files/>
+	<other-files/>
+</action>
+</actions>

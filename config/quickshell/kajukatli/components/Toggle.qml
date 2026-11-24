@@ -2,7 +2,8 @@ import QtQuick
 import qs.services
 
 // a quick-settings tile: an icon in a circle, a name, what it's doing. the whole tile lights up
-// in the wallpaper's colour when it's on. click toggles; the chevron (when `more`) opens its page.
+// in the wallpaper's colour when it's on. with a page behind it (`more`): tap the icon to switch
+// it on or off, tap anywhere else on the tile for its page. without one, the whole tile switches.
 Rectangle {
     id: root
     property string title: ""
@@ -43,7 +44,7 @@ Rectangle {
     Column {
         anchors.left: badge.visible ? badge.right : parent.left
         anchors.leftMargin: badge.visible ? 10 : 14
-        anchors.right: chevron.visible ? chevron.left : parent.right
+        anchors.right: parent.right
         anchors.rightMargin: 6
         anchors.verticalCenter: parent.verticalCenter
         spacing: 1
@@ -62,38 +63,26 @@ Rectangle {
         }
     }
 
+    // the tile: its page (when it has one), or the switch (when it doesn't)
     MouseArea {
         id: area
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onClicked: e => (e.button === Qt.RightButton && root.more) ? root.opened() : root.toggled()
+        onClicked: root.more ? root.opened() : root.toggled()
     }
 
-    // its own hit area, so the chevron opens the page instead of toggling
-    Rectangle {
-        id: chevron
+    // the icon: always the switch. a little larger than the circle, easy to hit
+    MouseArea {
         visible: root.more
-        anchors.right: parent.right
-        anchors.rightMargin: 8
-        anchors.verticalCenter: parent.verticalCenter
-        width: 26
-        height: 26
-        radius: 13
-        color: chevArea.containsMouse ? Theme.alpha(root.on ? Theme.primaryContainerText : Theme.surfaceText, 0.12) : "transparent"
-        Icon {
-            anchors.centerIn: parent
-            name: "right"
-            size: 14
-            color: root.on ? Theme.primaryContainerText : Theme.surfaceTextDim
-        }
-        MouseArea {
-            id: chevArea
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.opened()
-        }
+        x: badge.x - 6
+        y: badge.y - 6
+        width: badge.width + 12
+        height: badge.height + 12
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.toggled()
+        onContainsMouseChanged: badge.scale = containsMouse ? 1.08 : 1
     }
 }

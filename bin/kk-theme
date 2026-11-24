@@ -369,28 +369,26 @@ def gtk(r: dict) -> None:
 @define-color theme_selected_bg_color {r['primary']};
 @define-color theme_selected_fg_color {r['onPrimary']};
 """
-    # the file manager (nautilus) in the shell's shape: rounded pills and tiles, a tinted
-    # sidebar, a soft selection in the wallpaper's colour instead of a solid block
+    # the file manager (thunar, gtk3) in the shell's shape: a tinted sidebar with rounded rows,
+    # a pill path bar, soft selections in the wallpaper's colour instead of solid blocks
     files = f"""
-/* nautilus */
-.nautilus-window headerbar {{ background: {r['surfaceContainerLow']}; box-shadow: none; border-bottom: none; }}
-.nautilus-window .sidebar-pane, .nautilus-window .navigation-sidebar {{ background: {r['surfaceContainer']}; }}
-.nautilus-window .navigation-sidebar row {{ border-radius: 12px; margin: 1px 6px; padding: 2px 4px; }}
-.nautilus-window .navigation-sidebar row:selected {{ background: alpha({r['primary']}, 0.22); color: {r['onSurface']}; }}
-.nautilus-window .navigation-sidebar row:selected image {{ color: {r['primary']}; }}
-.nautilus-window .path-bar, .nautilus-window .linked.path-bar-box, .nautilus-window .nautilus-path-bar {{ border-radius: 999px; background: {r['surfaceContainerHigh']}; }}
-.nautilus-window .path-bar button, .nautilus-window .nautilus-path-bar button {{ border-radius: 999px; }}
-.nautilus-window gridview > child {{ border-radius: 16px; padding: 6px; }}
-.nautilus-window gridview > child:hover {{ background: alpha({r['onSurface']}, 0.06); }}
-.nautilus-window gridview > child:selected {{ background: alpha({r['primary']}, 0.24); color: {r['onSurface']}; }}
-.nautilus-window columnview > listview > row {{ border-radius: 10px; margin: 0 6px; }}
-.nautilus-window columnview > listview > row:selected {{ background: alpha({r['primary']}, 0.22); color: {r['onSurface']}; }}
-.nautilus-window .floating-bar {{ border-radius: 999px; margin: 10px; background: {r['surfaceContainerHigh']}; }}
-.nautilus-window entry, .nautilus-window searchbar entry {{ border-radius: 999px; }}
-.nautilus-window popover contents {{ border-radius: 16px; }}
+/* thunar */
+.thunar .sidebar, .thunar .shortcuts-pane, .thunar treeview.sidebar {{ background: {r['surfaceContainer']}; }}
+.thunar .sidebar row, .thunar .shortcuts-pane treeview {{ border-radius: 12px; }}
+.thunar .sidebar row:selected, .thunar .shortcuts-pane treeview:selected {{ background: alpha({r['primary']}, 0.24); color: {r['onSurface']}; }}
+.thunar .path-bar button, .thunar .location-button {{ border-radius: 999px; }}
+.thunar .standard-view, .thunar iconview, .thunar treeview.view {{ background: {r['surfaceContainerLow']}; }}
+.thunar iconview:selected, .thunar .standard-view iconview:selected {{ background: alpha({r['primary']}, 0.26); color: {r['onSurface']}; border-radius: 14px; }}
+.thunar treeview.view:selected {{ background: alpha({r['primary']}, 0.22); color: {r['onSurface']}; }}
+.thunar headerbar, .thunar toolbar, .thunar .toolbar {{ background: {r['surfaceContainerLow']}; border: none; box-shadow: none; }}
+.thunar statusbar {{ background: {r['surfaceContainerLow']}; color: {r['onSurfaceVariant']}; }}
+.thunar entry {{ border-radius: 999px; }}
+menu, .menu, .context-menu {{ border-radius: 14px; padding: 6px; background: {r['surfaceContainerHigh']}; }}
+menu menuitem {{ border-radius: 8px; padding: 6px 10px; }}
+menu menuitem:hover {{ background: alpha({r['primary']}, 0.22); }}
 """
-    write_owned(CONFIG / "gtk-3.0" / "gtk.css", css, "/*")
-    write_owned(CONFIG / "gtk-4.0" / "gtk.css", css + files, "/*")
+    write_owned(CONFIG / "gtk-3.0" / "gtk.css", css + files, "/*")
+    write_owned(CONFIG / "gtk-4.0" / "gtk.css", css, "/*")
     scheme = "prefer-dark" if r["dark"] else "prefer-light"
     quiet(["gsettings", "set", "org.gnome.desktop.interface", "color-scheme", scheme])
     quiet(["gsettings", "set", "org.gnome.desktop.interface", "gtk-theme", "adw-gtk3-dark" if r["dark"] else "adw-gtk3"])

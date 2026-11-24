@@ -85,6 +85,7 @@ ShellRoot {
         case "overview_back": Ui.overview(-1); break;
         case "overview_toggle": Ui.toggleOverlay("overview"); break;
         case "system": Ui.toggleOverlay("system"); break;
+        case "displays": Ui.toggleOverlay("displays"); break;
         case "running": Ui.toggle("running"); break;
         case "phone": Ui.toggle("phone"); break;
         case "cheatsheet": Ui.toggleOverlay("cheatsheet"); break;
@@ -109,7 +110,7 @@ ShellRoot {
 
     Variants {
         model: ["launcher", "control", "settings", "notifications", "clipboard", "session", "wallpapers",
-                "overview", "overview_back", "overview_toggle", "system", "running", "phone", "cheatsheet", "emoji", "projection", "packages", "bar", "ws_next", "ws_prev", "ws_new", "ws_new_move", "ws_rename",
+                "overview", "overview_back", "overview_toggle", "system", "displays", "running", "phone", "cheatsheet", "emoji", "projection", "packages", "bar", "ws_next", "ws_prev", "ws_new", "ws_new_move", "ws_rename",
                 "brightness_up", "brightness_down", "close", "edit", "look_next", "capture", "focus", "timer", "notes"]
         GlobalShortcut {
             required property var modelData

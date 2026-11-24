@@ -245,8 +245,6 @@ LazyLoader {
                 Head { title: "Behaviour"; about: "How the desktop reacts. Each of these works the moment you change it." }
                 Group {
                     title: "Control center"
-                    Setting { label: "Tap Wi-Fi and Bluetooth to switch them"; detail: "On: a tap turns it on or off, the arrow shows the list. Off: a tap shows the list."
-                        Switch { on: Config.s.tileTapToggles; onToggled: Config.s.tileTapToggles = !Config.s.tileTapToggles } }
                     Setting { label: "Reconnect Bluetooth devices"; detail: "Turning Bluetooth back on brings back what was connected before."
                         Switch { on: Config.s.btAutoReconnect; onToggled: Config.s.btAutoReconnect = !Config.s.btAutoReconnect } }
                 }
@@ -630,7 +628,9 @@ LazyLoader {
                         label: "NVIDIA card"
                         detail: !Gpu.powered ? "Off: no power at all, until you switch it on or reboot."
                               : Gpu.name + " · " + (Gpu.runtime === "suspended" ? "asleep" : "awake")
-                              + (Gpu.running === "igpu" ? ". It can be switched off completely." : ". The desktop uses it, so it stays on.")
+                              + (Gpu.running !== "igpu" ? ". The desktop itself draws with it: pick integrated only and log out first."
+                                 : Gpu.users.length ? ". On it now: " + Gpu.users.join(", ") + ". Switching it off moves them to the integrated graphics (they restart)."
+                                 : ". Nothing is using it: it can go off completely.")
                         Switch {
                             on: Gpu.powered
                             enabled: !Gpu.powered || Gpu.running === "igpu"
@@ -772,9 +772,23 @@ LazyLoader {
                         Btn { visible: sp.passthrough; text: "Mixer"; icon: "external"; onClicked: Quickshell.execDetached(["pavucontrol", "-t", "3"]) }
                     }
                     Setting {
-                        label: "Effects: virtual surround, equaliser, bass"
-                        detail: sp.haveEffects ? "" : "Add the audio-effects extra: ./install.sh, then pick it."
-                        Btn { enabled: sp.haveEffects; text: "Open"; icon: "external"; onClicked: Quickshell.execDetached(["easyeffects"]) }
+                        label: "Sound mode"
+                        detail: "Built in (pipewire), nothing to install. " + (Sound.active ? Sound.label + " is on." : "Off.")
+                        Choice {
+                            options: [{ value: "off", label: "off" }].concat(Sound.modes.filter(m => m.key !== "atmos" || Sound.haveAtmos).map(m => ({ value: m.key, label: m.label.toLowerCase() })))
+                            value: Sound.mode
+                            onPicked: v => Sound.set(v)
+                        }
+                    }
+                    Setting {
+                        label: "Your laptop's Dolby Atmos"
+                        detail: Sound.haveAtmos ? "Found your impulse file: the Dolby Atmos mode uses that exact tuning."
+                            : "Dolby never made a Linux driver. Your laptop's Windows Dolby driver has its tuning as impulse files (.irs or .wav). Copy one into the sound folder as atmos.wav, then Check again."
+                        RowLayout {
+                            spacing: 6
+                            Btn { text: "Sound folder"; icon: "external"; onClicked: Sound.openFolder() }
+                            Btn { text: "Check again"; onClicked: Sound.recheck() }
+                        }
                     }
                 }
             }

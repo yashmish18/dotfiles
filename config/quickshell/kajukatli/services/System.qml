@@ -75,12 +75,68 @@ Singleton {
         }
         return best || "preferred";
     }
+    // one screen, from its saved profile (settings → display):
+    //   mode "1920x1080@60.00" (or resolution + refresh), position "1920x0", scale, transform 0-7,
+    //   vrr 0/1/2, bitdepth 8/10, mirror "eDP-1", disabled
+    // a screen whose profile matches what it already shows is left alone: re-sending the same
+    // monitor rule makes the screen go dark for a moment (a modeset), for nothing.
     function applyMonitor(name: string) {
-        const profile = monitorProfile(name);
-        const position = profile.position || "auto";
-        const mode = profile.refresh ? nameModeAt(name, profile.refresh) : modeFor(name);
-        Hypr.hyprEval("hl.monitor({ output = " + lua(name) + ", mode = \"" + mode + "\", position = " + lua(position) + ", scale = \""
-                      + scaleOf(name) + "\" })");
+        const p = monitorProfile(name);
+        const m = monitors.find(x => x.name === name);
+        const ipc = m ? (m.lastIpcObject || {}) : {};
+        if (p.disabled) {
+            Hypr.hyprEval("hl.monitor({ output = " + lua(name) + ", disabled = true })");
+            return;
+        }
+        let mode = p.mode || (p.refresh ? nameModeAt(name, p.refresh) : modeFor(name));
+        const position = p.position || "auto";
+        const scale = p.scale !== undefined ? p.scale : scaleOf(name);
+        // nothing would change? then don't touch it
+        if (ipc.width && !p.mirror) {
+            const want = /^(\d+)x(\d+)@([\d.]+)/.exec(mode);
+            // "preferred" is already showing unless the battery saver took the refresh down
+            const atBest = !(ipc.availableModes || []).some(md => md.startsWith(ipc.width + "x" + ipc.height + "@") && parseFloat(md.split("@")[1]) > ipc.refreshRate + 1);
+            const same = (mode === "preferred" ? atBest
+                          : want && +want[1] === ipc.width && +want[2] === ipc.height && Math.abs(+want[3] - ipc.refreshRate) < 0.5)
+                && (position === "auto" || position === ipc.x + "x" + ipc.y)
+                && Math.abs(scale - ipc.scale) < 0.01
+                && (p.transform === undefined || p.transform === ipc.transform)
+                && (p.vrr === undefined || !!p.vrr === !!ipc.vrr)
+                && (ipc.mirrorOf === undefined || ipc.mirrorOf === "none")
+                && !ipc.disabled;
+            if (same) return;
+        }
+        let f = "output = " + lua(name) + ", mode = " + lua(mode) + ", position = " + lua(position) + ", scale = " + lua(String(scale));
+        if (p.transform !== undefined) f += ", transform = " + p.transform;
+        if (p.vrr !== undefined) f += ", vrr = " + p.vrr;
+        if (p.bitdepth === 10) f += ", bitdepth = 10";
+        if (p.mirror) f += ", mirror = " + lua(p.mirror);
+        Hypr.hyprEval("hl.monitor({ " + f + " })");
+    }
+    // several settings of one screen at once (the display page), then applied
+    function setMonitor(name: string, values: var) {
+        const profiles = Object.assign({}, Config.s.monitorProfiles || {});
+        const p = Object.assign({}, profiles[name] || {}, values);
+        for (const k in values) if (values[k] === null) delete p[k];
+        profiles[name] = p;
+        Config.s.monitorProfiles = profiles;
+        if (values.scale !== undefined && values.scale !== null) {
+            const sc = Object.assign({}, Config.s.monitorScales || {});
+            sc[name] = values.scale;
+            Config.s.monitorScales = sc;
+        }
+        applyMonitor(name);
+    }
+    // the quick projection modes (super + d) arrange the screens themselves: forget the saved
+    // arrangement so it doesn't come back on the next battery change
+    function forgetLayout() {
+        const profiles = Object.assign({}, Config.s.monitorProfiles || {});
+        for (const k in profiles) {
+            const p = Object.assign({}, profiles[k]);
+            delete p.position; delete p.mirror; delete p.disabled;
+            profiles[k] = p;
+        }
+        Config.s.monitorProfiles = profiles;
     }
     function applyMotion() {
         Hypr.hyprEval("hl.config({ animations = { enabled = " + (Config.s.reducedMotion ? "false" : "true") + " } })");

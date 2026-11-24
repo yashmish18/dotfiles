@@ -67,8 +67,11 @@ case "${1:-status}" in
         fi
         name="$(lspci -s "$pci" 2>/dev/null | sed 's/.*\[\(.*\)\].*/\1/;s/.*: //' | head -n1)"
         dgpu=false; [ -n "$pci" ] && dgpu=true
-        printf '{"hybrid":%s,"dgpu":%s,"mode":"%s","running":"%s","power":"%s","runtime":"%s","name":"%s","pci":"%s","dgpuPorts":[%s]}\n' \
-            "$hybrid" "$dgpu" "$mode" "$now" "$power" "$power" "$(printf '%s' "$name" | tr -d '"\\')" "$pci" "$ports"
+        # apps on the card right now (yours; the desktop itself not counted)
+        hp="$(hypr_pid)"
+        users="$(for p in $(fuser /dev/nvidia* 2>/dev/null); do [ "$p" != "$hp" ] && cat "/proc/$p/comm" 2>/dev/null; done | sort -u | sed "s/.*/\"&\"/" | paste -sd, -)"
+        printf '{"hybrid":%s,"dgpu":%s,"mode":"%s","running":"%s","power":"%s","runtime":"%s","name":"%s","pci":"%s","dgpuPorts":[%s],"users":[%s]}\n' \
+            "$hybrid" "$dgpu" "$mode" "$now" "$power" "$power" "$(printf '%s' "$name" | tr -d '"\\')" "$pci" "$ports" "$users"
         ;;
     set)
         [ "$hybrid" = true ] || { echo "kk-gpu: not a hybrid (two-gpu) machine" >&2; exit 1; }
@@ -100,14 +103,48 @@ NVD_BACKEND=direct" ;;
         ;;
     off)
         [ -n "$pci" ] && [ -e "/sys/bus/pci/devices/$pci" ] || { echo "already off"; exit 0; }
-        case "$(live_devs)" in *kk-dgpu*) echo "the desktop is drawing with the nvidia card right now. choose 'integrated only', log out and back in, then switch it off." >&2; exit 1 ;; esac
-        users="$(fuser /dev/nvidia* 2>/dev/null | tr -s ' ')"
-        if [ -n "$users" ]; then
-            echo "these programs are using the nvidia card: $(for p in $users; do cat "/proc/$p/comm" 2>/dev/null; done | sort -u | tr '\n' ' ')- close them first." >&2
-            exit 1
+        case "$(live_devs)" in *kk-dgpu*) echo "the desktop itself is drawing with the nvidia card. choose 'integrated only' and log out and back in; then it can go off." >&2; exit 1 ;; esac
+        # apps on the card move to the integrated graphics first: each one is closed, then
+        # started again (same command, same folder) without the nvidia offload, once the card is off
+        moved="$(mktemp -d)"
+        hp="$(hypr_pid)"
+        n=0
+        for p in $(fuser /dev/nvidia* 2>/dev/null | tr -s ' ' '\n' | sort -u); do
+            [ -n "$p" ] && [ "$p" != "$hp" ] && [ -r "/proc/$p/cmdline" ] || continue
+            [ "$(stat -c %u "/proc/$p")" = "$(id -u)" ] || continue
+            cp "/proc/$p/cmdline" "$moved/$p.cmd" 2>/dev/null || continue
+            readlink "/proc/$p/cwd" > "$moved/$p.cwd" 2>/dev/null
+            cat "/proc/$p/comm" > "$moved/$p.name" 2>/dev/null
+            kill "$p" 2>/dev/null && n=$((n + 1))
+        done
+        i=0
+        while [ "$i" -lt 25 ] && [ -n "$(fuser /dev/nvidia* 2>/dev/null | tr -s ' ' '\n' | grep -vx "${hp:-x}" | grep .)" ]; do sleep 0.2; i=$((i + 1)); done
+        for f in "$moved"/*.cmd; do [ -e "$f" ] || continue; p="$(basename "$f" .cmd)"; kill -9 "$p" 2>/dev/null || true; done
+        # anything left that isn't ours (a system service) keeps the driver busy
+        if ! pkexec sh -c "systemctl stop nvidia-persistenced 2>/dev/null; modprobe -r nvidia_drm nvidia_modeset nvidia_uvm nvidia && echo 1 > /sys/bus/pci/devices/$pci/remove"; then
+            echo "something of the system's is still using the nvidia card (try: fuser -v /dev/nvidia*); it stays on." >&2
+            relaunch=1
+        else
+            echo "the nvidia card is off (until you switch it on, or reboot)."
         fi
-        pkexec sh -c "modprobe -r nvidia_drm nvidia_modeset nvidia_uvm nvidia 2>/dev/null; echo 1 > /sys/bus/pci/devices/$pci/remove" \
-            && echo "the nvidia card is off (until kk-gpu on, or a reboot)."
+        # the moved apps, again, on the integrated graphics
+        names=""
+        for f in "$moved"/*.cmd; do
+            [ -e "$f" ] || continue
+            p="$(basename "$f" .cmd)"
+            names="$names $(cat "$moved/$p.name" 2>/dev/null)"
+            (
+                cd "$(cat "$moved/$p.cwd" 2>/dev/null || echo "$HOME")" 2>/dev/null || cd "$HOME"
+                set --
+                while IFS= read -r -d '' a; do set -- "$@" "$a"; done < "$f"
+                [ "$#" -gt 0 ] && env -u __NV_PRIME_RENDER_OFFLOAD -u __GLX_VENDOR_LIBRARY_NAME -u __VK_LAYER_NV_optimus -u DRI_PRIME \
+                    setsid -f "$@" >/dev/null 2>&1
+            )
+        done
+        rm -rf "$moved"
+        [ "$n" -gt 0 ] && notify-send -a Graphics "Moved to the integrated graphics" "${names# }" 2>/dev/null
+        [ "${relaunch:-0}" = 1 ] && exit 1
+        exit 0
         ;;
     on)
         [ -n "$pci" ] && [ -e "/sys/bus/pci/devices/$pci" ] && { echo "already on"; exit 0; }

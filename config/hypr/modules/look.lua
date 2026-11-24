@@ -48,6 +48,10 @@ hl.config({
         animate_manual_resizes   = false,
         key_press_enables_dpms   = true,
         mouse_move_enables_dpms  = true,
+        -- every wallpaper rewrites theme.lua; a config reload on each one re-applied the monitor
+        -- rules, and the screen blanked for a moment. colours go in live (hyprctl eval) instead;
+        -- after editing the config yourself: super + shift + ctrl + r, or hyprctl reload
+        disable_autoreload       = true,
     },
 
     cursor = {

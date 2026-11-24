@@ -19,6 +19,7 @@ Singleton {
     readonly property string running: info.running || ""
     readonly property string runtime: info.runtime || ""     // active | suspended | removed
     readonly property string name: info.name || "NVIDIA"
+    readonly property var users: info.users || []           // apps on the card right now
 
     function refresh() { if (!statusProc.running) statusProc.running = true; }
     Component.onCompleted: refresh()
@@ -44,7 +45,8 @@ Singleton {
         setProc.command = [Config.bin + "kk-gpu", "set", m];
         setProc.running = true;
     }
-    // the card on or off (asks for your password)
+    // the card on or off (asks for your password). off moves the apps on it to the integrated
+    // graphics first: each is closed and started again there
     function setPower(on: bool) {
         setProc.command = [Config.bin + "kk-gpu", on ? "on" : "off"];
         setProc.running = true;

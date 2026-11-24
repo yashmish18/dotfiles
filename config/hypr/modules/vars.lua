@@ -2,8 +2,7 @@
 KK = {
     mod      = "SUPER",
     terminal = "kitty",
-    -- --new-window: super + e always opens another window, even when one is already open
-    files    = "nautilus --new-window",
+    files    = "thunar",          -- a new window every time
     browser  = "firefox",
     -- quickshell registers global shortcuts as "kajukatli:<name>"
     shell    = "kajukatli",

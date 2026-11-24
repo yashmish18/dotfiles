@@ -1,7 +1,0 @@
-# archive manager + thumbnails for kde/qt apps · ~150 mb
-# default: off
-ark
-kio-extras
-ffmpegthumbs
-kdegraphics-thumbnailers
-archlinux-xdg-menu

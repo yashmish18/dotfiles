@@ -1,26 +1,29 @@
-# everyday apps: files (with disks, formatting, archives, previews), browser, player, photos, camera + photobooth, mixer, bluetooth + wi-fi editors · ~480 mb
+# everyday apps, nothing from gnome or kde: thunar files (drives, phones, archives, thumbnails), browser, player, images, mixer, bluetooth, disk partitions · ~350 mb
 # default: on
-nautilus
+thunar
+thunar-volman
+thunar-archive-plugin
+tumbler
+ffmpegthumbnailer
+xarchiver
+7zip
+unzip
+gvfs
+gvfs-mtp
+udisks2
+exfatprogs
+dosfstools
+ntfs-3g
+gparted
+xorg-xhost
 firefox
 mpv
+imv
 pavucontrol
 blueman
-network-manager-applet
-loupe
-snapshot
 qt6-multimedia
 qt6-multimedia-ffmpeg
 gst-plugin-pipewire
 gst-plugins-good
 tesseract
 tesseract-data-eng
-# the file manager, complete: drives, phones and cameras, archives, previews, formatting disks
-gvfs
-gvfs-mtp
-gvfs-gphoto2
-udisks2
-gnome-disk-utility
-baobab
-file-roller
-sushi
-nautilus-open-any-terminal

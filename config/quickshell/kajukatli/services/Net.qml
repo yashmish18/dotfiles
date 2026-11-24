@@ -120,7 +120,8 @@ Singleton {
         Quickshell.execDetached(["nmcli", "connection", "delete", "id", name]);
     }
     function openEditor() {
-        Quickshell.execDetached(["nm-connection-editor"]);
+        // networkmanager's own editor, in the terminal (no gtk applet needed)
+        Quickshell.execDetached(["kitty", "--class", "kk-float", "-e", "nmtui"]);
     }
 
     Process {

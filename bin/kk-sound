@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# kk-sound list                  the sound modes
+# kk-sound run <mode>            play everything through that mode (the shell keeps this running)
+# kk-sound conf <mode>           just write its pipewire config and print the path
+#
+# dolby never released a linux driver, so there's no real "dolby" here. these modes are
+# pipewire's own filters, tuned the way dolby's laptop presets sound: a fuller low end,
+# clearer voices, a wider stage. built in, nothing to install, ~1% of one cpu core.
+#
+#   music     warmer bass, a little air on top, a slightly wider stage
+#   movie     deep bass, voices lifted out of the mix, a wide stage
+#   voice     calls and podcasts: rumble cut, speech forward
+#   speakers  for small laptop speakers: what they can't play is cut, so they play louder clean
+#   atmos     your laptop's own dolby atmos sound, if you give it the impulse files from its
+#             windows drivers: put them in ~/.config/kajukatli/sound/ as atmos.wav (or any .irs
+#             or .wav there). then it's that exact tuning, run by pipewire.
+set -uo pipefail
+dir="${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli/sound"
+out="${XDG_RUNTIME_DIR:-/tmp}/kk-sound.conf"
+mkdir -p "$dir"
+
+ir() { # the atmos impulse response, if there is one
+    for f in "$dir"/atmos.wav "$dir"/*.irs "$dir"/*.wav; do [ -f "$f" ] && { printf '%s' "$f"; return; }; done
+}
+
+# per mode: highpass Hz (0 = none), lowshelf Hz gain, peak Hz gain Q, highshelf Hz gain, width, pre-gain
+mode_values() {
+    case "$1" in
+        music)    echo "0 105 4.0 3000 0.0 1.0 9000 2.0 0.25 0.80" ;;
+        movie)    echo "0 90 6.0 2500 3.0 1.0 8000 2.5 0.55 0.70" ;;
+        voice)    echo "120 220 -3.0 2800 5.0 1.2 7000 1.0 0.0 0.85" ;;
+        speakers) echo "90 160 5.0 3200 3.0 0.9 10000 2.0 0.3 0.70" ;;
+        atmos)    echo "0 100 1.5 3000 0.0 1.0 9000 0.5 0.15 0.80" ;;
+        *) return 1 ;;
+    esac
+}
+
+conf() {
+    local m="$1" v hp ls lsg pk pkg pkq hs hsg w pre conv="" nodes="" links="" last ch
+    v="$(mode_values "$m")" || { echo "no mode called $m (kk-sound list)" >&2; exit 2; }
+    read -r hp ls lsg pk pkg pkq hs hsg w pre <<<"$v"
+    if [ "$m" = atmos ]; then
+        conv="$(ir)"
+        [ -n "$conv" ] || { echo "no impulse file in $dir (see kk-sound --help)" >&2; exit 1; }
+    fi
+    for ch in L R; do
+        last=""
+        add() { # add NAME LABEL CONTROLS [CONFIG]: one filter, chained after the last
+            local extra=""
+            [ -n "$3" ] && extra="$extra control = { $3 }"
+            [ -n "${4:-}" ] && extra="$extra config = { $4 }"
+            nodes="$nodes
+                { type = builtin name = $1$ch label = $2$extra }"
+            if [ -n "$last" ]; then
+                links="$links
+                { output = \"$last:Out\" input = \"$1$ch:In\" }"
+            else
+                eval "first$ch=$1$ch"
+            fi
+            last="$1$ch"
+        }
+        [ "$hp" != 0 ] && add hp bq_highpass "\"Freq\" = $hp \"Q\" = 0.7"
+        add low bq_lowshelf "\"Freq\" = $ls \"Q\" = 0.7 \"Gain\" = $lsg"
+        add mid bq_peaking "\"Freq\" = $pk \"Q\" = $pkq \"Gain\" = $pkg"
+        add high bq_highshelf "\"Freq\" = $hs \"Q\" = 0.7 \"Gain\" = $hsg"
+        if [ -n "$conv" ]; then
+            idx=0; [ "$ch" = R ] && idx=1
+            add conv convolver "" "filename = \"$conv\" channel = $idx"
+        fi
+        eval "last$ch=$last"
+    done
+    # the stage: each side gets a little of the other, inverted (wider) — width 0 = untouched
+    local a b
+    a="$(awk -v w="$w" -v p="$pre" 'BEGIN { printf "%.3f", (1 + w / 2) * p }')"
+    b="$(awk -v w="$w" -v p="$pre" 'BEGIN { printf "%.3f", -(w / 2) * p }')"
+    nodes="$nodes
+                { type = builtin name = mixL label = mixer control = { \"Gain 1\" = $a \"Gain 2\" = $b } }
+                { type = builtin name = mixR label = mixer control = { \"Gain 1\" = $a \"Gain 2\" = $b } }"
+    links="$links
+                { output = \"$lastL:Out\" input = \"mixL:In 1\" }
+                { output = \"$lastR:Out\" input = \"mixL:In 2\" }
+                { output = \"$lastR:Out\" input = \"mixR:In 1\" }
+                { output = \"$lastL:Out\" input = \"mixR:In 2\" }"
+    local title
+    title="$(printf '%s' "$m" | sed 's/./\U&/')"
+    cat > "$out" <<EOF
+# written by kk-sound ($m). runs as its own small pipewire client; the shell starts and stops it.
+context.properties = { log.level = 0 }
+context.spa-libs = {
+    audio.convert.* = audioconvert/libspa-audioconvert
+    support.*       = support/libspa-support
+}
+context.modules = [
+    { name = libpipewire-module-rt args = { nice.level = -11 } flags = [ ifexists nofail ] }
+    { name = libpipewire-module-protocol-native }
+    { name = libpipewire-module-client-node }
+    { name = libpipewire-module-adapter }
+    { name = libpipewire-module-filter-chain
+        args = {
+            node.description = "Kajukatli Sound · $title"
+            media.name       = "Kajukatli Sound"
+            filter.graph = {
+                nodes = [$nodes
+                ]
+                links = [$links
+                ]
+                inputs  = [ "$firstL:In" "$firstR:In" ]
+                outputs = [ "mixL:Out" "mixR:Out" ]
+            }
+            audio.channels = 2
+            audio.position = [ FL FR ]
+            capture.props  = { node.name = "kk_sound" media.class = Audio/Sink }
+            playback.props = { node.name = "kk_sound.output" node.passive = true }
+        }
+    }
+]
+EOF
+    printf '%s\n' "$out"
+}
+
+case "${1:-list}" in
+    list)
+        for m in music movie voice speakers; do echo "$m"; done
+        [ -n "$(ir)" ] && echo atmos || echo "atmos (needs your laptop's dolby impulse file in $dir)"
+        ;;
+    conf) conf "${2:?mode}" ;;
+    run)
+        m="${2:?mode}"
+        c="$(conf "$m")" || exit 1
+        before="$(pactl get-default-sink 2>/dev/null)"
+        [ "$before" = kk_sound ] && before=""
+        printf '%s\n' "$before" > "${XDG_RUNTIME_DIR:-/tmp}/kk-sound.before"
+        # make it the output as soon as it exists; give the old one back when it stops
+        ( for _ in $(seq 1 30); do pactl list short sinks 2>/dev/null | grep -q $'\tkk_sound\t' && { pactl set-default-sink kk_sound; exit; }; sleep 0.2; done ) &
+        trap 'b="$(cat "${XDG_RUNTIME_DIR:-/tmp}/kk-sound.before" 2>/dev/null)"; [ -n "$b" ] && pactl set-default-sink "$b"; kill 0 2>/dev/null' EXIT INT TERM
+        pipewire -c "$c"
+        ;;
+    -h|--help|*) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' ;;
+esac

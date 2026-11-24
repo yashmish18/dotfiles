@@ -70,7 +70,7 @@ for f in "$CONFIG/hypr/modules/theme.lua" "$CONFIG/hypr/modules/gpu.lua" "$CONFI
          "$HOME/.local/share/applications/kk-photobooth.desktop"; do
     [ -e "$f" ] && do_ rm -f "$f"
 done
-for f in "${XDG_DATA_HOME:-$HOME/.local/share}"/nautilus/scripts/{"Format this drive…","Disk usage here","Send to phone","Open as administrator"}; do
+for f in "$CONFIG/Thunar/uca.xml"; do
     [ -e "$f" ] && do_ rm -f "$f"
 done
 # user.lua is yours: kept unless everything goes
@@ -124,7 +124,7 @@ known_new=(
     /etc/modprobe.d/kajukatli-nvidia.conf /etc/modprobe.d/kajukatli-power.conf
     /etc/sysctl.d/90-kajukatli-power.conf /etc/NetworkManager/conf.d/30-kajukatli-wifi-powersave.conf
     /etc/NetworkManager/conf.d/20-connectivity.conf /etc/systemd/journald.conf.d/kajukatli.conf
-    /usr/local/bin/kk-session /boot/grub/themes/kajukatli
+    /usr/local/bin/kk-session /boot/grub/themes/kajukatli /etc/systemd/coredump.conf.d/kajukatli.conf
 )
 declare -A handled=()
 if [ -f "$BASE/system-files.tsv" ]; then

@@ -10,8 +10,10 @@ hl.on("hyprland.start", function()
     hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/kk-startlock")
 
     hl.exec_cmd("hypridle")
-    -- kde connect's daemon, when the phone extra is installed (the shell's phone panel talks to it)
-    hl.exec_cmd("sh -c '[ -x /usr/lib/kdeconnectd ] && exec /usr/lib/kdeconnectd'")
-    hl.exec_cmd("wl-paste --type text --watch cliphist store")
-    hl.exec_cmd("wl-paste --type image --watch cliphist store")
+    -- the phone service (kk-phone): finds your phone's KDE Connect app on the wi-fi
+    hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/kk-phone daemon")
+    -- clipboard history: the last 80 things. every screenshot is copied as a full-size image,
+    -- so an unlimited history grew to gigabytes
+    hl.exec_cmd("wl-paste --type text --watch cliphist -max-items 80 store")
+    hl.exec_cmd("wl-paste --type image --watch cliphist -max-items 80 store")
 end)

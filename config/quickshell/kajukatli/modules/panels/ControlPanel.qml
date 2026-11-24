@@ -194,9 +194,8 @@ Item {
                     detail: Net.ethernet ? "connected" : Net.ssid !== "" ? Net.ssid : Net.wifiEnabled ? "not connected" : "off"
                     on: Net.wifiEnabled || Net.ethernet
                     more: true
-                    // a tap switches wi-fi on or off; the arrow (or a right-click) shows the networks.
-                    // settings → behaviour can make the tap open the list instead.
-                    onToggled: Config.s.tileTapToggles ? Net.setWifi(!Net.wifiEnabled) : root.openWifi()
+                    // the icon switches wi-fi on or off; the rest of the tile shows the networks
+                    onToggled: Net.setWifi(!Net.wifiEnabled)
                     onOpened: root.openWifi()
                 }
                 Toggle {
@@ -207,7 +206,7 @@ Item {
                     on: Bt.enabled
                     more: true
                     enabled: Bt.available
-                    onToggled: Config.s.tileTapToggles ? Bt.toggle() : root.openBt()
+                    onToggled: Bt.toggle()
                     onOpened: root.openBt()
                 }
                 Toggle {
@@ -241,6 +240,30 @@ Item {
                     detail: Power.profileName
                     on: Power.profileName !== "balanced"
                     onToggled: Power.cycleProfile()
+                }
+                // the nvidia card: the icon switches it (apps on it move over first), the tile opens graphics
+                Toggle {
+                    Layout.fillWidth: true
+                    visible: Gpu.hybrid
+                    icon: "gauge"
+                    title: "NVIDIA"
+                    detail: !Gpu.powered ? "off" : Gpu.running !== "igpu" ? "drawing the desktop" : Gpu.users.length ? Gpu.users.length + " app" + (Gpu.users.length > 1 ? "s" : "") + " on it" : Gpu.runtime === "suspended" ? "asleep" : "on"
+                    on: Gpu.powered
+                    more: true
+                    Component.onCompleted: Gpu.refresh()
+                    onToggled: Gpu.setPower(!Gpu.powered)
+                    onOpened: Ui.settings("display")
+                }
+                // sound mode: the icon switches it on (last mode) or off, the tile opens the sound page
+                Toggle {
+                    Layout.fillWidth: true
+                    icon: "music"
+                    title: "Sound mode"
+                    detail: Sound.label
+                    on: Sound.active
+                    more: true
+                    onToggled: Sound.toggle()
+                    onOpened: root.page = "sound"
                 }
             }
 
@@ -496,6 +519,32 @@ Item {
                 subtitle: Audio.name(Audio.sink)
                 onBack: root.page = "main"
                 Btn { icon: "external"; onClicked: { Ui.panel = ""; Quickshell.execDetached(["pavucontrol"]); } }
+            }
+            Caption { text: "SOUND MODE" }
+            Flow {
+                Layout.fillWidth: true
+                spacing: 6
+                Btn { text: "Off"; active: !Sound.active; onClicked: Sound.set("off") }
+                Repeater {
+                    model: Sound.modes
+                    delegate: Btn {
+                        required property var modelData
+                        text: modelData.label
+                        active: Sound.mode === modelData.key
+                        enabled: modelData.key !== "atmos" || Sound.haveAtmos
+                        onClicked: Sound.set(modelData.key)
+                    }
+                }
+            }
+            Txt {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                font.pixelSize: Theme.xs + 1
+                color: Sound.error !== "" ? Theme.error : Theme.surfaceTextDim
+                text: Sound.error !== "" ? Sound.error
+                    : Sound.active ? (Sound.modes.find(m => m.key === Sound.mode) || { about: "" }).about
+                    : Sound.haveAtmos ? "Pick a mode: everything plays through it."
+                    : "Dolby has no Linux driver. Atmos works with your laptop's own Dolby impulse file: put it in the sound folder (Settings → Sound)."
             }
             Caption { text: "OUTPUT" }
             Repeater {

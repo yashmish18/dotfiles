@@ -1,0 +1,696 @@
+#!/usr/bin/env python3
+"""kk-phone: your phone on the desktop, with nothing from KDE or GNOME installed.
+
+it speaks the KDE Connect protocol (version 8) itself, so the "KDE Connect" app on an android
+phone (or iphone) pairs with it like with any computer. same wi-fi, ports 1714-1764 open.
+
+  kk-phone daemon                 run it (hyprland starts it at login)
+  kk-phone status                 json: this computer and every phone it knows
+  kk-phone refresh                look for phones again
+  kk-phone pair|unpair <id>       ask to pair (accept on the phone) / forget it
+  kk-phone accept|reject <id>     answer the phone's own pairing request
+  kk-phone ring|ping <id>         make it ring / say hi
+  kk-phone battery <id>           ask for its battery again
+  kk-phone clip <id>              send what you copied
+  kk-phone send <id|auto> <file|url|text>...   files, links or text to the phone
+  kk-phone browse <id>            its storage in the file manager (sshfs)
+
+what the phone sends comes to you: its battery, notifications, pings, clipboard, files
+(into ~/Downloads), links and text (onto the clipboard), and "find my laptop" (a sound).
+"""
+import json
+import os
+import socket
+import ssl
+import subprocess
+import sys
+import threading
+import time
+import uuid
+from pathlib import Path
+
+HOME = Path.home()
+CONF = Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config")) / "kajukatli" / "phone"
+STATE = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state")) / "kajukatli" / "phone.json"
+RUNTIME = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
+SOCK = RUNTIME / "kk-phone.sock"
+MOUNTS = RUNTIME / "kk-phone"
+PORT_MIN, PORT_MAX = 1716, 1764
+PROTOCOL = 8
+
+INCOMING = ["kdeconnect.battery", "kdeconnect.ping", "kdeconnect.clipboard", "kdeconnect.clipboard.connect",
+            "kdeconnect.share.request", "kdeconnect.notification", "kdeconnect.findmyphone.request", "kdeconnect.sftp"]
+OUTGOING = ["kdeconnect.battery.request", "kdeconnect.ping", "kdeconnect.clipboard", "kdeconnect.clipboard.connect",
+            "kdeconnect.share.request", "kdeconnect.notification.request", "kdeconnect.findmyphone.request",
+            "kdeconnect.sftp.request"]
+
+
+def log(*a):
+    print("kk-phone:", *a, file=sys.stderr, flush=True)
+
+
+def run(cmd, data=None):
+    try:
+        return subprocess.run(cmd, input=data, capture_output=True, timeout=20).stdout
+    except (OSError, subprocess.SubprocessError):
+        return b""
+
+
+def notify(title, body="", app="Phone", actions=()):
+    """a desktop notification; with actions it waits and returns the one picked."""
+    cmd = ["notify-send", "-a", app, "-i", "phone"] + [f"--action={k}={v}" for k, v in actions] + [title, body]
+    if actions:
+        return run(cmd).decode(errors="replace").strip()
+    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return ""
+
+
+# ---------------------------------------------------------------- this computer
+def me():
+    CONF.mkdir(parents=True, exist_ok=True)
+    idf = CONF / "id"
+    if not idf.exists():
+        idf.write_text(uuid.uuid4().hex)            # 32 characters, as protocol 8 wants
+    did = idf.read_text().strip()
+    cert, key = CONF / "cert.pem", CONF / "key.pem"
+    if not cert.exists() or not key.exists():
+        subprocess.run(["openssl", "req", "-new", "-x509", "-sha256", "-newkey", "rsa:2048", "-nodes",
+                        "-keyout", str(key), "-out", str(cert), "-days", "3650",
+                        "-subj", f"/O=KDE/OU=Kde connect/CN={did}"], check=True, capture_output=True)
+        key.chmod(0o600)
+    return did, cert, key
+
+
+def hostname():
+    try:
+        return Path("/etc/hostname").read_text().strip() or socket.gethostname()
+    except OSError:
+        return socket.gethostname()
+
+
+class Trust:
+    """phones you paired with, and the certificate each one showed then."""
+    def __init__(self):
+        self.f = CONF / "trusted.json"
+        try:
+            self.d = json.loads(self.f.read_text())
+        except (OSError, ValueError):
+            self.d = {}
+
+    def save(self):
+        tmp = self.f.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self.d, indent=1))
+        tmp.chmod(0o600)
+        tmp.replace(self.f)
+
+    def add(self, did, name, pem):
+        self.d[did] = {"name": name, "cert": pem}
+        self.save()
+
+    def remove(self, did):
+        self.d.pop(did, None)
+        self.save()
+
+
+def packet(kind, body=None, **extra):
+    p = {"id": int(time.time() * 1000), "type": kind, "body": body or {}}
+    p.update(extra)
+    return (json.dumps(p) + "\n").encode()
+
+
+# ---------------------------------------------------------------- one phone, connected
+class Link:
+    def __init__(self, daemon, sock, addr, ident, peer_pem):
+        self.d, self.sock, self.addr = daemon, sock, addr
+        self.ident = ident
+        self.id = ident.get("deviceId", "")
+        self.name = ident.get("deviceName", "phone")
+        self.peer_pem = peer_pem
+        self.lock = threading.Lock()
+        self.alive = True
+
+    def send(self, data):
+        try:
+            with self.lock:
+                self.sock.sendall(data)
+            return True
+        except OSError:
+            self.close()
+            return False
+
+    def close(self):
+        if not self.alive:
+            return
+        self.alive = False
+        try:
+            self.sock.close()
+        except OSError:
+            pass
+        self.d.gone(self)
+
+    def lines(self):
+        buf = b""
+        while self.alive:
+            try:
+                chunk = self.sock.recv(65536)
+            except (OSError, ssl.SSLError):
+                break
+            if not chunk:
+                break
+            buf += chunk
+            while b"\n" in buf:
+                line, buf = buf.split(b"\n", 1)
+                if line.strip():
+                    yield line
+        self.close()
+
+
+# ---------------------------------------------------------------- the daemon
+class Daemon:
+    def __init__(self):
+        self.id, self.cert, self.key = me()
+        self.name = hostname()
+        self.trust = Trust()
+        self.links = {}              # device id → Link
+        self.seen = {}               # device id → { name, type, addr }
+        self.battery = {}            # device id → { charge, charging }
+        self.requests = set()        # phones that asked to pair, waiting for an answer
+        self.asked = set()           # phones we asked to pair with
+        self.mounts = {}             # device id → mount point
+        self.tcp_port = PORT_MIN
+        self.lock = threading.Lock()
+
+    # ------------------------------------------------ identity and tls
+    def identity(self):
+        return packet("kdeconnect.identity", {
+            "deviceId": self.id, "deviceName": self.name, "deviceType": "laptop",
+            "protocolVersion": PROTOCOL, "incomingCapabilities": INCOMING,
+            "outgoingCapabilities": OUTGOING, "tcpPort": self.tcp_port})
+
+    def ctx(self, server, trusted_pem=None):
+        c = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER if server else ssl.PROTOCOL_TLS_CLIENT)
+        c.load_cert_chain(str(self.cert), str(self.key))
+        c.check_hostname = False
+        if trusted_pem:
+            # a phone we know: only the certificate it had when you paired
+            c.verify_mode = ssl.CERT_REQUIRED
+            c.load_verify_locations(cadata=trusted_pem)
+            c.verify_flags |= getattr(ssl, "VERIFY_X509_PARTIAL_CHAIN", 0)
+        else:
+            c.verify_mode = ssl.CERT_NONE
+        return c
+
+    # ------------------------------------------------ the shell's view
+    def write_state(self):
+        devs = {}
+        for did, t in self.trust.d.items():
+            devs[did] = {"id": did, "name": t.get("name", "phone"), "paired": True, "reachable": False}
+        for did, s in self.seen.items():
+            devs.setdefault(did, {"id": did, "name": s.get("name", "phone"), "paired": False, "reachable": False})
+        for did, l in self.links.items():
+            devs.setdefault(did, {"id": did, "name": l.name, "paired": False})
+            devs[did]["reachable"] = True
+            devs[did]["name"] = l.name
+        for did, v in devs.items():
+            b = self.battery.get(did, {})
+            v["battery"] = b.get("charge", -1)
+            v["charging"] = b.get("charging", False)
+            v["requested"] = did in self.requests
+            v["waiting"] = did in self.asked
+            v["mounted"] = self.mounts.get(did, "")
+        out = {"self": {"id": self.id, "name": self.name}, "devices": list(devs.values()), "time": int(time.time())}
+        STATE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = STATE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(out))
+        tmp.replace(STATE)
+
+    # ------------------------------------------------ discovery
+    def udp_loop(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        s.bind(("", 1716))
+        self.udp = s
+        while True:
+            try:
+                data, addr = s.recvfrom(65536)
+                p = json.loads(data.decode(errors="replace"))
+            except (OSError, ValueError):
+                continue
+            if p.get("type") != "kdeconnect.identity":
+                continue
+            b = p.get("body", {})
+            did = b.get("deviceId", "")
+            if not did or did == self.id:
+                continue
+            self.seen[did] = {"name": b.get("deviceName", "phone"), "type": b.get("deviceType", ""), "addr": addr[0]}
+            if did in self.links:
+                continue
+            if did in self.trust.d and b.get("tcpPort"):
+                # a phone we know: connect to it ourselves
+                threading.Thread(target=self.dial, args=(addr[0], int(b["tcpPort"]), b), daemon=True).start()
+            else:
+                # one we don't: tell it about us so it connects to us. that way we're the tls
+                # client and see its certificate, which pairing needs.
+                try:
+                    s.sendto(self.identity(), (addr[0], 1716))
+                except OSError:
+                    pass
+            self.write_state()
+
+    def broadcast(self):
+        try:
+            self.udp.sendto(self.identity(), ("255.255.255.255", 1716))
+        except (OSError, AttributeError):
+            pass
+
+    def broadcast_loop(self):
+        time.sleep(1)
+        while True:
+            self.broadcast()
+            time.sleep(60)
+
+    # ------------------------------------------------ connections
+    def tcp_loop(self):
+        srv = None
+        for port in range(PORT_MIN, PORT_MAX + 1):
+            try:
+                srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                srv.bind(("", port))
+                srv.listen(8)
+                self.tcp_port = port
+                break
+            except OSError:
+                srv = None
+        if not srv:
+            log("no free port between", PORT_MIN, "and", PORT_MAX)
+            return
+        while True:
+            conn, addr = srv.accept()
+            threading.Thread(target=self.incoming, args=(conn, addr), daemon=True).start()
+
+    def read_line(self, conn, limit=65536):
+        buf = b""
+        while not buf.endswith(b"\n") and len(buf) < limit:
+            c = conn.recv(1)
+            if not c:
+                break
+            buf += c
+        return buf
+
+    def incoming(self, conn, addr):
+        """the phone connected to us: it sends who it is in the clear, then we're the tls client."""
+        try:
+            conn.settimeout(15)
+            p = json.loads(self.read_line(conn).decode(errors="replace"))
+            b = p.get("body", {})
+            did = b.get("deviceId", "")
+            if not did or did == self.id or did in self.links:
+                conn.close()
+                return
+            pem = self.trust.d.get(did, {}).get("cert")
+            tls = self.ctx(server=False).wrap_socket(conn, server_side=False)
+            der = tls.getpeercert(binary_form=True)
+            peer = ssl.DER_cert_to_PEM_cert(der) if der else None
+            if pem and peer and ssl.PEM_cert_to_DER_cert(pem) != der:
+                log(b.get("deviceName"), "shows a different certificate than when you paired: not trusted")
+                tls.close()
+                return
+            self.start(tls, addr, b, peer)
+        except (OSError, ValueError, ssl.SSLError) as e:
+            log("incoming:", e)
+            try:
+                conn.close()
+            except OSError:
+                pass
+
+    def dial(self, host, port, ident):
+        """we connect to a phone we know: we send who we are, then we're the tls server."""
+        did = ident.get("deviceId", "")
+        try:
+            conn = socket.create_connection((host, port), timeout=10)
+            conn.sendall(self.identity())
+            pem = self.trust.d.get(did, {}).get("cert")
+            tls = self.ctx(server=True, trusted_pem=pem).wrap_socket(conn, server_side=True)
+            der = tls.getpeercert(binary_form=True)
+            self.start(tls, (host, port), ident, ssl.DER_cert_to_PEM_cert(der) if der else pem)
+        except (OSError, ssl.SSLError) as e:
+            log("dial", host, e)
+
+    def start(self, tls, addr, ident, peer_pem):
+        tls.settimeout(None)
+        did = ident.get("deviceId", "")
+        with self.lock:
+            if did in self.links:
+                tls.close()
+                return
+            # protocol 8: both say who they are again, now encrypted
+            if int(ident.get("protocolVersion", 7)) >= 8:
+                tls.sendall(self.identity())
+            link = Link(self, tls, addr, ident, peer_pem)
+            self.links[did] = link
+        self.seen.pop(did, None)
+        if did in self.trust.d and ident.get("deviceName"):
+            self.trust.d[did]["name"] = ident["deviceName"]
+        self.write_state()
+        threading.Thread(target=self.serve, args=(link,), daemon=True).start()
+        if did in self.trust.d:
+            self.hello(link)
+
+    def hello(self, link):
+        link.send(packet("kdeconnect.battery.request", {"request": True}))
+        link.send(packet("kdeconnect.notification.request", {"request": True}))
+
+    def gone(self, link):
+        with self.lock:
+            if self.links.get(link.id) is link:
+                del self.links[link.id]
+        self.write_state()
+
+    # ------------------------------------------------ what the phone says
+    def serve(self, link):
+        for raw in link.lines():
+            try:
+                p = json.loads(raw.decode(errors="replace"))
+            except ValueError:
+                continue
+            try:
+                self.handle(link, p)
+            except Exception as e:      # one bad packet never takes the connection down
+                log("packet", p.get("type"), e)
+
+    def handle(self, link, p):
+        kind, b = p.get("type", ""), p.get("body", {})
+        if kind == "kdeconnect.identity":
+            link.name = b.get("deviceName", link.name)
+            return
+        if kind == "kdeconnect.pair":
+            return self.on_pair(link, b)
+        if link.id not in self.trust.d:
+            return                       # nothing else until it's paired
+        if kind == "kdeconnect.battery":
+            self.battery[link.id] = {"charge": int(b.get("currentCharge", -1)), "charging": bool(b.get("isCharging"))}
+            if b.get("thresholdEvent") == 1:
+                notify(f"{link.name} is low", f"{b.get('currentCharge')}% left")
+            self.write_state()
+        elif kind == "kdeconnect.ping":
+            notify(link.name, b.get("message", "ping!"))
+        elif kind == "kdeconnect.notification":
+            if b.get("isCancel") or b.get("silent"):
+                return
+            title = b.get("title") or b.get("appName") or link.name
+            text = b.get("text") or b.get("ticker") or ""
+            notify(title, text, app=b.get("appName") or link.name)
+        elif kind in ("kdeconnect.clipboard", "kdeconnect.clipboard.connect"):
+            if b.get("content"):
+                run(["wl-copy"], b["content"].encode())
+        elif kind == "kdeconnect.findmyphone.request":
+            threading.Thread(target=self.ring_here, args=(link.name,), daemon=True).start()
+        elif kind == "kdeconnect.share.request":
+            self.on_share(link, p, b)
+        elif kind == "kdeconnect.sftp":
+            self.on_sftp(link, b)
+
+    def on_pair(self, link, b):
+        did = link.id
+        if b.get("pair"):
+            if did in self.asked or did in self.trust.d:
+                # the answer to our request (or it's re-confirming)
+                self.asked.discard(did)
+                if link.peer_pem:
+                    self.trust.add(did, link.name, link.peer_pem)
+                    notify(f"Paired with {link.name}")
+                    self.hello(link)
+                else:
+                    notify("Couldn't pair", "No certificate from the phone. Try pairing from the phone.")
+            else:
+                self.requests.add(did)
+                self.write_state()
+                threading.Thread(target=self.ask_user, args=(link,), daemon=True).start()
+        else:
+            self.asked.discard(did)
+            self.requests.discard(did)
+            if did in self.trust.d:
+                self.trust.remove(did)
+                notify(f"{link.name} unpaired")
+        self.write_state()
+
+    def ask_user(self, link):
+        a = notify(f"{link.name} wants to pair", "Accept only if it's your phone.", actions=(("accept", "Accept"), ("reject", "Reject")))
+        if link.id in self.requests and a in ("accept", "reject"):
+            self.answer(link.id, a == "accept")
+
+    def answer(self, did, yes):
+        link = self.links.get(did)
+        self.requests.discard(did)
+        if not link:
+            return "not connected"
+        link.send(packet("kdeconnect.pair", {"pair": bool(yes), "timestamp": int(time.time())}))
+        if yes and link.peer_pem:
+            self.trust.add(did, link.name, link.peer_pem)
+            self.hello(link)
+        self.write_state()
+        return "ok"
+
+    def ring_here(self, name):
+        notify(f"{name} is looking for this computer", "Here I am!")
+        snd = HOME / ".config/quickshell/kajukatli/sounds/chime.wav"
+        for _ in range(4):
+            run(["pw-play", str(snd)])
+
+    def on_share(self, link, p, b):
+        if "text" in b:
+            run(["wl-copy"], b["text"].encode())
+            notify(f"Text from {link.name}", "On the clipboard")
+        elif "url" in b:
+            run(["wl-copy"], b["url"].encode())
+            if notify(f"Link from {link.name}", b["url"], actions=(("open", "Open"),)) == "open":
+                subprocess.Popen(["xdg-open", b["url"]])
+        elif "filename" in b and p.get("payloadTransferInfo"):
+            threading.Thread(target=self.receive_file, args=(link, p, b), daemon=True).start()
+
+    def receive_file(self, link, p, b):
+        size = int(p.get("payloadSize", 0))
+        port = int(p["payloadTransferInfo"].get("port", 0))
+        dl = HOME / "Downloads"
+        dl.mkdir(exist_ok=True)
+        name = os.path.basename(b["filename"]) or "from-phone"
+        out = dl / name
+        n = 1
+        while out.exists():
+            out = dl / f"{Path(name).stem} ({n}){Path(name).suffix}"
+            n += 1
+        try:
+            conn = socket.create_connection((link.addr[0], port), timeout=15)
+            tls = self.ctx(server=False).wrap_socket(conn, server_side=False)
+            got = 0
+            with open(out, "wb") as f:
+                while size <= 0 or got < size:
+                    chunk = tls.recv(1 << 16)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    got += len(chunk)
+            tls.close()
+            if size > 0 and got < size:
+                raise OSError(f"only {got} of {size} bytes")
+            if notify(f"From {link.name}", out.name, actions=(("open", "Open"), ("folder", "Folder"))) == "open":
+                subprocess.Popen(["xdg-open", str(out)])
+        except (OSError, ssl.SSLError) as e:
+            notify(f"Couldn't receive {name}", str(e))
+            out.unlink(missing_ok=True)
+
+    def send_file(self, link, path):
+        path = Path(path)
+        srv = None
+        for port in range(1739, PORT_MAX + 1):
+            try:
+                srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                srv.bind(("", port))
+                srv.listen(1)
+                break
+            except OSError:
+                srv = None
+        if not srv:
+            return "no free port"
+        srv.settimeout(60)
+        size = path.stat().st_size
+        link.send(packet("kdeconnect.share.request", {"filename": path.name, "open": False},
+                         payloadSize=size, payloadTransferInfo={"port": port}))
+
+        def push():
+            try:
+                conn, _ = srv.accept()
+                tls = self.ctx(server=True).wrap_socket(conn, server_side=True)
+                with open(path, "rb") as f:
+                    while True:
+                        chunk = f.read(1 << 16)
+                        if not chunk:
+                            break
+                        tls.sendall(chunk)
+                tls.close()
+            except (OSError, ssl.SSLError) as e:
+                notify(f"Couldn't send {path.name}", str(e))
+            finally:
+                srv.close()
+        threading.Thread(target=push, daemon=True).start()
+        return "ok"
+
+    def on_sftp(self, link, b):
+        if b.get("errorMessage"):
+            notify("Can't open the phone's files", b["errorMessage"])
+            return
+        mnt = MOUNTS / link.id
+        mnt.mkdir(parents=True, exist_ok=True)
+        if not os.path.ismount(mnt):
+            r = subprocess.run(["sshfs", "-p", str(b.get("port", 1739)), f"{b.get('user', 'kdeconnect')}@{b.get('ip')}:{b.get('path', '/')}", str(mnt),
+                                "-o", "password_stdin", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
+                                "-o", "HostKeyAlgorithms=+ssh-rsa", "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa", "-o", "reconnect"],
+                               input=(b.get("password", "") + "\n").encode(), capture_output=True)
+            if r.returncode != 0:
+                notify("Can't open the phone's files", r.stderr.decode(errors="replace").strip()[:200] or "is sshfs installed?")
+                return
+        self.mounts[link.id] = str(mnt)
+        self.write_state()
+        subprocess.Popen(["xdg-open", str(mnt)])
+
+    # ------------------------------------------------ commands from the shell
+    def command(self, cmd, args):
+        if cmd == "status":
+            self.write_state()
+            return json.loads(STATE.read_text())
+        if cmd == "refresh":
+            self.broadcast()
+            return "ok"
+        did = args[0] if args else ""
+        if did == "auto":
+            # the first paired phone that's nearby (thunar's "send to phone")
+            did = next((d for d in self.links if d in self.trust.d), "")
+        link = self.links.get(did)
+        if cmd == "accept" or cmd == "reject":
+            return self.answer(did, cmd == "accept")
+        if cmd == "unpair":
+            if link:
+                link.send(packet("kdeconnect.pair", {"pair": False}))
+            self.trust.remove(did)
+            self.write_state()
+            return "ok"
+        if not link:
+            return "not connected"
+        if cmd == "pair":
+            self.asked.add(did)
+            link.send(packet("kdeconnect.pair", {"pair": True, "timestamp": int(time.time())}))
+            self.write_state()
+            return "accept on the phone"
+        if did not in self.trust.d:
+            return "not paired"
+        if cmd == "ring":
+            link.send(packet("kdeconnect.findmyphone.request"))
+        elif cmd == "ping":
+            link.send(packet("kdeconnect.ping", {"message": f"hi from {self.name}"}))
+        elif cmd == "battery":
+            link.send(packet("kdeconnect.battery.request", {"request": True}))
+        elif cmd == "clip":
+            text = run(["wl-paste", "--no-newline"]).decode(errors="replace")
+            if not text:
+                return "the clipboard is empty"
+            link.send(packet("kdeconnect.clipboard", {"content": text}))
+        elif cmd == "send":
+            for a in args[1:]:
+                if os.path.isfile(a):
+                    r = self.send_file(link, a)
+                    if r != "ok":
+                        return r
+                elif "://" in a:
+                    link.send(packet("kdeconnect.share.request", {"url": a}))
+                else:
+                    link.send(packet("kdeconnect.share.request", {"text": a}))
+        elif cmd == "browse":
+            if self.mounts.get(did) and os.path.ismount(self.mounts[did]):
+                subprocess.Popen(["xdg-open", self.mounts[did]])
+            else:
+                link.send(packet("kdeconnect.sftp.request", {"startBrowsing": True}))
+        else:
+            return "unknown command"
+        return "ok"
+
+    def control_loop(self):
+        try:
+            SOCK.unlink()
+        except FileNotFoundError:
+            pass
+        srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        srv.bind(str(SOCK))
+        SOCK.chmod(0o600)
+        srv.listen(4)
+        while True:
+            c, _ = srv.accept()
+            try:
+                req = json.loads(self.read_line(c).decode() or "{}")
+                out = self.command(req.get("cmd", ""), req.get("args", []))
+                c.sendall((json.dumps({"result": out}) + "\n").encode())
+            except Exception as e:
+                try:
+                    c.sendall((json.dumps({"error": str(e)}) + "\n").encode())
+                except OSError:
+                    pass
+            finally:
+                c.close()
+
+    def run(self):
+        threading.Thread(target=self.tcp_loop, daemon=True).start()
+        time.sleep(0.3)
+        threading.Thread(target=self.udp_loop, daemon=True).start()
+        threading.Thread(target=self.broadcast_loop, daemon=True).start()
+        self.write_state()
+        self.control_loop()
+
+
+def client(cmd, args):
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        s.connect(str(SOCK))
+    except OSError:
+        print("kk-phone isn't running (kk-phone daemon)", file=sys.stderr)
+        return 1
+    s.sendall((json.dumps({"cmd": cmd, "args": args}) + "\n").encode())
+    buf = b""
+    while not buf.endswith(b"\n"):
+        c = s.recv(65536)
+        if not c:
+            break
+        buf += c
+    r = json.loads(buf.decode() or "{}")
+    if "error" in r:
+        print(r["error"], file=sys.stderr)
+        return 1
+    out = r.get("result")
+    print(json.dumps(out) if not isinstance(out, str) else out)
+    return 0 if out in ("ok",) or not isinstance(out, str) or out.startswith("accept") else 1
+
+
+def main():
+    a = sys.argv[1:]
+    if not a or a[0] in ("-h", "--help", "help"):
+        print(__doc__.strip())
+        return 0
+    if a[0] == "daemon":
+        # one at a time
+        if SOCK.exists():
+            try:
+                s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                s.connect(str(SOCK))
+                s.close()
+                log("already running")
+                return 0
+            except OSError:
+                pass
+        Daemon().run()
+        return 0
+    return client(a[0], a[1:])
+
+
+if __name__ == "__main__":
+    sys.exit(main())

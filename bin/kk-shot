@@ -68,8 +68,6 @@ case "$action" in
         uri="file://$file"
         gdbus call --session --dest org.freedesktop.FileManager1 --object-path /org/freedesktop/FileManager1 \
             --method org.freedesktop.FileManager1.ShowItems "['$uri']" "" >/dev/null 2>&1 \
-        || { command -v nautilus >/dev/null && nautilus "$dir"; } \
-        || { command -v dolphin >/dev/null && dolphin "$dir"; } \
         || { command -v thunar >/dev/null && thunar "$dir"; } ;;
     edit) satty --filename "$file" --output-filename "$file" --copy-command wl-copy ;;
 esac

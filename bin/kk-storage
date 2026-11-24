@@ -4,7 +4,11 @@
 # kk-storage clean <what>      trash | thumbnails | cache | walls | pacman | journal | orphans | aur | all-safe
 # kk-storage trash list        what's in the recycle bin (json lines)
 # kk-storage trash restore|delete <trash uri>      kk-storage trash empty
-# kk-storage mount|unmount|eject <device>          kk-storage format <device>  (opens GNOME Disks)
+# kk-storage mount|unmount|eject <device>
+# kk-storage format <device> <exfat|fat32|ext4|ntfs|btrfs> [label]   (never the system disk)
+# kk-storage why               where the space went: the biggest things on the system, largest first
+# kk-storage tidy              the safe clean-ups at once, and caps on what grows (install.sh and
+#                              --update run it): clipboard images, crash dumps, caches, old packages
 # the shell's task manager (ctrl + shift + esc) → storage uses all of this.
 set -uo pipefail
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}"
@@ -111,7 +115,80 @@ case "${1:-report}" in
     unmount) udisksctl unmount -b "${2:?device}" ;;
     eject)   udisksctl unmount -b "${2:?device}" 2>/dev/null; udisksctl power-off -b "${2:?device}" ;;
     format)
-        if command -v gnome-disks >/dev/null; then exec gnome-disks --block-device "${2:?device}" --format-device
-        else echo "install gnome-disk-utility for formatting (it's in the apps extra)" >&2; exit 1; fi ;;
-    *) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+        dev="${2:?device}"; fs="${3:-exfat}"; label="${4:-}"
+        # never anything on the disk the system runs from
+        disk="/dev/$(lsblk -no PKNAME "$dev" 2>/dev/null | head -n1)"
+        [ "$disk" = "/dev/" ] && disk="$dev"
+        if lsblk -nro MOUNTPOINT "$disk" 2>/dev/null | grep -qxE '/|/boot|/boot/efi|/efi|/home|\[SWAP\]'; then
+            echo "that's the disk the system runs from: not formatting it" >&2; exit 1
+        fi
+        case "$fs" in
+            exfat) cmd="mkfs.exfat ${label:+-L \"$label\"} \"$dev\"" ;;
+            fat32) cmd="mkfs.fat -F 32 ${label:+-n \"${label:0:11}\"} \"$dev\"" ;;
+            ext4)  cmd="mkfs.ext4 -F ${label:+-L \"$label\"} \"$dev\"" ;;
+            ntfs)  cmd="mkfs.ntfs -f ${label:+-L \"$label\"} \"$dev\"" ;;
+            btrfs) cmd="mkfs.btrfs -f ${label:+-L \"$label\"} \"$dev\"" ;;
+            *) echo "format as exfat, fat32, ext4, ntfs or btrfs" >&2; exit 2 ;;
+        esac
+        # unmount everything on it, clear the old signatures, then the new filesystem
+        for p in $(lsblk -nro PATH "$dev"); do udisksctl unmount -b "$p" >/dev/null 2>&1 || true; done
+        pkexec sh -c "wipefs -a \"$dev\" >/dev/null && $cmd" || exit 1
+        # ext4/btrfs: make it yours, not root's
+        case "$fs" in ext4|btrfs)
+            m="$(udisksctl mount -b "$dev" 2>/dev/null | sed -n 's/.* at \(.*\)$/\1/p')"
+            [ -n "$m" ] && pkexec chown "$USER:" "$m" ;;
+        esac
+        echo "formatted $dev as $fs"
+        ;;
+    why)
+        # the biggest things, wherever they are (only what you're allowed to read; the system
+        # folders that usually grow are measured with sudo when it doesn't need a password)
+        s() { du -sxb "$1" 2>/dev/null | cut -f1; }
+        S() { sudo -n du -sxb "$1" 2>/dev/null | cut -f1 || du -sxb "$1" 2>/dev/null | cut -f1; }
+        {
+            for p in "$HOME"/.cache/* "$HOME"/.local/share/* "$HOME"/.local/state/* "$HOME"/.config/* \
+                     "$HOME"/Pictures/* "$HOME"/Videos/* "$HOME"/Downloads "$HOME"/Documents "$HOME"/Music \
+                     "$HOME"/.var "$HOME"/.cargo "$HOME"/.rustup "$HOME"/.npm "$HOME"/.m2 "$HOME"/.gradle \
+                     "$HOME"/go "$HOME"/.local/share/containers "$HOME"/.mozilla "$HOME"/.steam; do
+                [ -e "$p" ] && printf '%s\t%s\n' "$(s "$p")" "${p/#$HOME/\~}"
+            done
+            for p in /var/cache/pacman/pkg /var/lib/systemd/coredump /var/log/journal /var/lib/docker \
+                     /var/lib/flatpak /var/lib/containers /usr/lib/modules /opt /var/tmp /tmp /swapfile; do
+                [ -e "$p" ] && printf '%s\t%s\n' "$(S "$p")" "$p"
+            done
+            db="$CACHE/cliphist/db"; [ -f "$db" ] && printf '%s\t%s\n' "$(s "$db")" "~/.cache/cliphist (clipboard history)"
+        } | awk -F'\t' '$1 > 50*1024*1024' | sort -rn | head -n 25 |
+            while IFS=$'\t' read -r b p; do printf '%10s  %s\n' "$(numfmt --to=iec "$b")" "$p"; done
+        echo
+        echo "packages: $(pacman -Qq | wc -l) installed, $(numfmt --to=iec "$(LC_ALL=C pacman -Qi 2>/dev/null | awk -F': ' '/^Installed Size/ {
+            split($2, a, " "); m = (a[2] == "GiB") ? 1073741824 : (a[2] == "MiB") ? 1048576 : (a[2] == "KiB") ? 1024 : 1; t += a[1] * m } END {printf "%d", t}')") on disk"
+        echo "biggest packages:"
+        LC_ALL=C pacman -Qi 2>/dev/null | awk -F': ' '/^Name/ {n=$2} /^Installed Size/ {
+            split($2, a, " "); m = (a[2] == "GiB") ? 1024 : (a[2] == "MiB") ? 1 : 0; if (m) printf "%8.0f MiB  %s\n", a[1] * m, n }' | sort -rn | head -n 10
+        ;;
+    tidy)
+        # safe, automatic, and quiet: nothing you made, nothing you'd miss
+        rm -rf "$CACHE/pip" "$CACHE/paru/clone" "$CACHE/yay" "$CACHE/go-build" 2>/dev/null
+        find "$CACHE/thumbnails" -type f -atime +30 -delete 2>/dev/null
+        # clipboard history: the last 80 things (images included)
+        command -v cliphist >/dev/null && cliphist list 2>/dev/null | tail -n +81 | cliphist delete 2>/dev/null
+        # wallpaper workspace: unused for 30 days, and never more than 1.5 gb in all
+        "$0" clean walls
+        keep="$(current_wall_dir)"
+        total=$(sizeq "$CACHE/kajukatli/walls")
+        if [ "$total" -gt $((1536 * 1024 * 1024)) ]; then
+            find "$CACHE/kajukatli/walls" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null | sort -n | while read -r _ d; do
+                [ "$(sizeq "$CACHE/kajukatli/walls")" -gt $((1024 * 1024 * 1024)) ] || break
+                [ "$d" = "$keep" ] || rm -rf "$d"
+            done
+        fi
+        # the system part only when sudo is already unlocked (the installer) — never a prompt here
+        if sudo -n true 2>/dev/null; then
+            command -v paccache >/dev/null && { sudo -n paccache -rk1 -q; sudo -n paccache -ruk0 -q; } 2>/dev/null
+            sudo -n journalctl --vacuum-size=200M -q 2>/dev/null
+            sudo -n find /var/lib/systemd/coredump -type f -mtime +3 -delete 2>/dev/null
+        fi
+        true
+        ;;
+    *) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

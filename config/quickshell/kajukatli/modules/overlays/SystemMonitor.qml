@@ -110,6 +110,10 @@ Item {
         }
     }
     property var drives: []
+    // the format dialog (drives tab): which partition, as what, called what
+    property string formatting: ""
+    property string formatFs: "exfat"
+    property string formatLabel: ""
     function loadDrives() { if (!drvProc.running) drvProc.running = true; }
     Process {
         id: drvProc
@@ -332,7 +336,7 @@ Item {
                             Layout.fillWidth: true
                             Txt { text: root.reporting ? "Measuring…" : "Disks"; font.weight: Font.DemiBold; Layout.fillWidth: true }
                             Btn { icon: "restart"; onClicked: root.loadReport() }
-                            Btn { text: "Open GNOME Disks"; icon: "external"; onClicked: { Ui.overlay = ""; Quickshell.execDetached(["gnome-disks"]); } }
+                            Btn { text: "Partitions (GParted)"; icon: "external"; onClicked: { Ui.overlay = ""; Quickshell.execDetached(["sh", "-c", "xhost +SI:localuser:root >/dev/null 2>&1; exec gparted"]); } }
                         }
                         Repeater {
                             model: root.report ? root.report.disks : []
@@ -423,7 +427,7 @@ Item {
                         Layout.fillWidth: true
                         Txt { text: root.trash.length + (root.trash.length === 1 ? " item" : " items") + " · " + root.human(root.trash.reduce((s, t) => s + (t.size || 0), 0)); Layout.fillWidth: true; font.weight: Font.DemiBold }
                         Btn { icon: "restart"; onClicked: root.loadTrash() }
-                        Btn { text: "Open in Files"; icon: "external"; onClicked: { Ui.overlay = ""; Quickshell.execDetached(["sh", "-c", "nautilus --new-window trash:/// || xdg-open trash:///"]); } }
+                        Btn { text: "Open in Files"; icon: "external"; onClicked: { Ui.overlay = ""; Quickshell.execDetached(["sh", "-c", "thunar trash:/// || xdg-open trash:///"]); } }
                         Btn { text: "Empty"; danger: true; enabled: root.trash.length > 0; onClicked: root.storage(["trash", "empty"], "trash") }
                     }
                     ListView {
@@ -470,7 +474,40 @@ Item {
                     RowLayout {
                         Layout.fillWidth: true
                         Txt { text: "Drives and partitions"; Layout.fillWidth: true; font.weight: Font.DemiBold }
+                        Btn { text: "Partitions (GParted)"; icon: "external"; onClicked: { Ui.overlay = ""; Quickshell.execDetached(["sh", "-c", "xhost +SI:localuser:root >/dev/null 2>&1; exec gparted"]); } }
                         Btn { icon: "restart"; onClicked: root.loadDrives() }
+                    }
+                    // format: pick a filesystem and a name; everything on it is erased
+                    Rectangle {
+                        visible: root.formatting !== ""
+                        Layout.fillWidth: true
+                        implicitHeight: fmt.implicitHeight + 24
+                        radius: 14
+                        color: Theme.alpha(Theme.error, 0.12)
+                        border.width: 1
+                        border.color: Theme.alpha(Theme.error, 0.5)
+                        ColumnLayout {
+                            id: fmt
+                            x: 12; y: 12
+                            width: parent.width - 24
+                            spacing: 8
+                            Txt { text: "Format " + root.formatting + ": everything on it is erased"; font.weight: Font.Bold; color: Theme.error }
+                            RowLayout {
+                                spacing: 6
+                                Txt { text: "as"; color: Theme.surfaceTextDim }
+                                Repeater {
+                                    model: [{ v: "exfat", l: "exFAT (any computer, big files)" }, { v: "fat32", l: "FAT32 (old devices)" }, { v: "ntfs", l: "NTFS (Windows)" }, { v: "ext4", l: "ext4 (Linux)" }, { v: "btrfs", l: "Btrfs" }]
+                                    delegate: Btn { required property var modelData; text: modelData.l; active: root.formatFs === modelData.v; onClicked: root.formatFs = modelData.v }
+                                }
+                            }
+                            RowLayout {
+                                spacing: 8
+                                Field { Layout.preferredWidth: 220; size: Theme.md; placeholder: "Name (optional)"; text: root.formatLabel; onTextChanged: root.formatLabel = text }
+                                Item { Layout.fillWidth: true }
+                                Btn { text: "Cancel"; onClicked: root.formatting = "" }
+                                Btn { text: "Erase and format"; danger: true; active: true; onClicked: { root.storage(["format", root.formatting, root.formatFs, root.formatLabel], "drives"); root.formatting = ""; } }
+                            }
+                        }
                     }
                     ListView {
                         id: dlist
@@ -508,7 +545,7 @@ Item {
                                 Btn { text: "Unmount"; visible: !!dv.modelData.mountpoint && !dv.system; onClicked: root.storage(["unmount", dv.modelData.path], "drives") }
                                 Btn { text: "Eject"; visible: dv.modelData.removable && !dv.system; onClicked: root.storage(["eject", dv.modelData.path], "drives") }
                                 // never the disk the system runs from
-                                Btn { text: "Format…"; danger: true; visible: !dv.system; onClicked: { Ui.overlay = ""; root.storage(["format", dv.modelData.path], ""); } }
+                                Btn { text: "Format…"; danger: true; visible: !dv.system; onClicked: { root.formatting = dv.modelData.path; root.formatFs = "exfat"; root.formatLabel = dv.modelData.label || ""; } }
                             }
                         }
                     }

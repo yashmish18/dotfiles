@@ -1,11 +1,12 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import Quickshell
 import qs.services
 import qs.components
 
-// your phone (kde connect): its battery, ring it, files and the clipboard both ways,
-// its storage in the file manager, texts. pair a new one from here too.
+// your phone (kk-phone, speaking the KDE Connect protocol): its battery, ring it, files and
+// the clipboard both ways, its storage in the file manager. pair a new one from here too.
 Item {
     id: root
     implicitWidth: 380
@@ -13,9 +14,16 @@ Item {
     focus: true
     Keys.onEscapePressed: Ui.panel = ""
     Uses { service: Phone }
-    Component.onCompleted: Phone.refresh()
+    Component.onCompleted: { if (!Phone.available) Phone.start(); else Phone.refresh(); }
 
     readonly property var d: Phone.current
+
+    FileDialog {
+        id: picker
+        title: "Send to " + (root.d ? root.d.name : "phone")
+        fileMode: FileDialog.OpenFiles
+        onAccepted: Phone.sendPaths(root.d, selectedFiles.map(u => decodeURIComponent(String(u).replace(/^file:\/\//, ""))))
+    }
 
     ColumnLayout {
         id: col
@@ -25,25 +33,45 @@ Item {
         PageHead {
             backButton: false
             title: root.d ? root.d.name : "Phone"
-            subtitle: !Phone.available ? "KDE Connect isn't installed"
+            subtitle: !Phone.available ? "Starting the phone service…"
                 : !root.d ? "No phone yet"
+                : root.d.waiting ? "Accept on the phone"
                 : !root.d.paired ? "Not paired"
                 : !root.d.reachable ? "Paired · not nearby"
                 : (root.d.battery >= 0 ? root.d.battery + "%" + (root.d.charging ? " · charging" : "") + " · " : "") + "connected"
-            Btn { icon: "restart"; enabled: Phone.available; onClicked: Phone.rescan() }
-            Btn { icon: "external"; enabled: Phone.available; onClicked: { Ui.panel = ""; Phone.openApp(); } }
+            Btn { icon: "restart"; onClicked: Phone.available ? Phone.refresh() : Phone.start() }
+        }
+
+        // the phone asked to pair
+        Repeater {
+            model: Phone.requests
+            delegate: Rectangle {
+                required property var modelData
+                Layout.fillWidth: true
+                implicitHeight: 56
+                radius: Theme.radius
+                color: Theme.alpha(Theme.primary, 0.18)
+                Txt { x: 14; anchors.verticalCenter: parent.verticalCenter; text: modelData.name + " wants to pair"; font.weight: Font.DemiBold }
+                Row {
+                    anchors.right: parent.right; anchors.rightMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+                    Btn { text: "Accept"; primary: true; onClicked: Phone.accept(parent.parent.modelData) }
+                    Btn { text: "No"; onClicked: Phone.reject(parent.parent.modelData) }
+                }
+            }
         }
 
         // not set up yet: how
         Txt {
-            visible: !Phone.available || Phone.devices.length === 0
+            visible: Phone.devices.length === 0
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             color: Theme.surfaceTextDim
             font.pixelSize: Theme.sm
-            text: !Phone.available
-                ? "Install the phone extra (./install.sh --extras=13, or: sudo pacman -S kdeconnect sshfs), then put the KDE Connect app on your phone. Both on the same Wi-Fi."
-                : "Open KDE Connect on your phone, on the same Wi-Fi. It shows up here; tap Pair and accept on the phone."
+            text: "Put the free KDE Connect app on your phone (Play Store, F-Droid or App Store), same Wi-Fi as this computer. "
+                + (Phone.selfName ? "“" + Phone.selfName + "” shows up in it; " : "This computer shows up in it; ")
+                + "tap it, Request pairing, and accept here. Nothing from KDE is installed on this computer."
         }
 
         // the battery, big
@@ -54,7 +82,6 @@ Item {
             radius: Theme.radius
             color: Theme.surfaceHigh
             Rectangle {
-                x: 0; y: 0
                 height: parent.height
                 width: root.d && root.d.battery >= 0 ? parent.width * root.d.battery / 100 : 0
                 radius: parent.radius
@@ -79,11 +106,11 @@ Item {
             columnSpacing: 8
             rowSpacing: 8
             Toggle { Layout.fillWidth: true; icon: "ring"; title: "Find it"; detail: "make it ring"; onToggled: Phone.ring(root.d) }
-            Toggle { Layout.fillWidth: true; icon: "upload"; title: "Send files"; detail: "pick, and off they go"; onToggled: { Ui.panel = ""; Phone.sendFiles(root.d); } }
+            Toggle { Layout.fillWidth: true; icon: "upload"; title: "Send files"; detail: "pick, and off they go"; onToggled: picker.open() }
             Toggle { Layout.fillWidth: true; icon: "clipboard"; title: "Clipboard"; detail: "send what you copied"; onToggled: Phone.sendClipboard(root.d) }
-            Toggle { Layout.fillWidth: true; icon: "folder"; title: "Its files"; detail: "in the file manager"; onToggled: { Ui.panel = ""; Phone.browse(root.d); } }
-            Toggle { Layout.fillWidth: true; icon: "bell"; title: "Texts"; detail: "read and reply"; onToggled: { Ui.panel = ""; Phone.texts(root.d); } }
+            Toggle { Layout.fillWidth: true; icon: "folder"; title: "Its files"; detail: root.d && root.d.mounted ? "open" : "browse its storage"; onToggled: { Ui.panel = ""; Phone.browse(root.d); } }
             Toggle { Layout.fillWidth: true; icon: "spark"; title: "Ping"; detail: "say hi"; onToggled: Phone.ping(root.d) }
+            Toggle { Layout.fillWidth: true; icon: "battery"; title: "Battery"; detail: "ask again"; onToggled: Phone.battery(root.d) }
         }
 
         Txt {
@@ -110,7 +137,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     Txt { text: row.modelData.name; font.weight: Font.DemiBold }
                     Txt {
-                        text: (row.modelData.paired ? "paired" : "not paired") + (row.modelData.reachable ? " · nearby" : " · away")
+                        text: (row.modelData.paired ? "paired" : row.modelData.waiting ? "waiting for the phone" : "not paired") + (row.modelData.reachable ? " · nearby" : " · away")
                         font.pixelSize: Theme.xs + 1
                         color: Theme.surfaceTextDim
                     }
