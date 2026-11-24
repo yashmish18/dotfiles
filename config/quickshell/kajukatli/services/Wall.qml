@@ -231,8 +231,11 @@ Singleton {
     }
     function stopVideo() {
         videoStart.stop();
+        settle.stop();
         videoReady = false;      // our still frame comes back first…
-        if (mpv.running) mpv.running = false;   // …then the video goes
+        // …then the video goes, once our layer has had time to put the picture back on screen:
+        // killing it at once leaves a black gap, which is the screen "turning off" on a switch
+        if (mpv.running) mpvStop.restart();
     }
     onVideoAllowedChanged: videoAllowed ? startVideo() : stopVideo()
 
@@ -352,6 +355,11 @@ Singleton {
             if (running) settle.restart();
             else root.videoReady = false;
         }
+    }
+    Timer {
+        id: mpvStop
+        interval: 450
+        onTriggered: if (!root.videoReady) mpv.running = false
     }
     Timer {
         id: settle

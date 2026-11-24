@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Switching wallpaper no longer blanks the screen for a moment: a live wallpaper is stopped only after the still picture is back on screen.
 - Projection: "External only" no longer flips back to extend a second later (the shell mistook the screens its own reload re-added for a new cable); unplugging the external screen turns the laptop's back on; overlays, toasts and the volume pop-up always land on a screen that is really on, so the menu opens in external-only mode too.
 - Visualiser: if cava is running but hears nothing while music plays (a new wallpaper or its video took the audio device), it restarts; a wallpaper change always restarts the feed.
 - Storage clean-ups say what they freed (or that there was nothing to clean), the recycle bin really empties, the wallpaper workspace cleans everything but the current wallpaper, old packages fall back to `pacman -Sc` without paccache, a second click during a running clean-up is no longer silently dropped.
