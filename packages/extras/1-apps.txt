@@ -1,9 +1,8 @@
-# everyday apps: nautilus files (thunar too, light and standalone) (drives, phones, archives, thumbnails), browser, player, images, mixer, bluetooth, disk partitions · ~350 mb
+# everyday apps: nautilus files (drives, phones, archives, thumbnails; themed by the shell), browser, player, images, mixer, bluetooth, disk partitions · ~350 mb
 # default: on
 nautilus
-thunar
-thunar-volman
-thunar-archive-plugin
+file-roller
+sushi
 tumbler
 ffmpegthumbnailer
 xarchiver

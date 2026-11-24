@@ -1,0 +1,4 @@
+#!/bin/sh
+# nautilus: right-click files → scripts → send them to your phone (kde connect, via kk-phone)
+[ "$#" -gt 0 ] || exit 0
+exec "$HOME/.local/bin/kk-phone" send auto "$@"

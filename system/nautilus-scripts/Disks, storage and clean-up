@@ -1,0 +1,3 @@
+#!/bin/sh
+# nautilus: right-click → scripts → the shell's task manager (drives, storage, clean-up)
+exec qs -c kajukatli ipc call shell run system

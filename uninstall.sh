@@ -70,7 +70,8 @@ for f in "$CONFIG/hypr/modules/theme.lua" "$CONFIG/hypr/modules/gpu.lua" "$CONFI
          "$HOME/.local/share/applications/kk-photobooth.desktop"; do
     [ -e "$f" ] && do_ rm -f "$f"
 done
-for f in "$CONFIG/Thunar/uca.xml"; do
+for f in "$HOME/.local/share/nautilus/scripts/Open terminal here" "$HOME/.local/share/nautilus/scripts/Send to phone" \
+         "$HOME/.local/share/nautilus/scripts/Disks, storage and clean-up" "$HOME/.local/share/nautilus/scripts/Edit as administrator"; do
     [ -e "$f" ] && do_ rm -f "$f"
 done
 # user.lua is yours: kept unless everything goes

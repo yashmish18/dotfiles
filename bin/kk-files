@@ -1,14 +1,8 @@
 #!/bin/sh
-# kk-files [path]   a new file manager window (super + e). uses the first one installed: nautilus,
-#                   then thunar, nemo, pcmanfm, dolphin. none? it offers to install nautilus.
+# kk-files [path]   a new Nautilus window (super + e). not installed? it offers to install it.
 set -u
-for fm in nautilus thunar nemo pcmanfm dolphin; do
-    if command -v "$fm" >/dev/null 2>&1; then
-        case "$fm" in
-            nautilus) exec nautilus --new-window "$@" ;;
-            *) exec "$fm" "$@" ;;
-        esac
-    fi
-done
-notify-send -a Files "No file manager installed" "Opening a terminal to install Nautilus." 2>/dev/null
-exec kitty -e sh -c 'echo "no file manager found. installing nautilus:"; sudo pacman -S --needed nautilus gvfs gvfs-mtp; echo; echo "done. press super + e again."; read -r _'
+if command -v nautilus >/dev/null 2>&1; then
+    exec nautilus --new-window "$@"
+fi
+notify-send -a Files "Nautilus isn't installed" "Opening a terminal to install it." 2>/dev/null
+exec kitty -e sh -c 'echo "installing nautilus (files, drives, phones, archives, thumbnails):"; sudo pacman -S --needed nautilus gvfs gvfs-mtp file-roller sushi; echo; echo "done. press super + e again."; read -r _'

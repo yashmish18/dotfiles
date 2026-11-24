@@ -1,0 +1,4 @@
+#!/bin/sh
+# nautilus: right-click a file → scripts → edit it as root (sudoedit, in a terminal)
+[ -n "$1" ] || exit 0
+exec kitty -e sudoedit "$1"

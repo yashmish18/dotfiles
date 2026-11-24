@@ -28,7 +28,7 @@ Item {
         { keys: ["displays", "drag"], what: "arrange your screens (they snap edge to edge)" }
     ]
 
-    function mods(mask: var): string {
+    function mods(mask: var): var {
         const out = [];
         if (mask & 64) out.push("super");
         if (mask & 4) out.push("ctrl");

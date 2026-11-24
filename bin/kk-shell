@@ -19,7 +19,13 @@ while :; do
         notify-send -u critical -a kajukatli "The shell keeps stopping" "See: qs -c kajukatli (run it in a terminal to read why). Trying again in a minute." 2>/dev/null
         sleep 60; fast=0
     else
-        [ "$rc" -ne 0 ] && notify-send -a kajukatli "The shell stopped and was restarted" "exit code $rc" 2>/dev/null
+        if [ "$rc" -ge 128 ]; then
+            # killed by a signal (a real crash): say where quickshell left its crash report
+            cr="$(ls -dt "${XDG_CACHE_HOME:-$HOME/.cache}"/quickshell/crashes/* 2>/dev/null | head -n1)"
+            notify-send -u critical -a kajukatli "The shell crashed and was restarted" "${cr:+report: $cr}" 2>/dev/null
+        elif [ "$rc" -ne 0 ]; then
+            notify-send -a kajukatli "The shell stopped and was restarted" "exit code $rc" 2>/dev/null
+        fi
         sleep 1
     fi
 done

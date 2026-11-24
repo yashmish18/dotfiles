@@ -170,6 +170,10 @@ Singleton {
                 let list = [];
                 try { list = JSON.parse(text); } catch (e) { return; }
                 if (list.some(c => c.pid === t.pid)) return;           // it still has a window
+                // never the shell itself: its own windows (the settings window, a floating panel)
+                // are Hyprland clients owned by this very process, and "closed its last window"
+                // would otherwise make the shell terminate itself the moment you close settings
+                if (t.pid === Quickshell.processId || /quickshell|^qs$|kajukatli|hyprland|xwayland/i.test(String(t.cls))) return;
                 const a = (Config.s.backgroundAllowed || []).map(x => String(x).toLowerCase());
                 const entry = root.entryFor(t.cls);
                 if (a.indexOf(String(t.cls).toLowerCase()) !== -1 || (entry && a.indexOf(String(entry.id).toLowerCase()) !== -1)) return;

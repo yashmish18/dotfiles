@@ -10,7 +10,7 @@ A desktop shell for Arch Linux and Hyprland that builds its colours and clock fr
 
 ## Features
 
-Kajukatli is Hyprland plus its own desktop. It uses no GNOME or KDE desktop pieces: the control center, task manager, software centre, display settings, phone link and sound modes are all built into the shell. Files open in Nautilus (Thunar is installed too); imv, mpv and GParted cover pictures, video and disks.
+Kajukatli is Hyprland plus its own desktop. It uses no GNOME or KDE desktop pieces: the control center, task manager, software centre, display settings, phone link and sound modes are all built into the shell. Files open in Nautilus, coloured by the shell; imv, mpv and GParted cover pictures, video and disks.
 
 ### The look
 
@@ -86,7 +86,7 @@ The installer creates a backup before linking configuration and offers these ext
 
 | # | Extra | Contents |
 |---|---|---|
-| 1 | Apps | Nautilus and Thunar files, Firefox, mpv, imv, GParted, mixer, Bluetooth |
+| 1 | Apps | Nautilus files, Firefox, mpv, imv, GParted, mixer, Bluetooth |
 | 2 | Capture | Screenshot editor, recorder, and colour picker |
 | 3 | Visualiser | Cava |
 | 4 | Live wallpapers | MP4, WebM, MKV, MOV and GIF through mpvpaper, plus example loops |

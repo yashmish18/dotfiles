@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# nautilus: right-click → scripts → open a terminal in this folder (or the selected folder)
+dir="${NAUTILUS_SCRIPT_CURRENT_URI:-}"
+dir="${dir#file://}"
+dir="$(printf '%b' "${dir//%/\\x}")"
+[ -n "$1" ] && [ -d "$1" ] && dir="$1"
+exec kitty --directory "${dir:-$HOME}"

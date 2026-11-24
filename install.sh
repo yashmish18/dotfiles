@@ -453,8 +453,11 @@ links() {
     # quickshell: the whole folder, so compiled shaders sit next to the qml that loads them
     backup_and_link "$REPO/config/quickshell/kajukatli" "$CONFIG/quickshell/kajukatli"
     backup_and_link "$REPO/config/quickshell/kk-photobooth" "$CONFIG/quickshell/kk-photobooth"
-    # thunar's right-click actions (terminal here, send to phone, storage, edit as admin): once, yours after
-    [ -e "$CONFIG/Thunar/uca.xml" ] || install -Dm644 "$REPO/system/thunar/uca.xml" "$CONFIG/Thunar/uca.xml"
+    # nautilus's right-click scripts (terminal here, send to phone, storage, edit as admin): once, yours after
+    for f in "$REPO"/system/nautilus-scripts/*; do
+        [ -f "$f" ] || continue
+        [ -e "$HOME/.local/share/nautilus/scripts/$(basename "$f")" ] || install -Dm755 "$f" "$HOME/.local/share/nautilus/scripts/$(basename "$f")"
+    done
     # our own apps in the app drawer
     for f in "$REPO"/system/applications/*.desktop; do
         [ -f "$f" ] && install -Dm644 "$f" "$HOME/.local/share/applications/$(basename "$f")"
@@ -731,8 +734,7 @@ defaults() {
     fi
     # folders open in the file manager, pictures and videos in their viewers (not the terminal)
     if command -v xdg-mime >/dev/null; then
-        if [ -f /usr/share/applications/org.gnome.Nautilus.desktop ]; then xdg-mime default org.gnome.Nautilus.desktop inode/directory
-        elif [ -f /usr/share/applications/thunar.desktop ]; then xdg-mime default thunar.desktop inode/directory; fi
+        [ -f /usr/share/applications/org.gnome.Nautilus.desktop ] && xdg-mime default org.gnome.Nautilus.desktop inode/directory
         [ -f /usr/share/applications/imv.desktop ] && xdg-mime default imv.desktop image/png image/jpeg image/webp image/gif
         [ -f /usr/share/applications/mpv.desktop ] && xdg-mime default mpv.desktop video/mp4 video/webm video/x-matroska
     fi
