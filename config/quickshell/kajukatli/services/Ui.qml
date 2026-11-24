@@ -36,6 +36,16 @@ Singleton {
         Sounds.play(focusMode ? "focus" : "unfocus", 0);
     }
 
+    // Closing a window that still has a text field focused makes Qt's wayland text-input code
+    // trip over the dead surface ("Trying to disable X but Y is focused", the last line of the
+    // shell's logs before it died). So a closed overlay / emoji picker keeps its (empty,
+    // unfocused) window alive for a moment and is destroyed only after the focus has moved on.
+    property bool overlayLinger: false
+    property bool emojiLinger: false
+    onOverlayChanged: { overlayLinger = overlay === "" ; if (overlay === "") lingerTimer.restart(); }
+    onEmojiOpenChanged: { emojiLinger = !emojiOpen; if (!emojiOpen) lingerTimer.restart(); }
+    Timer { id: lingerTimer; interval: 350; onTriggered: { root.overlayLinger = false; root.emojiLinger = false; } }
+
     readonly property bool anyOpen: panel !== "" || overlay !== ""
     // room the bar takes at the top edge, for toasts and the osd to sit under it
     readonly property int topInset: barVisible && Config.s.barStyle !== "none" && Config.s.barStyle !== "rail" && Config.s.barPosition === "top" ? Theme.barHeight + 6 : 0

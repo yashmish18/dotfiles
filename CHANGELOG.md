@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Crash guard: a closed overlay or emoji picker keeps its empty window for a third of a second before it is destroyed, so Qt never tears down a surface that still has a focused text field (the last thing in the shell logs before it died).
 - Right-click to edit: a desktop widget's menu (bigger, smaller, put back, let the shell place it, hide); the bar's menu on its empty space or the logo (style, top or bottom, hide, choose modules). The logo is now a kitty.
 - Our own apps (software centre, task manager, running apps, clipboard, phone) sit in the bar's tray, ahead of other apps' icons.
 - Settings: the refresh-rate choices are the ones each screen really reports; removed the Bluetooth-reconnect, clipboard-history and quit-apps-when-their-last-window-closes switches (always on / fixed: apps close a few seconds after their last window unless allowed).

@@ -9,7 +9,7 @@ import qs.components
 // created only while open, so they cost nothing the rest of the time.
 LazyLoader {
     id: loader
-    active: Ui.overlay !== ""
+    active: Ui.overlay !== "" || Ui.overlayLinger
 
     PanelWindow {
         id: win
@@ -17,17 +17,18 @@ LazyLoader {
         visible: !Ui.authWaiting
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "kajukatli-overlay"
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+        WlrLayershell.keyboardFocus: Ui.overlay !== "" ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
+        // while it lingers after closing (see Ui.overlayLinger) it takes no clicks
+        mask: Region { item: Ui.overlay !== "" ? dim : null }
 
         Rectangle {
             id: dim
             anchors.fill: parent
             color: Theme.alpha("#000000", Ui.overlay === "wallpapers" ? 0.55 : Ui.overlay === "apps" ? 0.6 : 0.72)   // a dark scrim in light mode too: overlay text is white
-            opacity: 0
-            Component.onCompleted: opacity = 1
+            opacity: Ui.overlay !== "" ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: Theme.normal } }
 
             ShaderEffect {

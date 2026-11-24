@@ -11,20 +11,21 @@ import qs.components
 // type to search, arrows to move, enter (or a click) types it into the window you were in,
 // and copies it too. tabs along the top narrow it down; the first one is what you used last.
 LazyLoader {
-    active: Ui.emojiOpen
+    active: Ui.emojiOpen || Ui.emojiLinger
 
     PanelWindow {
         id: win
         screen: Hypr.activeScreen
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "kajukatli-emoji"
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+        WlrLayershell.keyboardFocus: Ui.emojiOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore
         anchors { left: true; top: true }
         margins { left: Math.max(0, spotX); top: Math.max(0, spotY) }
         implicitWidth: 348
         implicitHeight: 392
         color: "transparent"
+        mask: Region { item: Ui.emojiOpen ? card : null }
 
         // where it floats: right by the pointer (just above it, or below when there's no room),
         // inside the screen and clear of the bar. worked out once when it opens; drag the
@@ -150,6 +151,7 @@ LazyLoader {
         Rectangle {
             id: card
             anchors.fill: parent
+            visible: Ui.emojiOpen        // closed but still alive for a moment (see Ui.emojiLinger): draw nothing
             radius: Theme.radius + 8
             color: Theme.glassStrong
             border.width: 1
@@ -195,7 +197,8 @@ LazyLoader {
                     color: Theme.surfaceText
                     selectionColor: Theme.primary
                     selectedTextColor: Theme.primaryText
-                    focus: true
+                    focus: Ui.emojiOpen
+                    enabled: Ui.emojiOpen
                     Component.onCompleted: forceActiveFocus()
                     onTextChanged: { win.index = 0; grid.positionViewAtBeginning(); }
                     Keys.onEscapePressed: Ui.emojiOpen = false
