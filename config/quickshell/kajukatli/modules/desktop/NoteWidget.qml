@@ -2,11 +2,12 @@ import QtQuick
 import qs.services
 import qs.components
 
-// a note on the desktop. click and type; it saves as you go.
+// a note on the desktop: a fixed-size card you type in; longer text scrolls (wheel, or just
+// keep typing). it saves as you go. drag it by the strip at the top, resize by its corner dot.
 Rectangle {
     id: root
-    implicitWidth: 260
-    implicitHeight: Math.max(120, edit.contentHeight + 44)
+    implicitWidth: 280
+    implicitHeight: 200
     radius: Theme.radius
     color: Theme.glass
     border.width: 1
@@ -22,25 +23,56 @@ Rectangle {
         radius: 2
         color: Theme.alpha(Theme.surfaceText, 0.25)
     }
-    TextEdit {
-        id: edit
+
+    Flickable {
+        id: flick
         anchors.fill: parent
-        anchors.margins: 16
+        anchors.leftMargin: 16
+        anchors.rightMargin: 12
         anchors.topMargin: 22
-        text: Config.s.noteText
-        // a note edited elsewhere (or restored from settings) shows up here too
-        Connections {
-            target: Config.s
-            function onNoteTextChanged() { if (!edit.activeFocus && edit.text !== Config.s.noteText) edit.text = Config.s.noteText; }
+        anchors.bottomMargin: 12
+        clip: true
+        contentWidth: width
+        contentHeight: Math.max(height, edit.contentHeight + 6)
+        boundsBehavior: Flickable.StopAtBounds
+        flickableDirection: Flickable.VerticalFlick
+
+        // keep the cursor in view while typing
+        function follow(r: rect) {
+            if (r.y < contentY) contentY = r.y;
+            else if (r.y + r.height > contentY + height) contentY = r.y + r.height - height;
         }
-        wrapMode: TextEdit.Wrap
-        color: Theme.surfaceText
-        selectionColor: Theme.primaryContainer
-        selectedTextColor: Theme.primaryContainerText
-        font.family: Theme.sans
-        font.pixelSize: Theme.md + 1
-        // save shortly after you stop typing
-        onTextChanged: save.restart()
-        Timer { id: save; interval: 600; onTriggered: if (Config.s.noteText !== edit.text) Config.s.noteText = edit.text }
+
+        TextEdit {
+            id: edit
+            width: flick.width - 6
+            text: Config.s.noteText
+            wrapMode: TextEdit.Wrap
+            color: Theme.surfaceText
+            selectionColor: Theme.primaryContainer
+            selectedTextColor: Theme.primaryContainerText
+            font.family: Theme.sans
+            font.pixelSize: Theme.md + 1
+            onCursorRectangleChanged: flick.follow(cursorRectangle)
+            // save shortly after you stop typing
+            onTextChanged: save.restart()
+            Timer { id: save; interval: 600; onTriggered: if (Config.s.noteText !== edit.text) Config.s.noteText = edit.text }
+            // a note edited elsewhere (or restored from settings) shows up here too
+            Connections {
+                target: Config.s
+                function onNoteTextChanged() { if (!edit.activeFocus && edit.text !== Config.s.noteText) edit.text = Config.s.noteText; }
+            }
+        }
+    }
+    // a thin scroll bar, only when there's more than fits
+    Rectangle {
+        visible: flick.contentHeight > flick.height + 1
+        anchors.right: parent.right
+        anchors.rightMargin: 4
+        width: 3
+        radius: 1.5
+        color: Theme.alpha(Theme.surfaceText, 0.3)
+        y: flick.y + (flick.contentY / flick.contentHeight) * flick.height
+        height: Math.max(16, flick.height * flick.height / flick.contentHeight)
     }
 }
