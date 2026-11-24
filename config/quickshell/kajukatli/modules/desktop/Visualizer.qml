@@ -20,7 +20,7 @@ Item {
     property real fillOpacity: 0.55
     property real gap: 2
     property real minBar: 2
-    property bool round: true
+    property real roundness: 0.5          // 0 square … 1 fully rounded ends
     property int easeMs: 60               // ms a bar takes to follow
     property bool flip: false             // hang from the top edge instead of standing on the bottom
     property bool sparks: false
@@ -83,7 +83,7 @@ Item {
                     readonly property real v: root.vals[index] || 0
                     Rectangle {
                         width: parent.width
-                        radius: root.round ? Math.min(width / 2, 6) : 0
+                        radius: Math.max(0, Math.min(1, root.roundness)) * width / 2
                         color: root.colorAt(parent.index, root.count)
                         opacity: root.fillOpacity + (1 - root.fillOpacity) * parent.v
                         height: Math.max(root.minBar, parent.v * root.height)

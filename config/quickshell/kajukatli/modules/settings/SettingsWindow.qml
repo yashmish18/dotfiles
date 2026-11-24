@@ -483,8 +483,16 @@ LazyLoader {
                 }
                 Group {
                     title: "Music bars"
-                    Setting { label: "Show"; detail: "Right-click the bars on the desktop to change anything else: style, width, colour, number of bars, gaps, sparks, size."
-                        Choice { options: [{ value: "off", label: "off" }, { value: "wave", label: "wave" }, { value: "bars", label: "bars" }, { value: "mirror", label: "mirror" }, { value: "both", label: "wave + bars" }]; value: Config.s.visualizer; onPicked: v => Config.s.visualizer = v } }
+                    Setting { label: "Show"; detail: "Right-click the bars on the desktop for their shape, place, number, spacing and roundness. Drag the box's corner to resize it."
+                        Choice { options: [{ value: "off", label: "Off" }, { value: "bars", label: "Bars" }, { value: "wave", label: "Wave" }, { value: "mirror", label: "Mirrored" }, { value: "both", label: "Wave + bars" }]; value: Config.s.visualizer; onPicked: v => Config.s.visualizer = v } }
+                    Setting { label: "Colour"
+                        Choice { options: [{ value: "wallpaper", label: "From the wallpaper" }, { value: "accent", label: "Accent" }, { value: "album", label: "From the album" }, { value: "rainbow", label: "Rainbow" }]; value: Config.s.visualizerColor; onPicked: v => Config.s.visualizerColor = v } }
+                    Setting { label: "How solid"; detail: "Lower lets the wallpaper show through."
+                        Slider { implicitWidth: 220; value: (Config.s.visualizerOpacity - 0.1) / 0.9; valueText: Math.round(Config.s.visualizerOpacity * 100) + "%"; onMoved: v => Config.s.visualizerOpacity = Math.round((0.1 + v * 0.9) * 100) / 100 } }
+                    Setting { label: "Movement"; detail: "Snappy follows every hit; smooth glides."
+                        Choice { options: [{ value: 20, label: "Snappy" }, { value: 60, label: "Normal" }, { value: 140, label: "Smooth" }]; value: Config.s.visualizerSmooth; onPicked: v => Config.s.visualizerSmooth = v } }
+                    Setting { label: "Behind the person in the picture"; detail: "When the wallpaper has a subject, the bars go behind them."
+                        Switch { on: Config.s.visualizerBehind; onToggled: Config.s.visualizerBehind = !Config.s.visualizerBehind } }
                 }
                 Group {
                     title: "Music fun"
@@ -548,6 +556,8 @@ LazyLoader {
                             Btn { text: Wall.fetching ? "Getting…" : "Get anime ones"; icon: "download"; enabled: !Wall.fetching; onClicked: Wall.fetchAnime() }
                             Btn { text: "Surprise me"; icon: "shuffle"; onClicked: Wall.random() }
                             Btn { text: "Browse"; icon: "image"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.toggleOverlay("wallpapers"); } } } }
+                    Setting { label: "Switch speed"; detail: "How long the ink takes to fill in a new wallpaper."
+                        Choice { options: [{ value: 800, label: "Quick" }, { value: 1600, label: "Normal" }, { value: 3200, label: "Slow" }]; value: Config.s.transitionMs; onPicked: v => Config.s.transitionMs = v } }
                     Setting { label: "Folder"
                         Field { implicitWidth: 260; size: Theme.md; text: Config.s.wallpaperDir; onAccepted: { Config.s.wallpaperDir = text.trim(); Wall.refreshLibrary(); } } }
                     Setting { label: "A new one by itself"

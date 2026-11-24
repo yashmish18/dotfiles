@@ -245,7 +245,7 @@ Item {
         colorMode: Config.s.visualizerColor
         fillOpacity: Config.s.visualizerOpacity
         gap: Config.s.visualizerGap
-        round: Config.s.visualizerRound
+        roundness: Config.s.visualizerRoundness
         easeMs: Config.s.visualizerSmooth
         sparks: Config.s.musicSparks && !layer.behind
     }
@@ -273,10 +273,18 @@ Item {
             acceptedButtons: Qt.AllButtons
             onClicked: Ui.widgetMenu = ""
         }
+        // the music bars get their own small popup, in plain words
+        BarsPopup {
+            z: 999
+            visible: !layer.behind && Ui.widgetMenu === "bars" && Ui.widgetMenuOwner === area
+            x: Math.max(4, Math.min(area.width - width - 4, Ui.widgetMenuX))
+            y: Math.max(4, Math.min(area.height - height - 4, Ui.widgetMenuY))
+            onDone: Ui.widgetMenu = ""
+        }
         MenuList {
             id: wmenu
             z: 999
-            visible: !layer.behind && Ui.widgetMenu !== "" && Ui.widgetMenuOwner === area
+            visible: !layer.behind && Ui.widgetMenu !== "" && Ui.widgetMenu !== "bars" && Ui.widgetMenuOwner === area
             x: Math.max(4, Math.min(area.width - width - 4, Ui.widgetMenuX))
             y: Math.max(4, Math.min(area.height - height - 4, Ui.widgetMenuY))
             onDone: Ui.widgetMenu = ""
@@ -296,41 +304,7 @@ Item {
                 case "clock": Config.s.clockStyle = "off"; break;
                 }
             }
-            // the music bars: everything about them lives here, nothing in settings
-            function cyc(key: string, opts: var) {
-                const i = opts.indexOf(Config.s[key]);
-                Config.s[key] = opts[(i + 1) % opts.length];
-            }
-            function nudge(key: string, d: real, lo: real, hi: real) {
-                Config.s[key] = Math.round(Math.max(lo, Math.min(hi, Config.s[key] + d)) * 100) / 100;
-            }
-            readonly property var barItems: [
-                { label: "Style: " + Config.s.visualizer, stay: true, run: () => cyc("visualizer", ["off", "wave", "bars", "mirror", "both"]) },
-                { label: "Where: " + (Config.s.visualizerSpan === "widget" ? "in a box" : Config.s.visualizerSpan === "full" ? "full width" : "auto"), stay: true, run: () => cyc("visualizerSpan", ["auto", "full", "widget"]) },
-                { label: "Edge: " + Config.s.visualizerEdge, stay: true, run: () => cyc("visualizerEdge", ["bottom", "top", "middle"]) },
-                { label: "Colour: " + Config.s.visualizerColor, stay: true, run: () => cyc("visualizerColor", ["wallpaper", "accent", "album", "rainbow"]) },
-                { sep: true },
-                { label: "Taller (full width)", stay: true, run: () => nudge("visualizerHeight", 0.04, 0.05, 0.6) },
-                { label: "Shorter (full width)", stay: true, run: () => nudge("visualizerHeight", -0.04, 0.05, 0.6) },
-                { label: "More bars (" + Config.s.visualizerBars + ")", stay: true, run: () => nudge("visualizerBars", 8, 16, 128) },
-                { label: "Fewer bars", stay: true, run: () => nudge("visualizerBars", -8, 16, 128) },
-                { label: "Wider gaps (" + Config.s.visualizerGap + " px)", stay: true, run: () => nudge("visualizerGap", 1, 0, 12) },
-                { label: "Tighter gaps", stay: true, run: () => nudge("visualizerGap", -1, 0, 12) },
-                { label: "More see-through", stay: true, run: () => nudge("visualizerOpacity", -0.1, 0.1, 1) },
-                { label: "More solid", stay: true, run: () => nudge("visualizerOpacity", 0.1, 0.1, 1) },
-                { label: "Smoother", stay: true, run: () => nudge("visualizerSmooth", 20, 0, 250) },
-                { label: "Snappier", stay: true, run: () => nudge("visualizerSmooth", -20, 0, 250) },
-                { sep: true },
-                { label: "Rounded ends", on: Config.s.visualizerRound, stay: true, run: () => { Config.s.visualizerRound = !Config.s.visualizerRound; } },
-                { label: "Sparks on the beat", on: Config.s.musicSparks, stay: true, run: () => { Config.s.musicSparks = !Config.s.musicSparks; } },
-                { label: "Behind the subject", on: Config.s.visualizerBehind, stay: true, run: () => { Config.s.visualizerBehind = !Config.s.visualizerBehind; } },
-                { sep: true },
-                { label: "Bigger (box)", stay: true, run: () => Config.setScale("bars", Math.min(2.5, size + 0.15)) },
-                { label: "Smaller (box)", stay: true, run: () => Config.setScale("bars", Math.max(0.3, size - 0.15)) },
-                { label: "Put the box back", run: () => Config.resetWidget("bars") },
-                { label: "Turn the music bars off", danger: true, run: () => { Config.s.visualizer = "off"; } }
-            ]
-            items: w === "bars" ? barItems : otherItems
+            items: otherItems
             readonly property var otherItems: [
                 { label: "Bigger", stay: true, run: () => Config.setScale(w, Math.min(2.5, size + 0.15)) },
                 { label: "Smaller", stay: true, run: () => Config.setScale(w, Math.max(0.3, size - 0.15)) },
@@ -359,7 +333,7 @@ Item {
                 color: Theme.wallText
                 colorMode: Config.s.visualizerColor
                 fillOpacity: Config.s.visualizerOpacity
-                round: Config.s.visualizerRound
+                roundness: Config.s.visualizerRoundness
                 easeMs: Config.s.visualizerSmooth
                 sparks: Config.s.musicSparks && !layer.behind
             }

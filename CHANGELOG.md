@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Wallpaper picker opens at once again: listing no longer waits for ffmpeg to grab a frame of every live wallpaper. Missing thumbnails (pictures too, at 480 px) are made afterwards in the background and the picker fills them in.
+- The prepared-wallpaper cache is back to 1.5 GB (512 MB kept throwing out prepared wallpapers and re-making them, so switches started from scratch).
+- Switching waits at most 0.9 s for a new picture's ink (was 4 s), and the ink takes 1.6 s (was 4.2 s). Settings → Wallpaper → Switch speed: quick, normal or slow.
+- Right-click the music bars: a small popup with shape, where (across the screen or in a box), which edge, how many bars, space between them, how rounded (now a slider, not on/off) and how tall. Colour, how solid, movement and behind-the-subject are in Settings → Desktop. The box resizes by dragging its corner.
 - Fixes after the last few updates: login starts the shell even when `kk-shell` isn't installed yet (it had been committed without its executable bit, and Hyprland ran it from ~/.local/bin, which a plain `git pull` never fills, so the whole shell and every shell shortcut stayed dead). Super + E falls back the same way.
 - Nautilus is the file manager again (installed with the apps; Super + E, folders and the dock use it). Thunar stays as a fallback.
 - Apps are no longer killed when their last window closes. That is opt-in again, off by default, with the switch back in the running-apps panel (tray apps like Discord, Steam or Spotify kept dying).

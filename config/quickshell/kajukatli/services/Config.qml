@@ -21,17 +21,26 @@ Singleton {
     // a settings file from an older version keeps the old defaults it saved. bring those
     // forward once (only things whose meaning changed, never your own choices)
     function migrate() {
-        if (adapter.configVersion >= 8) return;
+        if (adapter.configVersion >= 9) return;
+        // 9: wallpapers switch quickly (the ink took 4.2 s); how rounded the bars are is an amount, not on or off
+        if (!adapter.visualizerRound) adapter.visualizerRoundness = 0;
+        if (adapter.configVersion === 8) {
+            if (adapter.transitionMs === 4200) adapter.transitionMs = 1600;
+            adapter.configVersion = 9;
+            return;
+        }
         // 8: nautilus is the file manager again (7 had swapped it for thunar)
         if (adapter.configVersion === 7) {
             adapter.dockPinned = (adapter.dockPinned || []).map(x => x === "thunar" ? "org.gnome.Nautilus" : x);
-            adapter.configVersion = 8;
+            if (adapter.transitionMs === 4200) adapter.transitionMs = 1600;
+            adapter.configVersion = 9;
             return;
         }
         // 7: kde connect and nm-applet no longer run in the background
         if (adapter.configVersion === 6) {
             adapter.backgroundAllowed = (adapter.backgroundAllowed || []).filter(x => !/kdeconnect|nm-applet/.test(x));
-            adapter.configVersion = 8;
+            if (adapter.transitionMs === 4200) adapter.transitionMs = 1600;
+            adapter.configVersion = 9;
             return;
         }
         // 6: every running app is one tap away (apps), and the phone when kde connect is set up
@@ -40,7 +49,8 @@ Singleton {
             const all = [].concat(m.left || [], m.center || [], m.right || []);
             const add = ["apps", "phone"].filter(x => all.indexOf(x) === -1);
             if (add.length) adapter.barModules = { left: m.left || [], center: m.center || [], right: add.concat(m.right || []) };
-            adapter.configVersion = 8;
+            adapter.transitionMs = 1600;
+            adapter.configVersion = 9;
             return;
         }
         // 5: the clock decides for itself, per wallpaper: face, spot and colour
@@ -51,12 +61,12 @@ Singleton {
         adapter.clockDepth = true;
         adapter.parallax = true;
         adapter.transition = "ink";
-        adapter.transitionMs = 4200;
+        adapter.transitionMs = 1600;
         const l = Object.assign({}, adapter.layout || {});
         l.clock = Object.assign({}, l.clock || {}, { auto: true });
         adapter.layout = l;
         adapter.barModules = Object.assign({}, adapter.barModules || {}, { right: ["apps", "phone"].concat(((adapter.barModules || {}).right || []).filter(x => x !== "apps" && x !== "phone")) });
-        adapter.configVersion = 8;
+        adapter.configVersion = 9;
     }
 
     // where a desktop widget sits, as a fraction of the room it has to move in (0..1 each way)
@@ -115,7 +125,7 @@ Singleton {
         JsonAdapter {
             id: adapter
 
-            property int configVersion: 8           // settings written by older versions get updated once
+            property int configVersion: 9           // settings written by older versions get updated once
 
             // ---------------------------------------------------- look
             property string look: "studio"          // the preset last applied (see Looks.qml)
@@ -150,7 +160,8 @@ Singleton {
             property string visualizerColor: "wallpaper" // wallpaper | accent | album | rainbow
             property real visualizerOpacity: 0.6
             property int visualizerGap: 2             // pixels between bars
-            property bool visualizerRound: true       // rounded bar ends
+            property bool visualizerRound: true       // (old) rounded bar ends: read once into visualizerRoundness
+            property real visualizerRoundness: 0.5    // 0 square bars … 1 fully rounded ends
             property int visualizerSmooth: 60         // ms each bar takes to follow the music
             // ------------------------------------------- what's kept, and for how long (kk-storage tidy)
             property int clipboardKeep: 30            // clipboard history: this many entries at most
@@ -200,7 +211,7 @@ Singleton {
             property bool cursorParallax: true      // also follow the cursor over the bare desktop
             property real parallaxStrength: 1.0     // 0.2 … 2.0
             property string transition: "ink"      // ink (bleeds in; draws the subject's outline when known) · fade · none
-            property int transitionMs: 4200         // length of the ink transition (trace, then ink)
+            property int transitionMs: 1600         // length of the ink transition (trace, then ink)
             property bool aiOnBattery: false        // expensive wallpaper ai waits for ac on battery
             property string subjectModel: "isnet-anime"   // birefnet-general-lite for photos
             property bool videoOnBattery: false     // live wallpapers freeze to a still on battery
