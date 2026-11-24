@@ -226,7 +226,7 @@ Singleton {
     // ---------------------------------------------------------------- live wallpapers
     function startVideo() {
         if (!isVideo || !videoAllowed || mpv.running) return;
-        mpv.command = ["mpvpaper", "-p", "-o", "no-audio loop hwdec=auto-safe panscan=1.0 vf=fps=30", "ALL", current.video];
+        mpv.command = ["mpvpaper", "-p", "-o", "no-audio loop hwdec=auto-safe panscan=1.0 vf=fps=24 cache=no demuxer-max-bytes=8MiB demuxer-max-back-bytes=0 framedrop=vo vd-lavc-threads=2 scale=bilinear cscale=bilinear dscale=bilinear", "ALL", current.video];
         mpv.running = true;
     }
     function stopVideo() {
@@ -236,6 +236,14 @@ Singleton {
         // …then the video goes, once our layer has had time to put the picture back on screen:
         // killing it at once leaves a black gap, which is the screen "turning off" on a switch
         if (mpv.running) mpvStop.restart();
+    }
+    // a fullscreen window hides the wallpaper entirely: freeze the video (no decoding at all)
+    // until it's visible again
+    Connections {
+        target: Hypr
+        function onFullscreenChanged() {
+            if (mpv.running) Quickshell.execDetached(["pkill", Hypr.fullscreen ? "-STOP" : "-CONT", "-x", "mpvpaper"]);
+        }
     }
     onVideoAllowedChanged: videoAllowed ? startVideo() : stopVideo()
 
@@ -359,7 +367,7 @@ Singleton {
     Timer {
         id: mpvStop
         interval: 450
-        onTriggered: if (!root.videoReady) mpv.running = false
+        onTriggered: if (!root.videoReady) { Quickshell.execDetached(["pkill", "-CONT", "-x", "mpvpaper"]); mpv.running = false; }
     }
     Timer {
         id: settle

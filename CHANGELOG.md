@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Lighter shell: live wallpapers decode at 24 fps with small buffers and freeze while a window is fullscreen; the visualiser tops out at 96 bars / 30 fps; system stats sample every 5 s on battery; the wallpaper workspace is capped at 768 MB.
 - Emoji picker: pick several in one go. Turn on "keep open" (or hold Shift while clicking or pressing Enter) and picks collect in a tray; Insert (or Enter on an empty search) puts them all in, Backspace takes the last one back out.
 - Switching wallpaper no longer blanks the screen for a moment: a live wallpaper is stopped only after the still picture is back on screen.
 - Projection: "External only" no longer flips back to extend a second later (the shell mistook the screens its own reload re-added for a new cable); unplugging the external screen turns the laptop's back on; overlays, toasts and the volume pop-up always land on a screen that is really on, so the menu opens in external-only mode too.
