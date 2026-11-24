@@ -163,12 +163,12 @@ Item {
         const w = width, h = height;
         const pts = [Qt.point(0, h)];
         if (n < 2) { pts.push(Qt.point(w, h)); return pts; }
-        // catmull-rom through the bar tops, 4 points per segment
+        // catmull-rom through the bar tops, 3 points per segment
         const P = i => Qt.point(i / (n - 1) * w, h - Math.max(0.02, v[Math.max(0, Math.min(n - 1, i))]) * h * 0.95);
         for (let i = 0; i < n - 1; i++) {
             const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2);
-            for (let s = 0; s < 4; s++) {
-                const t = s / 4, t2 = t * t, t3 = t2 * t;
+            for (let s = 0; s < 3; s++) {
+                const t = s / 3, t2 = t * t, t3 = t2 * t;
                 const x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
                 const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
                 pts.push(Qt.point(x, Math.min(h, y)));

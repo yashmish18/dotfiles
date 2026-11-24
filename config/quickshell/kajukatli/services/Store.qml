@@ -10,12 +10,14 @@ Singleton {
     readonly property alias s: adapter
     property bool ready: false
 
+    Timer { id: saveSoon; interval: 250; onTriggered: file.writeAdapter() }
+
     FileView {
         id: file
         path: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/kajukatli/state.json"
         printErrors: false
         blockLoading: true
-        onAdapterUpdated: if (root.ready) writeAdapter()
+        onAdapterUpdated: if (root.ready) saveSoon.restart()
         onLoaded: root.ready = true
         onLoadFailed: error => {
             writeAdapter();

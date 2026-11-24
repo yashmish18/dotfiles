@@ -240,7 +240,7 @@ Item {
         flip: edge === "top"
         style: edge === "middle" && layer.fullStyle === "bars" ? "mirror" : layer.fullStyle
         active: visible && !layer.covered
-        count: layer.fullStyle === "wave" ? Cava.bars : Math.max(16, Config.s.visualizerBars)
+        count: layer.fullStyle === "wave" ? Math.min(56, Cava.bars) : Math.max(16, Config.s.visualizerBars)
         color: Theme.wallText
         colorMode: Config.s.visualizerColor
         fillOpacity: Config.s.visualizerOpacity
@@ -298,8 +298,8 @@ Item {
             editable: !layer.behind
             shown: layer.barsHere
             Visualizer {
-                implicitWidth: layer.boxStyle === "mirror" ? 620 : layer.boxStyle === "wave" ? 520 : 320
-                implicitHeight: layer.boxStyle === "mirror" ? 160 : layer.boxStyle === "wave" ? 120 : 60
+                implicitWidth: layer.boxStyle === "mirror" ? 540 : layer.boxStyle === "wave" ? 460 : 300
+                implicitHeight: layer.boxStyle === "mirror" ? 120 : layer.boxStyle === "wave" ? 90 : 44
                 style: layer.boxStyle
                 active: visible && !layer.covered
                 count: layer.boxStyle === "mirror" ? 96 : Math.max(16, Math.min(96, Config.s.visualizerBars))

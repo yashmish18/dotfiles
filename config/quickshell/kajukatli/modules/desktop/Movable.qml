@@ -4,7 +4,7 @@ import qs.components
 
 // one desktop widget, placed where you left it. handle it directly:
 //   drag            move it anywhere
-//   corner handle   drag to make it bigger or smaller (ctrl + scroll works too)
+//   ctrl + drag     make it bigger or smaller (ctrl + scroll works too)
 //   double-click    put it back where it started, at its normal size
 //   right-click     its menu: bigger, smaller, put back, hide, settings
 // the position is a fraction of the room it has to move in, so it lands in the same place
@@ -86,6 +86,7 @@ Item {
         id: drag
         parent: dragZone
         enabled: root.editable && root.shown
+        acceptedModifiers: Qt.NoModifier
         target: root
         xAxis.minimum: 0
         xAxis.maximum: Math.max(0, root.parent.width - root.width)
@@ -124,22 +125,41 @@ Item {
         }
     }
 
-    // the corner handle: drag it to resize. it shows while the pointer is over the widget (or
-    // in arrange mode), and is drawn inside the widget so it can always be reached
+    // resizing: hold ctrl and drag the widget (a dot shows at its corner while ctrl is down, and
+    // always in arrange mode). it is never there otherwise: a permanent handle sat on top of
+    // the player's buttons and made them impossible to press.
+    readonly property bool ctrlHover: hover.hovered && !!(hover.point.modifiers & Qt.ControlModifier)
+    function resizeStart() { resizeK = root.k; resizeW = Math.max(40, root.width); }
+    function resizeBy(dx: real) { root.live = Math.max(0.3, Math.min(2.5, resizeK * (resizeW + dx) / resizeW)); }
+    function resizeEnd() {
+        if (root.live > 0) Config.setScale(root.name, root.live);
+        root.live = -1;
+    }
+    property real resizeK: 1
+    property real resizeW: 100
+    DragHandler {
+        id: ctrlResize
+        enabled: root.editable && root.shown
+        target: null
+        acceptedModifiers: Qt.ControlModifier
+        cursorShape: Qt.SizeFDiagCursor
+        onActiveChanged: { Ui.dragging = active; if (active) root.resizeStart(); else root.resizeEnd(); }
+        onActiveTranslationChanged: if (active) root.resizeBy(activeTranslation.x)
+    }
     Item {
         id: grip
-        width: 22
-        height: 22
+        width: 20
+        height: 20
         x: root.width - width
         y: root.height - height
         z: 50
-        visible: root.editable && root.shown && (hover.hovered || Ui.editing || resize.active)
+        visible: root.editable && root.shown && (Ui.editing || root.ctrlHover || ctrlResize.active || resize.active)
         Rectangle {
             anchors.centerIn: parent
             width: 12
             height: 12
             radius: 6
-            color: resize.active ? Theme.primary : Theme.alpha(Theme.primary, 0.7)
+            color: (resize.active || ctrlResize.active) ? Theme.primary : Theme.alpha(Theme.primary, 0.7)
             border.width: 2
             border.color: Theme.alpha("#ffffff", 0.85)
         }
@@ -148,21 +168,8 @@ Item {
             id: resize
             target: null
             cursorShape: Qt.SizeFDiagCursor
-            property real startK: 1
-            property real startW: 100
-            onActiveChanged: {
-                Ui.dragging = active;
-                if (active) {
-                    startK = root.k;
-                    startW = Math.max(40, root.width);
-                } else if (root.live > 0) {
-                    Config.setScale(root.name, root.live);
-                    root.live = -1;
-                }
-            }
-            onActiveTranslationChanged: {
-                if (active) root.live = Math.max(0.3, Math.min(2.5, startK * (startW + activeTranslation.x) / startW));
-            }
+            onActiveChanged: { Ui.dragging = active; if (active) root.resizeStart(); else root.resizeEnd(); }
+            onActiveTranslationChanged: if (active) root.resizeBy(activeTranslation.x)
         }
     }
 }

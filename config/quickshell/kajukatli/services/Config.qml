@@ -69,6 +69,20 @@ Singleton {
         adapter.configVersion = 9;
     }
 
+    // 10: the ink spread is back at its full length, the clock decides for itself again (it goes
+    // behind the wallpaper's subject), and the music bars are a little lower by default
+    function migrate10() {
+        if (adapter.configVersion >= 10) return;
+        if (adapter.transitionMs === 1600) adapter.transitionMs = 4200;
+        adapter.clockDepth = true;
+        const l = Object.assign({}, adapter.layout || {});
+        l.clock = Object.assign({}, l.clock || {}, { auto: true });
+        adapter.layout = l;
+        if (Math.abs(adapter.visualizerHeight - 0.24) < 0.001) adapter.visualizerHeight = 0.15;
+        adapter.configVersion = 10;
+    }
+    Timer { id: saveSoon; interval: 250; onTriggered: file.writeAdapter() }
+
     // where a desktop widget sits, as a fraction of the room it has to move in (0..1 each way)
     function pos(name: string, fallback: var): var {
         const l = adapter.layout || {};
@@ -89,7 +103,7 @@ Singleton {
     }
     function setScale(name: string, s: real) {
         const l = Object.assign({}, adapter.layout || {});
-        const was = l[name] || pos(name, null);
+        const was = l[name] || (name === "clock" ? { x: 0.5, y: 0.15, auto: true } : pos(name, null));
         l[name] = Object.assign({}, was, { s: Math.round(s * 100) / 100 });
         adapter.layout = l;
     }
@@ -99,11 +113,14 @@ Singleton {
         const look = Looks.presets[adapter.look];
         if (look && look.layout && look.layout[name]) l[name] = Object.assign({}, look.layout[name]);
         else delete l[name];
+        // the clock goes back to deciding for itself: right behind the wallpaper's subject
+        if (name === "clock") l.clock = Object.assign({}, l.clock || {}, { auto: true });
         adapter.layout = l;
     }
     function resetLayout() {
         const look = Looks.presets[adapter.look];
         adapter.layout = look && look.layout ? Object.assign({}, look.layout) : ({});
+        adapter.layout = Object.assign({}, adapter.layout, { clock: Object.assign({}, adapter.layout.clock || {}, { auto: true }) });
         adapter.clockScale = look && look.clockScale ? look.clockScale : 1.0;
     }
 
@@ -114,8 +131,10 @@ Singleton {
         printErrors: false
         onFileChanged: reload()
         blockLoading: true
-        onAdapterUpdated: if (root.loaded) writeAdapter()
-        onLoaded: { root.loaded = true; root.migrate(); }
+        // one write for a burst of changes (applying a look sets a dozen settings at once:
+        // a file write, a file-watch reload and another write for each was what made switching stutter)
+        onAdapterUpdated: if (root.loaded) saveSoon.restart()
+        onLoaded: { root.loaded = true; root.migrate(); root.migrate10(); }
         onLoadFailed: error => {
             if (error === FileViewError.FileNotFound)
                 writeAdapter();
@@ -125,7 +144,7 @@ Singleton {
         JsonAdapter {
             id: adapter
 
-            property int configVersion: 9           // settings written by older versions get updated once
+            property int configVersion: 10           // settings written by older versions get updated once
 
             // ---------------------------------------------------- look
             property string look: "studio"          // the preset last applied (see Looks.qml)
@@ -156,7 +175,7 @@ Singleton {
             property int visualizerBars: 48
             property string visualizerSpan: "auto"     // auto (wave across the screen, bars in a box) | full | widget
             property string visualizerEdge: "bottom"   // full width: bottom | top | middle
-            property real visualizerHeight: 0.24      // full width: how tall, as a part of the screen
+            property real visualizerHeight: 0.15      // full width: how tall, as a part of the screen
             property string visualizerColor: "wallpaper" // wallpaper | accent | album | rainbow
             property real visualizerOpacity: 0.6
             property int visualizerGap: 2             // pixels between bars
@@ -211,7 +230,7 @@ Singleton {
             property bool cursorParallax: true      // also follow the cursor over the bare desktop
             property real parallaxStrength: 1.0     // 0.2 … 2.0
             property string transition: "ink"      // ink (bleeds in; draws the subject's outline when known) · fade · none
-            property int transitionMs: 1600         // length of the ink transition (trace, then ink)
+            property int transitionMs: 4200         // length of the ink transition (trace, then ink)
             property bool aiOnBattery: false        // expensive wallpaper ai waits for ac on battery
             property string subjectModel: "isnet-anime"   // birefnet-general-lite for photos
             property bool videoOnBattery: false     // live wallpapers freeze to a still on battery

@@ -130,7 +130,7 @@ LazyLoader {
                         Rectangle {
                             implicitWidth: 34; implicitHeight: 34; radius: 11
                             color: Theme.primary
-                            Icon { anchors.centerIn: parent; name: "spark"; size: 18; color: Theme.primaryText }
+                            Icon { anchors.centerIn: parent; name: "kitty"; size: 20; color: Theme.primaryText }
                         }
                         ColumnLayout {
                             spacing: 0
@@ -155,7 +155,7 @@ LazyLoader {
                             { key: "notifications", label: "Notifications", icon: "bell" },
                             { key: "behaviour", label: "Behaviour", icon: "grid" },
                             { key: "sep" },
-                            { key: "about", label: "About", icon: "spark" }
+                            { key: "about", label: "About", icon: "kitty" }
                         ]
                         delegate: Item {
                             id: nav

@@ -117,7 +117,7 @@ Singleton {
         if (!p) return false;
         const schemeBefore = Config.s.themeScheme;
         for (const k in p) {
-            if (k === "layout") Config.s.layout = Object.assign({}, p.layout);
+            if (k === "layout") Config.s.layout = Object.assign({}, p.layout, { clock: Object.assign({}, p.layout.clock || {}, { auto: true }) });
             else Config.s[k] = p[k];
         }
         Config.s.look = name;
