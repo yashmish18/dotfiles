@@ -19,7 +19,7 @@ Variants {
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
         mask: Region {}
-        visible: Media.playing && !Hypr.fullscreen
+        visible: Media.playing && !Hypr.fullscreen && !Power.saving
 
         Uses { service: Cava; active: win.visible }
         property real glow: 0

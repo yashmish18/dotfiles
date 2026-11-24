@@ -4,11 +4,21 @@
 #            hyprland starts this at login; it does nothing if a shell is already running.
 set -u
 fast=0
+first=1
+run="${XDG_RUNTIME_DIR:-/tmp}"
 while :; do
     if qs -c kajukatli ipc show >/dev/null 2>&1; then
-        sleep 5                       # one is already up: just keep watch
+        sleep 30                      # one is already up: just keep watch
         continue
     fi
+    # "start in the lock screen" is for the login only. a restarted shell must not lock the
+    # screen again just because it restarted; it locks only if the old one died holding the lock
+    if [ -e "$run/kk-locked" ]; then
+        export KK_LOCK_AT_START=1
+    elif [ "$first" = 0 ]; then
+        unset KK_LOCK_AT_START
+    fi
+    first=0
     started="$(date +%s)"
     qs -n -c kajukatli
     rc=$?

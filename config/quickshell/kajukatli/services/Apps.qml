@@ -21,7 +21,7 @@ Singleton {
     readonly property var system: /^(quickshell|qs|Hyprland|hypridle|hyprsunset|hyprpolkitagent|xdg-desktop-portal.*|pipewire.*|wireplumber|dbus.*|systemd|\(sd-pam\)|at-spi.*|gvfs.*|dconf-service|cliphist|wl-paste|kk-.*|sh|bash|zsh|fish|sleep|cava|mpvpaper|ps|gnome-keyring-daemon|xwayland|Xwayland|kdeconnectd?)$/
 
     Timer {
-        interval: 3000
+        interval: Power.saving ? 12000 : 3000      // `ps` every few seconds is a wake-up each time
         repeat: true
         triggeredOnStart: true
         running: root.consumers > 0

@@ -86,6 +86,8 @@ Singleton {
             // and reused, instead of re-blurring everything under every glass window each frame
             ? "hl.config({ decoration = { blur = { passes = 1, xray = true }, shadow = { enabled = false } } })"
             : "hl.config({ decoration = { blur = { passes = 2, xray = false }, shadow = { enabled = true } } })");
+        // no window animations while saving: every animated frame is gpu work
+        Hypr.hyprEval(saving ? "hl.config({ animations = { enabled = false } })" : "hl.config({ animations = { enabled = true } })");
         System.applyAll();          // the refresh rate (60 hz while saving)
     }
 
