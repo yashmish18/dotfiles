@@ -15,10 +15,7 @@ LazyLoader {
 
     PanelWindow {
         id: win
-        screen: {
-            const mon = Hyprland.focusedMonitor;
-            return Quickshell.screens.find(s => mon && s.name === mon.name) || Quickshell.screens[0];
-        }
+        screen: Hypr.activeScreen
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "kajukatli-emoji"
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
@@ -35,7 +32,7 @@ LazyLoader {
         property int spotX: -1
         property int spotY: -1
         visible: spotX >= 0
-        function place(cx, cy) {
+        function place(cx: var, cy: var) {
             const sw = screen ? screen.width : 1920, sh = screen ? screen.height : 1080;
             const sx = screen ? screen.x : 0, sy = screen ? screen.y : 0;
             const w = implicitWidth, h = implicitHeight, pad = 14, gap = 18;
@@ -59,7 +56,7 @@ LazyLoader {
             }
             onExited: code => { if (code !== 0 && win.spotX < 0) win.place(-1, -1); }
         }
-        function moveBy(dx, dy) {
+        function moveBy(dx: var, dy: var) {
             const sw = screen ? screen.width : 1920, sh = screen ? screen.height : 1080;
             spotX = Math.round(Math.max(0, Math.min(sw - implicitWidth, spotX + dx)));
             spotY = Math.round(Math.max(0, Math.min(sh - implicitHeight, spotY + dy)));
@@ -116,14 +113,14 @@ LazyLoader {
             return out;
         }
 
-        function pick(e) {
+        function pick(e: var) {
             if (!e) return;
             Store.s.recentEmojis = [e].concat((Store.s.recentEmojis || []).filter(x => x !== e)).slice(0, 24);
             Ui.emojiOpen = false;
             // into the window you were typing in (once it has the keyboard back), and the clipboard
             Quickshell.execDetached([Config.bin + "kk-emoji-type", e]);
         }
-        function move(d) {
+        function move(d: var) {
             if (!shown.length) return;
             index = Math.max(0, Math.min(shown.length - 1, index + d));
             grid.positionViewAtIndex(index, GridView.Contain);

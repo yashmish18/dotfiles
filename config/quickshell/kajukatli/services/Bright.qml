@@ -21,7 +21,7 @@ Singleton {
     function down() {
         run(["brightnessctl", "-m", "-e4", "-n2", "set", "5%-"], true);
     }
-    function run(cmd, fromKey) {
+    function run(cmd: var, fromKey: var) {
         if (proc.running) { // slider or key repeat faster than brightnessctl: keep only the latest
             proc.pending = cmd;
             proc.pendingUser = fromKey;

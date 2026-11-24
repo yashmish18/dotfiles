@@ -359,10 +359,10 @@ LazyLoader {
                 readonly property var labels: ({ workspaces: "Workspaces", clock: "Clock", notifs: "Notifications", control: "Control pill", apps: "Running apps", phone: "Phone", tray: "Tray", media: "Now playing", visualizer: "Music bars", weather: "Weather", logo: "Logo", volume: "Volume", brightness: "Brightness", network: "Network", bluetooth: "Bluetooth", battery: "Battery", cpu: "CPU", mem: "Memory", temp: "Temperature", power: "Power" })
                 property string target: "right"
                 function mods(): var { const m = Config.s.barModules || {}; return { left: (m.left || []).slice(), center: (m.center || []).slice(), right: (m.right || []).slice() }; }
-                function setMods(m) { Config.s.barModules = m; }
-                function remove(side, i) { const m = mods(); m[side].splice(i, 1); setMods(m); }
-                function move(side, i, d) { const m = mods(); const a = m[side]; const j = i + d; if (j < 0 || j >= a.length) return; const t = a[i]; a[i] = a[j]; a[j] = t; setMods(m); }
-                function add(name) { const m = mods(); for (const k of ["left", "center", "right"]) { const i = m[k].indexOf(name); if (i >= 0) m[k].splice(i, 1); } m[target].push(name); setMods(m); }
+                function setMods(m: var) { Config.s.barModules = m; }
+                function remove(side: var, i: var) { const m = mods(); m[side].splice(i, 1); setMods(m); }
+                function move(side: var, i: var, d: var) { const m = mods(); const a = m[side]; const j = i + d; if (j < 0 || j >= a.length) return; const t = a[i]; a[i] = a[j]; a[j] = t; setMods(m); }
+                function add(name: var) { const m = mods(); for (const k of ["left", "center", "right"]) { const i = m[k].indexOf(name); if (i >= 0) m[k].splice(i, 1); } m[target].push(name); setMods(m); }
 
                 Head { title: "Bar"; about: "Its shape, where it sits, and exactly what goes in each part." }
                 Group {

@@ -14,9 +14,10 @@ Singleton {
         target: Hyprland
         function onRawEvent(ev) {
             const n = ev.name || "";
-            if (n === "monitoradded" || n === "monitoraddedv2") {
+            if (n === "monitoradded" || n === "monitoraddedv2")
                 monitorHotplug.restart();
-            }
+            else if (n === "monitorremoved" || n === "monitorremovedv2")
+                monitorRescue.restart();
             const data = ev.data || "";
             // a window closed or moved away: close the gap it may have left (1 2 _ 4 → 1 2 3)
             if (n === "closewindow" || n === "destroyworkspace" || n === "destroyworkspacev2" || n === "movewindowv2")
@@ -49,7 +50,27 @@ Singleton {
     Timer {
         id: monitorHotplug
         interval: 900
-        onTriggered: Quickshell.execDetached(["sh", "-c", "sleep 0.2; exec " + Config.bin + "kk-display extend"])
+        // kk-display ignores the burst of "monitor added" events its own mode changes cause
+        // (a reload re-adds every screen), so "External only" isn't undone a second later
+        onTriggered: Quickshell.execDetached(["sh", "-c", "sleep 0.2; exec " + Config.bin + "kk-display hotplug"])
+    }
+    // an unplugged screen must never leave you with every screen off
+    Timer {
+        id: monitorRescue
+        interval: 700
+        onTriggered: Quickshell.execDetached([Config.bin + "kk-display", "rescue"])
+    }
+
+    // the screen shell windows (overlays, toasts, osd) belong on: the focused one, or, when
+    // hyprland's idea of "focused" is a screen that was just switched off or unplugged, one
+    // that is really on
+    readonly property var activeScreen: {
+        const live = Quickshell.screens;
+        const mon = Hyprland.focusedMonitor;
+        const hit = live.find(s => mon && s.name === mon.name);
+        if (hit) return hit;
+        const on = Hyprland.monitors.values.find(m => !(m.lastIpcObject && m.lastIpcObject.disabled) && live.some(s => s.name === m.name));
+        return (on && live.find(s => s.name === on.name)) || live[0];
     }
 
     // something is fullscreen (a video, a game): notifications wait until it isn't
@@ -59,7 +80,7 @@ Singleton {
     readonly property int focusedId: Number(focusedWs && focusedWs.id) || 1
 
     // normal (positive id) workspaces on a monitor, sorted
-    function workspacesOn(monitor): var {
+    function workspacesOn(monitor: var): var {
         const out = [];
         const all = Hyprland.workspaces.values;
         for (let i = 0; i < all.length; i++) {
@@ -82,18 +103,18 @@ Singleton {
         return id;
     }
 
-    function luaStr(s): string {
+    function luaStr(s: var): string {
         return '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
     }
 
-    function focusWorkspace(id) {
+    function focusWorkspace(id: var) {
         if (Hyprland.usingLua)
             Hyprland.dispatch("hl.dsp.focus({ workspace = " + luaStr(id) + " })");
         else
             Hyprland.dispatch("workspace " + id);
     }
 
-    function moveWindowTo(id, address, follow) {
+    function moveWindowTo(id: var, address: var, follow: var) {
         if (Hyprland.usingLua) {
             let args = "workspace = " + luaStr(id) + ", follow = " + (follow ? "true" : "false");
             if (address)
@@ -105,21 +126,21 @@ Singleton {
         }
     }
 
-    function focusWindow(address) {
+    function focusWindow(address: var) {
         if (Hyprland.usingLua)
             Hyprland.dispatch("hl.dsp.focus({ window = " + luaStr("address:" + address) + " })");
         else
             Hyprland.dispatch("focuswindow address:" + address);
     }
 
-    function closeWindow(address) {
+    function closeWindow(address: var) {
         if (Hyprland.usingLua)
             Hyprland.dispatch("hl.dsp.window.close({ window = " + luaStr("address:" + address) + " })");
         else
             Hyprland.dispatch("closewindow address:" + address);
     }
 
-    function renameWorkspace(id, name) {
+    function renameWorkspace(id: var, name: var) {
         if (Hyprland.usingLua)
             Hyprland.dispatch("hl.dsp.workspace.rename({ workspace = " + luaStr(id) + ", name = " + luaStr(name) + " })");
         else
@@ -175,7 +196,7 @@ Singleton {
             }
         }
     }
-    function compact(clients, workspaces, monitors) {
+    function compact(clients: var, workspaces: var, monitors: var) {
         const mon = monitors.find(m => m.focused);
         if (!mon) return;
         const active = mon.activeWorkspace ? mon.activeWorkspace.id : -1;

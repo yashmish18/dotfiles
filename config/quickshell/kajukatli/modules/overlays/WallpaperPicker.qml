@@ -33,7 +33,7 @@ Item {
         strip.currentIndex = Math.max(0, i);
         strip.positionViewAtIndex(strip.currentIndex, ListView.Center);
     }
-    function use(w) {
+    function use(w: var) {
         if (!w) return;
         Wall.set(w.path);
         Ui.overlay = "";

@@ -56,7 +56,7 @@ Singleton {
         if (available && adapter.enabled) adapter.discovering = on;
     }
 
-    function connectDevice(d) {
+    function connectDevice(d: var) {
         if (!d) return;
         // trusted: bluez lets it reconnect by itself next time, and keeps it saved
         if (d.paired && !d.trusted) d.trusted = true;
@@ -65,7 +65,7 @@ Singleton {
         d.connect();
         check.restart();
     }
-    function toggleDevice(d) {
+    function toggleDevice(d: var) {
         if (d.connected) {
             d.disconnect();
         } else if (d.paired) {
@@ -77,7 +77,7 @@ Singleton {
         }
     }
     // keys lost (paired with another computer, reset): start over
-    function repair(d) {
+    function repair(d: var) {
         setTrouble(d.address, "");
         const addr = d.address;
         d.forget();
@@ -85,12 +85,12 @@ Singleton {
         pendingPair = addr;
         setScanning(true);
     }
-    function setTrusted(d, on: bool) { d.trusted = on; }
-    function setBlocked(d, on: bool) { d.blocked = on; }
+    function setTrusted(d: var, on: bool) { d.trusted = on; }
+    function setBlocked(d: var, on: bool) { d.blocked = on; }
     function openManager() {
         Quickshell.execDetached(["blueman-manager"]);
     }
-    function sendFile(d) {
+    function sendFile(d: var) {
         Quickshell.execDetached(["sh", "-c", 'command -v blueman-sendto >/dev/null && exec blueman-sendto --device="$1" || exec blueman-manager', "sh", d.address]);
     }
 

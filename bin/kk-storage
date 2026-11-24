@@ -28,6 +28,22 @@ current_wall_dir() {
     printf '%s' "$cur"
 }
 
+# bytes a clean-up target holds right now (so a clean-up can say what it freed)
+clean_size() {
+    case "$1" in
+        trash) sizeq "$DATA/Trash" ;;
+        thumbnails) sizeq "$CACHE/thumbnails" ;;
+        cache) sizeq "$CACHE" ;;
+        walls) sizeq "$CACHE/kajukatli/walls" ;;
+        pacman) sizeq /var/cache/pacman/pkg ;;
+        aur) echo $(( $(sizeq "$CACHE/paru") + $(sizeq "$CACHE/yay") )) ;;
+        journal) numfmt --from=iec "$(journalctl --disk-usage 2>/dev/null | grep -oE '[0-9.]+[KMGT]?' | head -n1)" 2>/dev/null || echo 0 ;;
+        all-safe) sizeq "$CACHE" ;;
+        *) echo 0 ;;
+    esac
+}
+human() { numfmt --to=iec --suffix=B "${1:-0}" 2>/dev/null || echo "${1:-0} B"; }
+
 case "${1:-report}" in
     report)
         disks="$(df -B1 -x tmpfs -x devtmpfs -x efivarfs -x squashfs -x overlay --output=source,fstype,size,used,avail,target 2>/dev/null | tail -n +2 |
@@ -56,21 +72,27 @@ case "${1:-report}" in
         lsblk -J -b -o NAME,PATH,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINT,RM,HOTPLUG,MODEL,TRAN 2>/dev/null
         ;;
     clean)
-        case "${2:-}" in
-            trash) gio trash --empty 2>/dev/null || rm -rf "$DATA/Trash/files/"* "$DATA/Trash/info/"* ;;
-            thumbnails) rm -rf "$CACHE/thumbnails/"* ;;
+        what="${2:-}"
+        before="$(clean_size "$what")"
+        case "$what" in
+            # gio can't empty the bin on some setups; take the files out by hand either way
+            trash) gio trash --empty >/dev/null 2>&1; rm -rf "$DATA/Trash/files/"* "$DATA/Trash/info/"* "$DATA/Trash/directorysizes" 2>/dev/null; true ;;
+            thumbnails) rm -rf "$CACHE/thumbnails/"* 2>/dev/null; true ;;
             # the parts of ~/.cache every app rebuilds by itself
             cache) rm -rf "$CACHE/thumbnails/"* "$CACHE/pip" "$CACHE/fontconfig" "$CACHE/mesa_shader_cache" \
-                       "$CACHE/mesa_shader_cache_db" "$CACHE/nvidia/GLCache" "$CACHE/go-build" "$CACHE/yarn" 2>/dev/null; true ;;
-            # wallpaper bundles not used in 30 days (they come back when that wallpaper is picked
-            # again), never the one on screen now
+                       "$CACHE/mesa_shader_cache_db" "$CACHE/nvidia/GLCache" "$CACHE/go-build" "$CACHE/yarn"                        "$CACHE"/qtshadercache* "$CACHE/qmlcache" "$CACHE/npm" "$CACHE/pnpm" "$CACHE/electron" 2>/dev/null; true ;;
+            # wallpaper bundles (they come back when that wallpaper is picked again), never the one
+            # on screen now. `walls old` (the automatic tidy) leaves anything used in the last 30 days
             walls)
                 keep="$(current_wall_dir)"
-                find "$CACHE/kajukatli/walls" -mindepth 1 -maxdepth 1 -type d -mtime +30 2>/dev/null | while IFS= read -r d; do
+                age=(); [ "${3:-}" = old ] && age=(-mtime +30)
+                find "$CACHE/kajukatli/walls" -mindepth 1 -maxdepth 1 -type d "${age[@]}" 2>/dev/null | while IFS= read -r d; do
                     [ "$d" = "$keep" ] || rm -rf "$d"
                 done
                 rm -f "$CACHE/kajukatli/index.json" ;;
-            pacman) pkexec sh -c 'paccache -rk1; paccache -ruk0' ;;
+            pacman)
+                if command -v paccache >/dev/null; then pkexec sh -c 'paccache -rk1; paccache -ruk0; true'
+                else pkexec sh -c 'yes | pacman -Sc --noconfirm'; fi ;;
             journal) pkexec journalctl --vacuum-size=100M ;;
             orphans)
                 o="$(pacman -Qdtq 2>/dev/null)"
@@ -78,9 +100,16 @@ case "${1:-report}" in
                 # shellcheck disable=SC2086
                 pkexec pacman -Rns --noconfirm $o ;;
             aur) rm -rf "$CACHE/paru/clone" "$CACHE/yay" 2>/dev/null; true ;;
-            all-safe) "$0" clean thumbnails; "$0" clean cache; "$0" clean aur; "$0" clean walls ;;
+            all-safe) "$0" clean thumbnails >/dev/null; "$0" clean cache >/dev/null; "$0" clean aur >/dev/null; "$0" clean walls old >/dev/null ;;
             *) echo "clean what? trash thumbnails cache walls pacman journal orphans aur all-safe" >&2; exit 2 ;;
         esac
+        rc=$?
+        # say what happened, so a clean-up that had nothing to do doesn't look like one that failed
+        if [ "$rc" -ne 0 ]; then exit "$rc"
+        elif [ "$what" != orphans ]; then
+            freed=$(( ${before:-0} - $(clean_size "$what") ))
+            if [ "$freed" -gt 0 ]; then echo "freed $(human "$freed")"; else echo "nothing to clean"; fi
+        fi
         ;;
     trash)
         case "${2:-list}" in
@@ -195,7 +224,7 @@ case "${1:-report}" in
             done
         fi
         # wallpaper workspace: unused for 30 days, and never more than 1.5 gb in all
-        "$0" clean walls
+        "$0" clean walls old >/dev/null
         keep="$(current_wall_dir)"
         total=$(sizeq "$CACHE/kajukatli/walls")
         if [ "$total" -gt $((1536 * 1024 * 1024)) ]; then

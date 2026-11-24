@@ -9,10 +9,7 @@ import qs.components
 // toasts, top-right of the screen you're on. hover to keep one; urgent ones wait for you.
 PanelWindow {
     id: win
-    screen: {
-        const mon = Hyprland.focusedMonitor;
-        return Quickshell.screens.find(s => mon && s.name === mon.name) || Quickshell.screens[0];
-    }
+    screen: Hypr.activeScreen
     visible: Notifs.popups.length > 0
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "kajukatli-notifications"

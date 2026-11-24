@@ -47,7 +47,7 @@ Item {
     // ------------------------------------------------------------ applying, with a way back
     property var undo: null             // { name, profile } to go back to
     property int countdown: 0
-    function change(values, risky) {
+    function change(values: var, risky: var) {
         if (!sel) return;
         if (risky) {
             undo = { name: sel.name, profile: Object.assign({}, System.monitorProfile(sel.name)) };
@@ -70,12 +70,12 @@ Item {
     Timer { id: tick; interval: 1000; repeat: true; onTriggered: { root.countdown--; if (root.countdown <= 0) root.revert(); } }
 
     // ------------------------------------------------------------ helpers
-    function logical(s) {
+    function logical(s: var): var {
         const rot = s.transform % 2 === 1;
         const w = (rot ? s.height : s.width) / (s.scale || 1), h = (rot ? s.width : s.height) / (s.scale || 1);
         return { w: w, h: h };
     }
-    function modesOf(s) {
+    function modesOf(s: var): var {
         const out = {};
         for (const m of (s ? s.availableModes || [] : [])) {
             const r = /^(\d+)x(\d+)@([\d.]+)Hz$/.exec(m);

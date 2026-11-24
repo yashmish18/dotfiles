@@ -13,10 +13,7 @@ LazyLoader {
 
     PanelWindow {
         id: win
-        screen: {
-            const mon = Hyprland.focusedMonitor;
-            return Quickshell.screens.find(s => mon && s.name === mon.name) || Quickshell.screens[0];
-        }
+        screen: Hypr.activeScreen
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "kajukatli-overlay"
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive

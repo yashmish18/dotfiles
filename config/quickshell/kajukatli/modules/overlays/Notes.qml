@@ -67,7 +67,7 @@ Item {
             contentHeight: edit.contentHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
-            function ensureVisible(r) {
+            function ensureVisible(r: var) {
                 if (contentY >= r.y) contentY = r.y;
                 else if (contentY + height <= r.y + r.height) contentY = r.y + r.height - height;
             }

@@ -25,7 +25,7 @@ Item {
         { key: "drives", label: "Drives", icon: "usb" }
     ]
 
-    function human(b): string {
+    function human(b: var): string {
         b = Number(b) || 0;
         const u = ["B", "KB", "MB", "GB", "TB"];
         let i = 0;
@@ -82,7 +82,7 @@ Item {
             }
         }
     }
-    function signal_(pid, sig) {
+    function signal_(pid: var, sig: var) {
         actProc.command = ["sh", "-c", 'kill -' + sig + ' "$1" 2>/dev/null || pkexec kill -' + sig + ' "$1"', "sh", String(pid)];
         actProc.running = true;
     }
@@ -148,9 +148,13 @@ Item {
     Process {
         id: actProc
         property string after: ""
+        stdout: StdioCollector { id: actOut }
         stderr: StdioCollector { id: actErr }
         onExited: code => {
-            root.note = code === 0 ? "done" : (actErr.text.trim().split("\n")[0] || "that didn't work");
+            const said = actOut.text.trim().split("\n").pop();
+            root.note = code === 0 ? (said && said.length < 60 ? said : "done")
+                      : code === 126 || code === 127 ? "needs your password: is the polkit agent running?"
+                      : (actErr.text.trim().split("\n").pop() || "that didn't work");
             noteClear.restart();
             if (actProc.after === "report") root.loadReport();
             else if (actProc.after === "trash") root.loadTrash();
@@ -159,8 +163,10 @@ Item {
         }
     }
     Timer { id: noteClear; interval: 4000; onTriggered: root.note = "" }
-    function storage(args, after) {
+    function storage(args: var, after: var) {
+        if (actProc.running) { note = "one moment, still working on the last one…"; noteClear.restart(); return; }
         note = "working…";
+        noteClear.stop();
         actProc.after = after || "";
         actProc.command = [Config.bin + "kk-storage"].concat(args);
         actProc.running = true;
@@ -392,7 +398,7 @@ Item {
                                 { k: "trash", t: "Recycle bin", d: "Everything you deleted", v: root.report.clean.trash },
                                 { k: "thumbnails", t: "Thumbnails", d: "Little previews; they come back as you browse", v: root.report.clean.thumbnails },
                                 { k: "cache", t: "App caches", d: "Shader, font and build caches apps rebuild by themselves (of " + root.human(root.report.clean.cache) + " in ~/.cache)", v: -1 },
-                                { k: "walls", t: "Wallpaper workspace", d: "Cut-outs and depth for wallpapers not used in 30 days", v: root.report.clean.walls },
+                                { k: "walls", t: "Wallpaper workspace", d: "Cut-outs and depth for every wallpaper but the current one (rebuilt when you pick it again)", v: root.report.clean.walls },
                                 { k: "pacman", t: "Old packages", d: "Downloaded package files, keeping the newest of each", v: root.report.clean.pacman },
                                 { k: "journal", t: "System logs", d: "Trimmed to the last 100 MB", v: root.report.clean.journal },
                                 { k: "aur", t: "AUR build files", d: "Sources left over from building AUR packages", v: root.report.clean.aur },

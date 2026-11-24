@@ -43,13 +43,13 @@ Variants {
         readonly property var fromMeta: fromSlot === 0 ? metaA : metaB
         readonly property real dpr: modelData.devicePixelRatio || 1
 
-        function fileUrl(p): string { return p ? "file://" + p : ""; }
+        function fileUrl(p: var): string { return p ? "file://" + p : ""; }
 
         // every picture is decoded at screen size (plus the parallax margin), never at full
         // resolution: a 6000 px photo costs what a screen-sized one does, and decodes in a blink
         readonly property size decode: Qt.size(Math.ceil(win.width * dpr * (Config.s.parallax ? 1.07 : 1)),
                                                Math.ceil(win.height * dpr * (Config.s.parallax ? 1.07 : 1)))
-        function cover(img): vector2d {
+        function cover(img: var): vector2d {
             if (!img || img.implicitWidth <= 0 || win.height === 0) return Qt.vector2d(1, 1);
             const S = win.width / win.height, I = img.implicitWidth / img.implicitHeight;
             const zoom = Config.s.parallax ? 0.94 : 1.0;     // room for the camera to move
@@ -86,7 +86,7 @@ Variants {
             const merged = Object.assign({}, m, { display: cur.display });
             if (slot === 0) metaA = merged; else metaB = merged;
         }
-        function settled(st): bool { return st === Image.Ready || st === Image.Error || st === Image.Null; }
+        function settled(st: var): bool { return st === Image.Ready || st === Image.Error || st === Image.Null; }
         function tryStart() {
             const img = pendingSlot === 0 ? imgA : imgB;
             waitedMs += 30;

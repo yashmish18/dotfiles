@@ -25,19 +25,19 @@ Item {
         return (s ? all.filter(e => e.text.toLowerCase().indexOf(s) !== -1) : all).slice(0, 10);
     }
 
-    function pick(e) {
+    function pick(e: var) {
         if (!e) return;
         if (e.pinned) Quickshell.execDetached(["wl-copy", "--", e.raw]);
         else Quickshell.execDetached(["sh", "-c", 'cliphist decode "$1" | wl-copy', "sh", e.id]);
         Ui.panel = "";
     }
-    function forget(e) {
+    function forget(e: var) {
         if (!e) return;
         if (e.pinned) { togglePin(e); return; }
         Quickshell.execDetached(["sh", "-c", 'printf "%s\\t%s\\n" "$1" "$2" | cliphist delete', "sh", e.id, e.raw]);
         entries = entries.filter(x => x.id !== e.id);
     }
-    function togglePin(e) {
+    function togglePin(e: var) {
         if (!e || e.img) return;
         const p = pins.slice();
         const i = p.indexOf(e.raw);

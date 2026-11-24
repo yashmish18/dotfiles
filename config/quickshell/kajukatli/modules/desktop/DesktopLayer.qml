@@ -53,7 +53,7 @@ Item {
     property alias clockItem: clockM
 
     // how the picture is fitted to the screen (the same cover maths as the wallpaper shader)
-    function coverOf(m): var {
+    function coverOf(m: var): var {
         const S = layer.width / Math.max(1, layer.height), I = m.width / Math.max(1, m.height);
         const zoom = Config.s.parallax ? 0.94 : 1.0;
         return { x: S > I ? zoom : zoom * S / I, y: S > I ? zoom * I / S : zoom };
@@ -85,10 +85,10 @@ Item {
     //  · the hue: the theme's primary, tertiary or secondary — whichever is furthest from the
     //    ground's own hue (no red clock on a red dress; if all of them are, a pale tint of it)
     //  · the lightness: pushed away from the ground until the contrast is at least 4.5 : 1
-    function lin(c): real { return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
-    function lum(c): real { return 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b); }
-    function contrast(a, b): real { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
-    function colourFor(ground): var {
+    function lin(c: var): real { return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+    function lum(c: var): real { return 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b); }
+    function contrast(a: var, b: var): real { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+    function colourFor(ground: var): var {
         const gh = ground.hslHue, gs = ground.hslSaturation;
         const hueGap = h => { if (h < 0 || gh < 0 || gs < 0.18) return 1; const d = Math.abs(h - gh); return Math.min(d, 1 - d); };
         let best = Theme.basePrimary, gap = -1;
@@ -128,7 +128,7 @@ Item {
 
     // the clock's "auto" spot: centred on the wallpaper's subject, its lower part tucked behind
     // the subject's top, so the person stands in front of the numbers
-    function autoClock(w, h, W, H): var {
+    function autoClock(w: var, h: var, W: var, H: var): var {
         const m = Wall.current;
         if (!m || !m.width || !m.height || W <= w || H <= h) return null;
         // without the cut-out (no wallpaper ai, or the clock kept in front) the numbers can't
@@ -156,7 +156,7 @@ Item {
     }
     // the emptiest place on screen for a w × h clock: low detail in the 16 × 9 colour grid,
     // away from the subject, a little nearer the top than the bottom. always fully on screen.
-    function calmSpot(m, w, h, W, H): var {
+    function calmSpot(m: var, w: var, h: var, W: var, H: var): var {
         const g = m.grid;
         if (!g || g.length < 144) return { x: 0.5, y: 0.18 };
         const c = coverOf(m);

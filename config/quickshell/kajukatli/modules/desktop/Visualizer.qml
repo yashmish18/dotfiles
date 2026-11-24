@@ -40,7 +40,7 @@ Item {
     readonly property color baseColor: colorMode === "accent" ? Theme.primary
                                      : colorMode === "album" ? (Media.artReady ? Media.artTint : Theme.primary)
                                      : color
-    function colorAt(i, n) {
+    function colorAt(i: var, n: var): var {
         if (colorMode !== "rainbow") return baseColor;
         return Qt.hsla(((i / Math.max(1, n)) + hueShift) % 1, 0.78, 0.62, 1);
     }

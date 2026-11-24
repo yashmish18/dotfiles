@@ -12,7 +12,7 @@ Singleton {
     readonly property var players: Mpris.players.values
     property var _last: null
     property var pinned: null           // chosen in the media panel; else whatever's playing
-    function pick(p) { pinned = p; }
+    function pick(p: var) { pinned = p; }
     readonly property var player: {
         if (pinned && players.indexOf(pinned) !== -1) return pinned;
         const playing = players.find(p => p.isPlaying);
@@ -170,7 +170,7 @@ Singleton {
         return out;
     }
 
-    function useResult(r) {
+    function useResult(r: var) {
         if (r && r.syncedLyrics) {
             lines = parseLrc(r.syncedLyrics);
             synced = true;

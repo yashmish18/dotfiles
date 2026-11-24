@@ -76,7 +76,7 @@ Singleton {
         return e && e.meta && e.meta.display ? e.meta : null;
     }
 
-    function show(meta) {
+    function show(meta: var) {
         if (current !== null) Sounds.play("swoosh", 800);   // not at login, only on a real switch
         stopVideo();
         current = meta;
@@ -87,7 +87,7 @@ Singleton {
         pointAt(meta);
     }
     // same picture, more known about it: no transition, just the new parts
-    function refine(meta) {
+    function refine(meta: var) {
         current = meta;
         if (meta.dir) Store.s.wallMeta = meta;
         refined();
@@ -95,14 +95,14 @@ Singleton {
     }
     // ~/.cache/kajukatli/current → this wallpaper's bundle. the terminal greeting shows its
     // subject (cut.png) as fastfetch's logo; an older bundle gets its cut-out made here
-    function pointAt(meta) {
+    function pointAt(meta: var) {
         if (!meta || !meta.dir) return;
         Quickshell.execDetached(["sh", "-c",
             'c="${XDG_CACHE_HOME:-$HOME/.cache}/kajukatli"; ln -sfn "$1" "$c/current"; '
             + '[ -f "$1/mask.png" ] && [ ! -f "$1/cut.png" ] && exec nice -n 19 "$2" --cut "$1"; true',
             "sh", meta.dir, Config.bin + "kk-prep"]);
     }
-    function sameSource(meta): bool {
+    function sameSource(meta: var): bool {
         return current !== null && meta && current.source === meta.source;
     }
 

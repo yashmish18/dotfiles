@@ -19,7 +19,7 @@ Item {
     property int year: clock.date.getFullYear()
     property int month: clock.date.getMonth()
 
-    function shift(d) {
+    function shift(d: var) {
         let m = month + d, y = year;
         if (m < 0) { m = 11; y--; }
         if (m > 11) { m = 0; y++; }
@@ -121,7 +121,7 @@ Item {
             font.family: Theme.mono
             font.pixelSize: Theme.xs
             color: Theme.muted
-            function weekNumber(d): int {
+            function weekNumber(d: var): int {
                 const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
                 const day = t.getUTCDay() || 7;
                 t.setUTCDate(t.getUTCDate() + 4 - day);

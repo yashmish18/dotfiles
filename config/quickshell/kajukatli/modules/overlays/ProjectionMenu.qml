@@ -63,7 +63,7 @@ Item {
         }
     }
     Timer { id: settle; interval: 700; onTriggered: read.running = true }
-    function apply(mode) {
+    function apply(mode: var) {
         if (busy) return;
         busy = true;
         pending = mode;

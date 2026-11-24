@@ -46,7 +46,7 @@ Singleton {
         if (!name) return null;
         return DesktopEntries.heuristicLookup(name) || null;
     }
-    function iconFor(entry, name: string): string {
+    function iconFor(entry: var, name: string): string {
         return Quickshell.iconPath(entry && entry.icon ? entry.icon : (name || "").toLowerCase(), "application-x-executable");
     }
 
@@ -102,23 +102,23 @@ Singleton {
     readonly property int count: list.length
     readonly property int hiddenCount: list.filter(g => g.kind !== "window").length
 
-    function focus(g) {
+    function focus(g: var) {
         if (g.windows.length) Hypr.focusWindow(g.windows[0].address);
         else if (g.tray) g.tray.activate();
         else if (g.entry) g.entry.execute();
     }
-    function closeWindows(g) { for (const w of g.windows) Hypr.closeWindow(w.address); }
-    function quit(g) { signal_(g, "TERM"); }
-    function forceQuit(g) { signal_(g, "KILL"); }
-    function signal_(g, sig: string) {
+    function closeWindows(g: var) { for (const w of g.windows) Hypr.closeWindow(w.address); }
+    function quit(g: var) { signal_(g, "TERM"); }
+    function forceQuit(g: var) { signal_(g, "KILL"); }
+    function signal_(g: var, sig: string) {
         if (!g.pids.length) return;
         Quickshell.execDetached(["kill", "-" + sig].concat(g.pids.map(String)));
     }
-    function allowed(g): bool {
+    function allowed(g: var): bool {
         const a = (Config.s.backgroundAllowed || []).map(x => String(x).toLowerCase());
         return a.indexOf(String(g.key).toLowerCase()) !== -1 || a.indexOf(String(g.name).toLowerCase()) !== -1;
     }
-    function setAllowed(g, on: bool) {
+    function setAllowed(g: var, on: bool) {
         const a = (Config.s.backgroundAllowed || []).filter(x => String(x).toLowerCase() !== String(g.key).toLowerCase());
         if (on) a.push(g.key);
         Config.s.backgroundAllowed = a;

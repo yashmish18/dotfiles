@@ -33,13 +33,13 @@ Item {
         forceActiveFocus();
     }
 
-    function go(ws) { Hypr.focusWorkspace(ws.id); Ui.overlay = ""; }
+    function go(ws: var) { Hypr.focusWorkspace(ws.id); Ui.overlay = ""; }
     function fresh() { Hypr.newWorkspace(false); Ui.overlay = ""; }
     function accept() { sel < list.length ? go(list[sel]) : fresh(); }
     // ← → (or ↑ ↓) move the highlight, enter goes there. super + tab again while it's open
     // steps along too, and letting go of super goes to the highlighted one (like alt + tab).
     property bool cycling: false
-    function stepSel(d) { sel = (sel + d + count) % count; }
+    function stepSel(d: var) { sel = (sel + d + count) % count; }
     Keys.onLeftPressed: sel = Math.max(0, sel - 1)
     Keys.onRightPressed: sel = Math.min(list.length, sel + 1)
     Keys.onUpPressed: sel = Math.max(0, sel - 1)

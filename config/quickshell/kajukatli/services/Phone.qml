@@ -49,7 +49,7 @@ Singleton {
     }
     property string okText: ""
     Timer { id: clearMsg; interval: 4000; onTriggered: root.message = "" }
-    function run(args, ok: string) {
+    function run(args: var, ok: string) {
         okText = ok;
         act.command = [Config.bin + "kk-phone"].concat(args);
         act.running = true;
@@ -57,16 +57,16 @@ Singleton {
 
     function refresh() { run(["refresh"], "looking for phones"); }
     function rescan() { refresh(); }
-    function ring(d) { if (d) run(["ring", d.id], "ringing"); }
-    function ping(d) { if (d) run(["ping", d.id], "pinged"); }
-    function pair(d) { if (d) run(["pair", d.id], "accept on the phone"); }
-    function unpair(d) { if (d) run(["unpair", d.id], "unpaired"); }
-    function accept(d) { if (d) run(["accept", d.id], "paired"); }
-    function reject(d) { if (d) run(["reject", d.id], "said no"); }
-    function sendClipboard(d) { if (d) run(["clip", d.id], "clipboard sent"); }
-    function sendPaths(d, paths) { if (d && paths.length) run(["send", d.id].concat(paths), paths.length === 1 ? "sent" : paths.length + " sent"); }
-    function browse(d) { if (d) run(["browse", d.id], "opening its files"); }
-    function battery(d) { if (d) run(["battery", d.id], ""); }
+    function ring(d: var) { if (d) run(["ring", d.id], "ringing"); }
+    function ping(d: var) { if (d) run(["ping", d.id], "pinged"); }
+    function pair(d: var) { if (d) run(["pair", d.id], "accept on the phone"); }
+    function unpair(d: var) { if (d) run(["unpair", d.id], "unpaired"); }
+    function accept(d: var) { if (d) run(["accept", d.id], "paired"); }
+    function reject(d: var) { if (d) run(["reject", d.id], "said no"); }
+    function sendClipboard(d: var) { if (d) run(["clip", d.id], "clipboard sent"); }
+    function sendPaths(d: var, paths: var) { if (d && paths.length) run(["send", d.id].concat(paths), paths.length === 1 ? "sent" : paths.length + " sent"); }
+    function browse(d: var) { if (d) run(["browse", d.id], "opening its files"); }
+    function battery(d: var) { if (d) run(["battery", d.id], ""); }
     // the daemon wasn't running (first login after an update): start it
     function start() { Quickshell.execDetached([Config.bin + "kk-phone", "daemon"]); }
 }

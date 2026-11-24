@@ -26,7 +26,7 @@ Item {
     property string filter: ""
     Keys.onEscapePressed: Ui.overlay = ""
 
-    function jsonLines(text): var {
+    function jsonLines(text: var): var {
         const out = [];
         for (const l of text.split("\n")) { try { if (l.trim()) out.push(JSON.parse(l)); } catch (e) {} }
         return out;
@@ -88,7 +88,7 @@ Item {
         if (tab === "updates" && !updProc.running) { checking = true; updProc.running = true; }
         if (tab === "developer") { if (!bunProc.running) bunProc.running = true; if (!devProc.running) devProc.running = true; }
     }
-    function pick(p) {
+    function pick(p: var) {
         picked = p;
         details = "…";
         infoProc.command = [Config.bin + "kk-pkg", "info", p.name, p.source];
@@ -106,14 +106,14 @@ Item {
             if (searchInput.text.trim().length >= 2) root.search();
         }
     }
-    function runInTerminal(args, what) {
+    function runInTerminal(args: var, what: var) {
         status = what + " in the terminal…";
         termProc.command = ["kitty", "--class", "kk-float", "--title", what, "sh", "-c",
             '"$@"; s=$?; echo; [ $s = 0 ] && echo "done. this closes in a moment." || echo "that didn\'t work (exit $s). press enter."; [ $s = 0 ] && sleep 2 || read _', "sh"].concat(args);
         termProc.running = true;
     }
-    function install(p) { runInTerminal([Config.bin + "kk-pkg", "install", p.name, p.source], "Installing " + p.name); }
-    function remove(p) { runInTerminal([Config.bin + "kk-pkg", "remove", p.name, p.source], "Removing " + p.name); }
+    function install(p: var) { runInTerminal([Config.bin + "kk-pkg", "install", p.name, p.source], "Installing " + p.name); }
+    function remove(p: var) { runInTerminal([Config.bin + "kk-pkg", "remove", p.name, p.source], "Removing " + p.name); }
 
     readonly property var tabs: [
         { key: "search", label: "Search", icon: "search" },

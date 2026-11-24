@@ -53,7 +53,7 @@ Singleton {
     }
 
     // should this desktop entry / window class run on the nvidia card?
-    function wants(app): bool {
+    function wants(app: var): bool {
         if (!hybrid || !powered) return false;
         const keys = [];
         if (typeof app === "string") keys.push(app);
@@ -71,7 +71,7 @@ Singleton {
         return false;
     }
     // the command, wrapped to run on the nvidia card when it should (or when forced)
-    function wrap(cmd, app, force: bool): var {
+    function wrap(cmd: var, app: var, force: bool): var {
         if (!(force && hybrid) && !wants(app)) return cmd;
         return [Config.bin + "kk-gpu", "run"].concat(cmd);
     }

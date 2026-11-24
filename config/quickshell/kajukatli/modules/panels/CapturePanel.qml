@@ -28,7 +28,7 @@ Item {
         { key: "rec-screen", label: "Record screen", icon: "record" }
     ]
 
-    function go(i) {
+    function go(i: var) {
         const k = shots[i].key;
         Ui.panel = "";
         // let the menu fade before the screen is captured

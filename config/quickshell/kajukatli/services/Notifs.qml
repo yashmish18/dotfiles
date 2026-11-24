@@ -12,7 +12,7 @@ Singleton {
     readonly property var history: server.trackedNotifications.values
     readonly property int count: history.length
 
-    function dismissPopup(n) {
+    function dismissPopup(n: var) {
         popups = popups.filter(p => p && p !== n);
     }
     function clearAll() {

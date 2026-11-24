@@ -5,6 +5,8 @@
 #   mirror    the external screen shows the laptop's
 #   internal  only the laptop screen          external   only the external one
 #   left      extend, with the external screen on the left
+#   hotplug   a screen was just plugged in: extend, unless a mode was picked a moment ago
+#   rescue    a screen was unplugged: if that leaves every screen off, turn the laptop's back on
 #   send ±1   the focused window to the screen on the right (+1) or left (-1)
 # any mode can follow any other: leaving "mirror" or a mode that switched a screen off starts
 # from hyprland's own monitor config again first, so nothing from the old mode lingers.
@@ -53,6 +55,12 @@ if [ "$mode" = send ]; then
     exit 0
 fi
 
+# a mode change makes hyprland announce "monitor added" for every screen again; the shell's
+# hotplug handler must not read that as a new cable and undo the mode (that is what made
+# "external only" flip back to extend a second later)
+STAMP="${XDG_RUNTIME_DIR:-/tmp}/kk-display.stamp"
+stamp_age() { local t; t="$(stat -c %Y "$STAMP" 2>/dev/null || echo 0)"; echo $(( $(date +%s) - t )); }
+
 internal="$(printf '%s' "$all" | jq -r '[.[] | select(.name|test("^(eDP|LVDS|DSI)"))][0].name // empty')"
 [ -n "$internal" ] || internal="$(printf '%s' "$all" | jq -r '.[0].name // empty')"
 external="$(printf '%s' "$all" | jq -r --arg i "$internal" '[.[] | select(.name != $i)][0].name // empty')"
@@ -72,6 +80,22 @@ mon() {
         esac
     fi
 }
+case "$mode" in
+    hotplug)
+        [ "$(stamp_age)" -lt 8 ] && exit 0
+        cur="$("$0" json | jq -r .mode)"
+        case "$cur" in internal|extend) exec "$0" extend ;; *) exit 0 ;; esac ;;
+    rescue)
+        on="$(hyprctl monitors -j 2>/dev/null | jq 'length' 2>/dev/null || echo 0)"
+        if [ "${on:-0}" -eq 0 ] || ! hyprctl monitors -j | jq -e 'any(.[]; .disabled | not)' >/dev/null 2>&1; then
+            touch "$STAMP"
+            reapply=0
+            mon "${internal:-eDP-1}" 'mode = "preferred", position = "0x0", scale = "1"'
+        fi
+        exit 0 ;;
+esac
+touch "$STAMP"
+
 need_external() { [ -n "$external" ] || { notify-send -a Display "No external screen" "Is the cable in? Run kk-hdmi to check the port." 2>/dev/null; echo "no external screen" >&2; exit 1; }; }
 
 # coming from mirror, or from a mode that switched a screen off: back to the config's own

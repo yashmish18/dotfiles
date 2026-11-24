@@ -20,7 +20,7 @@ Item {
     property int index: 1
     property string armed: ""      // the one waiting for its second press
 
-    function run(i) {
+    function run(i: var) {
         const a = acts[i];
         index = i;
         if (a.ask && armed !== a.key) { armed = a.key; disarm.restart(); return; }

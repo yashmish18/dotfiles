@@ -18,11 +18,11 @@ Singleton {
     readonly property var sinks: (Pipewire.nodes.values || []).filter(n => n.audio && n.isSink && !n.isStream)
     readonly property var streams: (Pipewire.nodes.values || []).filter(n => n.audio && n.isStream && !n.isSink)
 
-    function name(node): string {
+    function name(node: var): string {
         if (!node) return "";
         return node.nickname || node.description || node.name;
     }
-    function streamName(node): string {
+    function streamName(node: var): string {
         if (!node) return "";
         const p = node.properties || {};
         return p["application.name"] || node.description || node.name;
@@ -42,7 +42,7 @@ Singleton {
     function toggleMic() {
         if (source && source.audio) source.audio.muted = !source.audio.muted;
     }
-    function useSink(node) {
+    function useSink(node: var) {
         Pipewire.preferredDefaultAudioSink = node;
     }
 

@@ -40,7 +40,7 @@ Item {
     readonly property var launches: Store.s.launches || ({})
     property int index: 0
 
-    function score(app, s): real {
+    function score(app: var, s: var): real {
         const name = (app.name || "").toLowerCase();
         if (name.startsWith(s)) return 100 - name.length * 0.1;
         if (name.split(/[\s\-_]/).some(w => w.startsWith(s))) return 60;
@@ -76,7 +76,7 @@ Item {
     }
 
     // onGpu: right-click starts it on the nvidia card; heavy apps (settings → display) always do
-    function launch(app, onGpu) {
+    function launch(app: var, onGpu: var) {
         if (!app) return;
         const l = Object.assign({}, Store.s.launches || {});
         l[app.id] = (l[app.id] || 0) + 1;
@@ -97,7 +97,7 @@ Item {
         else if (mode === "run" && rest) { Ui.overlay = ""; Quickshell.execDetached(["kitty", "--hold", "sh", "-c", rest]); }
         else if (mode === "web" && rest) { Ui.overlay = ""; Qt.openUrlExternally("https://duckduckgo.com/?q=" + encodeURIComponent(rest)); }
     }
-    function move(d) {
+    function move(d: var) {
         const n = mode === "emoji" ? emojis.length : apps.length;
         if (n === 0) return;
         index = Math.max(0, Math.min(n - 1, index + d));

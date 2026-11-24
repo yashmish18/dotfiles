@@ -21,9 +21,9 @@ Item {
     readonly property string q: field.text.trim()
     readonly property string mode: q.startsWith("=") ? "calc" : q.startsWith(">") ? "run" : q.startsWith("?") ? "web" : q.startsWith("/") ? "files" : "apps"
     readonly property var launches: Store.s.launches || ({})
-    function used(app): int { return launches[app.id] || 0; }
+    function used(app: var): int { return launches[app.id] || 0; }
 
-    function score(app, s): real {
+    function score(app: var, s: var): real {
         const name = (app.name || "").toLowerCase();
         if (!s) return 1;
         if (name.startsWith(s)) return 100 - name.length * 0.1;
@@ -63,7 +63,7 @@ Item {
         }
     }
 
-    function launch(app, onGpu) {
+    function launch(app: var, onGpu: var) {
         if (!app) return;
         Ui.panel = "";
         const l = Object.assign({}, Store.s.launches || {});
@@ -85,7 +85,7 @@ Item {
 
     // ---------------------------------------------------------------- files
     property var files: []
-    function openFile(path) {
+    function openFile(path: var) {
         Ui.panel = "";
         Quickshell.execDetached(["xdg-open", path]);
     }

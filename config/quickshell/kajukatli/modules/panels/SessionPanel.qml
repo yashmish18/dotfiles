@@ -23,7 +23,7 @@ Item {
         { key: "off", word: "Shut down", icon: "power", hint: "p", cmd: ["systemctl", "poweroff"], ask: true }
     ]
 
-    function run(i) {
+    function run(i: var) {
         const a = actions[i];
         if (!a) return;
         if (a.ask && armed !== a.key) {

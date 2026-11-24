@@ -19,6 +19,8 @@ Singleton {
     property real bass: 0               // the low end (first eighth of the bars), 0..1
     property real bassAvg: 0            // its recent average: a hit is bass well above it
     property double lastFrame: 0
+    property double lastSignal: Date.now()   // the last frame with any sound in it
+    property double lastRestart: 0
     signal beat(real strength)          // a kick / bass hit (sparks, the pulsing clock)
     property double lastBeat: 0
 
@@ -60,6 +62,8 @@ Singleton {
     }
 
     function restart() {
+        lastRestart = Date.now();
+        lastSignal = Date.now();
         proc.running = false;
         if (!wanted) return;
         writer.command = ["sh", "-c", 'mkdir -p "$(dirname "$1")" && printf "%s" "$2" > "$1"', "sh", conf, confText];
@@ -87,6 +91,7 @@ Singleton {
                 }
                 root.values = v;
                 root.level = sum / n;
+                if (sum > 0.02) root.lastSignal = Date.now();
                 // the beat: bass jumping well above its recent average, at most ~4 a second
                 const k = Math.max(1, Math.floor(n / 8));
                 let b = 0;
@@ -112,12 +117,20 @@ Singleton {
         interval: 4000
         repeat: true
         running: root.wanted
-        onTriggered: if (proc.running && Media.playing && Date.now() - root.lastFrame > 6000) root.restart()
+        onTriggered: {
+            if (!root.wanted) return;
+            const now = Date.now();
+            if (!proc.running && !writer.running && !again.running) root.restart();
+            // alive but deaf (frames of zeros while music plays): it lost its input, e.g. after a
+            // new wallpaper's video grabbed the audio device. don't retry more than every 15 s
+            else if (proc.running && now - root.lastRestart > 15000
+                     && (now - root.lastFrame > 6000 || now - root.lastSignal > 8000)) root.restart();
+        }
     }
     // a new wallpaper rebuilds the desktop layers; make sure the feed survives it
     Connections {
         target: Wall
-        function onCurrentChanged() { if (root.wanted && !proc.running) again.restart(); }
+        function onCurrentChanged() { if (root.wanted) again.restart(); }
     }
 
     // ease back to silence when playback stops, instead of freezing mid-shout

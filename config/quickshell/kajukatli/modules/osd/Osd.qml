@@ -8,10 +8,7 @@ import qs.components
 // volume / brightness: a small glass capsule under the bar, gone after a second and a half.
 PanelWindow {
     id: win
-    screen: {
-        const mon = Hyprland.focusedMonitor;
-        return Quickshell.screens.find(s => mon && s.name === mon.name) || Quickshell.screens[0];
-    }
+    screen: Hypr.activeScreen
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "kajukatli-osd"
     exclusionMode: ExclusionMode.Ignore
@@ -28,7 +25,7 @@ PanelWindow {
     property real value: 0
     property bool muted: false
 
-    function show(k, v, m) {
+    function show(k: var, v: var, m: var) {
         kind = k;
         value = v;
         muted = m;
