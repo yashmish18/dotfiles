@@ -64,13 +64,25 @@ Singleton {
     // the screen shell windows (overlays, toasts, osd) belong on: the focused one, or, when
     // hyprland's idea of "focused" is a screen that was just switched off or unplugged, one
     // that is really on
-    readonly property var activeScreen: {
+    readonly property var liveScreen: {
         const live = Quickshell.screens;
         const mon = Hyprland.focusedMonitor;
         const hit = live.find(s => mon && s.name === mon.name);
         if (hit) return hit;
         const on = Hyprland.monitors.values.find(m => !(m.lastIpcObject && m.lastIpcObject.disabled) && live.some(s => s.name === m.name));
         return (on && live.find(s => s.name === on.name)) || live[0];
+    }
+
+    // ...but a shell window that is already showing never changes screen: moving a live
+    // layer-shell window to another output makes Qt tear down and rebuild its surface, which
+    // is a crash waiting to happen (and it would jump away from under your hands anyway).
+    // so this follows liveScreen only while no overlay, emoji picker or toast is up.
+    property var activeScreen: null
+    Binding {
+        target: root
+        property: "activeScreen"
+        value: root.liveScreen
+        when: Ui.overlay === "" && !Ui.overlayLinger && !Ui.emojiOpen && !Ui.emojiLinger && Notifs.popups.length === 0
     }
 
     // something is fullscreen (a video, a game): notifications wait until it isn't

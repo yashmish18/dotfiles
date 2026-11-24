@@ -82,7 +82,7 @@ Singleton {
         property string want: ""
         command: ["curl", "-sfL", "--max-time", "8", "-o", root.coverCache, want]
         onExited: code => {
-            if (code === 0 && want === root.art && _quant) _quant.source = "file://" + root.coverCache;
+            if (code === 0 && want === root.art && _quant) { _quant.source = ""; _quant.source = "file://" + root.coverCache; }   // same file name every track: clear it so it is read again
         }
     }
     function setArtSource(u: string): void {
