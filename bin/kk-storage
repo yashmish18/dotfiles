@@ -87,7 +87,9 @@ case "${1:-report}" in
             # on screen now. `walls old` (the automatic tidy) leaves anything used in the last 30 days
             walls)
                 keep="$(current_wall_dir)"
-                age=(); [ "${3:-}" = old ] && age=(-mtime +30)
+                # cut-outs and depth took a long time to make: only what hasn't been used for 30 days
+                # goes (`walls all` removes the lot)
+                age=(-mtime +30); [ "${3:-}" = all ] && age=()
                 find "$CACHE/kajukatli/walls" -mindepth 1 -maxdepth 1 -type d "${age[@]}" 2>/dev/null | while IFS= read -r d; do
                     [ "$d" = "$keep" ] || rm -rf "$d"
                 done

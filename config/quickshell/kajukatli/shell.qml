@@ -63,8 +63,9 @@ ShellRoot {
         target: Power
         function onOnBatteryChanged() {
             // shadows and blur are the expensive bits of the compositor
+            // blur stays on (terminal glass); Power.applyPower lightens it, only shadows go here
             if (Power.onBattery)
-                Hypr.hyprEval('hl.config({ decoration = { shadow = { enabled = false }, blur = { enabled = false } } })');
+                Hypr.hyprEval('hl.config({ decoration = { shadow = { enabled = false }, blur = { enabled = true } } })');
             else
                 Hypr.hyprEval('hl.config({ decoration = { shadow = { enabled = true }, blur = { enabled = true } } })');
         }

@@ -62,30 +62,36 @@ Item {
     // ---------------------------------------------------------------- handling
     // a faint outline while you hold or hover it, so you know what you've got
     Rectangle {
-        visible: root.editable && (Ui.editing || drag.active || hover.hovered && hover.point.modifiers & Qt.ControlModifier)
+        visible: root.editable && (Ui.editing || drag.active || stripDrag.active || hover.hovered && hover.point.modifiers & Qt.ControlModifier)
         anchors.fill: parent
         anchors.margins: -8
         radius: Theme.radiusSmall
-        color: drag.active ? Theme.alpha(Theme.primary, 0.1) : "transparent"
+        color: (drag.active || stripDrag.active) ? Theme.alpha(Theme.primary, 0.1) : "transparent"
         border.width: 1.5
-        border.color: Theme.alpha(Theme.primary, drag.active ? 1 : 0.6)
+        border.color: Theme.alpha(Theme.primary, (drag.active || stripDrag.active) ? 1 : 0.6)
     }
     HoverHandler {
         id: hover
         enabled: root.editable
     }
-    // the part of the widget that moves it: all of it, or just the top strip
+    // the notepad (gripOnly) is moved by a strip along its top, so the rest of it is for the
+    // cursor; every other widget is moved by grabbing it anywhere, as before
     Item {
         id: dragZone
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: root.gripOnly && !Ui.editing ? Math.min(parent.height, 22) : parent.height
+        height: root.gripOnly && !Ui.editing ? Math.min(parent.height, 22) : 0
+    }
+    function dropped() {
+        const fx = root.parent.width - root.width > 0 ? root.x / (root.parent.width - root.width) : 0.5;
+        const fy = root.parent.height - root.height > 0 ? root.y / (root.parent.height - root.height) : 0.5;
+        Config.setPos(root.name, fx, fy);
+        root.place();
     }
     DragHandler {
         id: drag
-        parent: dragZone
-        enabled: root.editable && root.shown
+        enabled: root.editable && root.shown && !(root.gripOnly && !Ui.editing)
         acceptedModifiers: Qt.NoModifier
         target: root
         xAxis.minimum: 0
@@ -94,14 +100,21 @@ Item {
         yAxis.maximum: Math.max(0, root.parent.height - root.height)
         dragThreshold: 6
         cursorShape: Qt.ClosedHandCursor
-        onActiveChanged: {
-            Ui.dragging = active;
-            if (active) return;
-            const fx = root.parent.width - root.width > 0 ? root.x / (root.parent.width - root.width) : 0.5;
-            const fy = root.parent.height - root.height > 0 ? root.y / (root.parent.height - root.height) : 0.5;
-            Config.setPos(root.name, fx, fy);
-            root.place();
-        }
+        onActiveChanged: { Ui.dragging = active; if (!active) root.dropped(); }
+    }
+    DragHandler {
+        id: stripDrag
+        parent: dragZone
+        enabled: root.editable && root.shown && root.gripOnly && !Ui.editing
+        acceptedModifiers: Qt.NoModifier
+        target: root
+        xAxis.minimum: 0
+        xAxis.maximum: Math.max(0, root.parent.width - root.width)
+        yAxis.minimum: 0
+        yAxis.maximum: Math.max(0, root.parent.height - root.height)
+        dragThreshold: 6
+        cursorShape: Qt.ClosedHandCursor
+        onActiveChanged: { Ui.dragging = active; if (!active) root.dropped(); }
     }
     WheelHandler {
         enabled: root.editable && root.shown

@@ -170,7 +170,7 @@ Variants {
             height: win.height
             sourceItem: depthLayer
             hideSource: true
-            live: depthLayer.anyHere
+            live: depthLayer.anyHere && !Wall.switching    // frozen while the ink runs: one full-screen texture less to redraw per frame
             recursive: false
         }
 

@@ -411,7 +411,7 @@ Item {
                                 { k: "trash", t: "Recycle bin", d: "Everything you deleted", v: root.report.clean.trash },
                                 { k: "thumbnails", t: "Thumbnails", d: "Little previews; they come back as you browse", v: root.report.clean.thumbnails },
                                 { k: "cache", t: "App caches", d: "Shader, font and build caches apps rebuild by themselves (of " + root.human(root.report.clean.cache) + " in ~/.cache)", v: -1 },
-                                { k: "walls", t: "Wallpaper workspace", d: "Cut-outs and depth for every wallpaper but the current one (rebuilt when you pick it again)", v: root.report.clean.walls },
+                                { k: "walls", t: "Wallpaper workspace", d: "Cut-outs and depth for wallpapers not used in 30 days", v: root.report.clean.walls },
                                 { k: "pacman", t: "Old packages", d: "Downloaded package files, keeping the newest of each", v: root.report.clean.pacman },
                                 { k: "journal", t: "System logs", d: "Trimmed to the last 100 MB", v: root.report.clean.journal },
                                 { k: "aur", t: "AUR build files", d: "Sources left over from building AUR packages", v: root.report.clean.aur },

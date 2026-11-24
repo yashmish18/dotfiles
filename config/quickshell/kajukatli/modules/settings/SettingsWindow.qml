@@ -566,7 +566,8 @@ LazyLoader {
                         Switch { on: Config.s.cursorParallax; onToggled: Config.s.cursorParallax = !Config.s.cursorParallax } }
                     Setting { label: "How much it moves"; visible: Config.s.parallax
                         Knob { from: 0.2; to: 2; step: 0.1; value: Config.s.parallaxStrength; onMoved: v => Config.s.parallaxStrength = v } }
-                    Setting { label: "Subject in this wallpaper"; detail: Wall.subjectStatus + (Wall.aiMissing ? " · ./install.sh --ai" : "") }
+                    Setting { label: "Subject in this wallpaper"; detail: Wall.subjectStatus + (Wall.aiMissing ? " · ./install.sh --ai" : "")
+                            + (!Config.s.clockDepth ? " · the clock is set to stay in front" : Ui.editing ? " · arrange mode is on" : Ui.dragging ? " · a widget drag is in progress" : "") }
                     Setting { label: "Find the subject again"; detail: "If the clock hides behind the wrong thing."
                         RowLayout { spacing: 6
                             Btn { text: "Drawn art"; onClicked: Wall.redetect("isnet-anime") }

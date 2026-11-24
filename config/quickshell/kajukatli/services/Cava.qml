@@ -130,7 +130,7 @@ Singleton {
     // a new wallpaper rebuilds the desktop layers; make sure the feed survives it
     Connections {
         target: Wall
-        function onCurrentChanged() { if (root.wanted) again.restart(); }
+        function onCurrentChanged() { if (root.wanted && !proc.running) again.restart(); }
     }
 
     // ease back to silence when playback stops, instead of freezing mid-shout

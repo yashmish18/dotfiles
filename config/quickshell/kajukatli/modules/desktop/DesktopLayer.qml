@@ -239,7 +239,7 @@ Item {
         y: layer.waveY
         flip: edge === "top"
         style: edge === "middle" && layer.fullStyle === "bars" ? "mirror" : layer.fullStyle
-        active: visible && !layer.covered
+        active: visible && !layer.covered && !Wall.switching
         count: layer.fullStyle === "wave" ? Math.min(56, Cava.bars) : Math.max(16, Config.s.visualizerBars)
         color: Theme.wallText
         colorMode: Config.s.visualizerColor
@@ -293,15 +293,16 @@ Item {
         Movable {
             id: barsM
             name: "bars"
+            z: 20            // above the clock: never underneath it, never losing its clicks to it
             ghost: !layer.behind && layer.visBehind
             fallback: ({ x: 0.92, y: 0.04 })
             editable: !layer.behind
             shown: layer.barsHere
             Visualizer {
-                implicitWidth: layer.boxStyle === "mirror" ? 540 : layer.boxStyle === "wave" ? 460 : 300
-                implicitHeight: layer.boxStyle === "mirror" ? 120 : layer.boxStyle === "wave" ? 90 : 44
+                implicitWidth: layer.boxStyle === "mirror" ? 420 : layer.boxStyle === "wave" ? 360 : 240
+                implicitHeight: layer.boxStyle === "mirror" ? 80 : layer.boxStyle === "wave" ? 60 : 30
                 style: layer.boxStyle
-                active: visible && !layer.covered
+                active: visible && !layer.covered && !Wall.switching
                 count: layer.boxStyle === "mirror" ? 96 : Math.max(16, Math.min(96, Config.s.visualizerBars))
                 gap: Math.min(Config.s.visualizerGap, 3)
                 color: Theme.wallText

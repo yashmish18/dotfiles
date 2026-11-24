@@ -72,14 +72,16 @@ Singleton {
     // 10: the ink spread is back at its full length, the clock decides for itself again (it goes
     // behind the wallpaper's subject), and the music bars are a little lower by default
     function migrate10() {
-        if (adapter.configVersion >= 10) return;
+        if (adapter.configVersion >= 11) return;
+        // 11: the music bars are low by default (8% of the screen)
+        if (adapter.visualizerHeight > 0.09) adapter.visualizerHeight = 0.08;
+        if (adapter.configVersion >= 10) { adapter.configVersion = 11; return; }
         if (adapter.transitionMs === 1600) adapter.transitionMs = 4200;
         adapter.clockDepth = true;
         const l = Object.assign({}, adapter.layout || {});
         l.clock = Object.assign({}, l.clock || {}, { auto: true });
         adapter.layout = l;
-        if (Math.abs(adapter.visualizerHeight - 0.24) < 0.001) adapter.visualizerHeight = 0.15;
-        adapter.configVersion = 10;
+        adapter.configVersion = 11;
     }
     Timer { id: saveSoon; interval: 250; onTriggered: file.writeAdapter() }
 
@@ -144,7 +146,7 @@ Singleton {
         JsonAdapter {
             id: adapter
 
-            property int configVersion: 10           // settings written by older versions get updated once
+            property int configVersion: 11           // settings written by older versions get updated once
 
             // ---------------------------------------------------- look
             property string look: "studio"          // the preset last applied (see Looks.qml)
@@ -175,7 +177,7 @@ Singleton {
             property int visualizerBars: 48
             property string visualizerSpan: "auto"     // auto (wave across the screen, bars in a box) | full | widget
             property string visualizerEdge: "bottom"   // full width: bottom | top | middle
-            property real visualizerHeight: 0.15      // full width: how tall, as a part of the screen
+            property real visualizerHeight: 0.08      // full width: how tall, as a part of the screen
             property string visualizerColor: "wallpaper" // wallpaper | accent | album | rainbow
             property real visualizerOpacity: 0.6
             property int visualizerGap: 2             // pixels between bars

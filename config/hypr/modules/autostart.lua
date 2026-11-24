@@ -11,6 +11,8 @@ hl.on("hyprland.start", function()
     hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/kk-startlock")
 
     hl.exec_cmd("hypridle")
+    -- nautilus's background service, so super + e opens a window at once instead of starting the app cold
+    hl.exec_cmd("sh -c 'command -v nautilus >/dev/null && exec nautilus --gapplication-service'")
     -- the phone service (kk-phone): finds your phone's KDE Connect app on the wi-fi
     hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/kk-phone daemon")
     -- clipboard history: the last 80 things. every screenshot is copied as a full-size image,

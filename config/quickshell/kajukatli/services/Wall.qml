@@ -17,6 +17,10 @@ Singleton {
     property var current: null          // meta.json of what's on screen
     property int generation: 0          // +1 per new wallpaper: screens play a transition
     signal refined()                    // same wallpaper, more detail (cut-out, depth)
+    // a wallpaper is changing: the ink is running, so everything else that moves (the music
+    // bars, the behind-the-subject layer's live texture) holds still until it lands
+    property bool switching: false
+    Timer { id: switchDone; interval: Config.s.transitionMs + 1200; onTriggered: root.switching = false }
     property bool preparing: false      // the ai stage is working
     property bool aiMissing: false      // kk-prep said the ai isn't installed
     property string aiError: ""         // the last thing that went wrong in the ai stage
@@ -81,6 +85,8 @@ Singleton {
         stopVideo();
         current = meta;
         generation++;
+        switching = true;
+        switchDone.restart();
         Store.s.wallpaper = meta.source;
         if (meta.dir) Store.s.wallMeta = meta;
         if (isVideo) videoStart.restart();
