@@ -79,8 +79,10 @@ case "${1:-report}" in
             trash) gio trash --empty >/dev/null 2>&1; rm -rf "$DATA/Trash/files/"* "$DATA/Trash/info/"* "$DATA/Trash/directorysizes" 2>/dev/null; true ;;
             thumbnails) rm -rf "$CACHE/thumbnails/"* 2>/dev/null; true ;;
             # the parts of ~/.cache every app rebuilds by itself
-            cache) rm -rf "$CACHE/thumbnails/"* "$CACHE/pip" "$CACHE/fontconfig" "$CACHE/mesa_shader_cache" \
-                       "$CACHE/mesa_shader_cache_db" "$CACHE/nvidia/GLCache" "$CACHE/go-build" "$CACHE/yarn"                        "$CACHE"/qtshadercache* "$CACHE/qmlcache" "$CACHE/npm" "$CACHE/pnpm" "$CACHE/electron" 2>/dev/null; true ;;
+            # only what apps rebuild by themselves AND nothing the running session has open: the
+            # gpu shader caches (mesa, nvidia, qt), the font cache and the qml cache are memory-mapped
+            # by the shell and every app, and deleting them underneath makes them crash
+            cache) rm -rf "$CACHE/thumbnails/"* "$CACHE/pip" "$CACHE/go-build" "$CACHE/yarn" "$CACHE/npm" "$CACHE/pnpm" "$CACHE/electron" 2>/dev/null; true ;;
             # wallpaper bundles (they come back when that wallpaper is picked again), never the one
             # on screen now. `walls old` (the automatic tidy) leaves anything used in the last 30 days
             walls)

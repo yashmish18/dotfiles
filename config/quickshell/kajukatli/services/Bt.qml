@@ -126,7 +126,7 @@ Singleton {
     // bluetooth just came on: bring back what was connected before
     property bool wasEnabled: false
     onEnabledChanged: {
-        if (enabled && !wasEnabled && Config.s.btAutoReconnect) reconnect.restart();
+        if (enabled && !wasEnabled) reconnect.restart();
         wasEnabled = enabled;
     }
     Component.onCompleted: wasEnabled = enabled

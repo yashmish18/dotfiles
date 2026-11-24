@@ -14,6 +14,7 @@ LazyLoader {
     PanelWindow {
         id: win
         screen: Hypr.activeScreen
+        visible: !Ui.authWaiting
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "kajukatli-overlay"
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive

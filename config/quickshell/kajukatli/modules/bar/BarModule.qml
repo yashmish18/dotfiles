@@ -140,12 +140,12 @@ Loader {
     Component {
         id: logoC
         Chip {
-            icon: Config.s.barLogo === "" ? "spark" : ""
+            icon: Config.s.barLogo === "" ? "kitty" : ""
             label: Config.s.barLogo
             iconColor: Theme.primary
             color: Theme.primary
             lit: Ui.panel === "launcher"
-            onClicked: m => m.button === Qt.RightButton ? root.openPanel("settings") : Ui.toggle("launcher")
+            onClicked: m => m.button === Qt.RightButton ? Ui.barMenu(root.vertical ? root.mapToItem(null, 0, m.y).y : root.mapToItem(null, m.x, 0).x) : Ui.toggle("launcher")
         }
     }
 
@@ -548,10 +548,43 @@ Loader {
     Component {
         id: trayC
         Grid {
-            columns: root.vertical ? 1 : Math.max(1, SystemTray.items.values.length)
+            id: tray
+            // our own apps live here too, ahead of the other apps' icons
+            readonly property var mine: [
+                { icon: "download", tip: "Software centre", run: () => Ui.toggleOverlay("packages") },
+                { icon: "gauge", tip: "Task manager", run: () => Ui.toggleOverlay("system") },
+                { icon: "grid", tip: "Running apps", run: () => Ui.toggle("running") },
+                { icon: "clipboard", tip: "Clipboard", run: () => Ui.toggle("clipboard") }
+            ].concat(Phone.available ? [{ icon: "phone", tip: "Phone", run: () => Ui.toggle("phone") }] : [])
+            columns: root.vertical ? 1 : Math.max(1, SystemTray.items.values.length + mine.length)
             spacing: 8
             verticalItemAlignment: Grid.AlignVCenter
             horizontalItemAlignment: Grid.AlignHCenter
+            Repeater {
+                model: tray.mine
+                delegate: Item {
+                    id: mi
+                    required property var modelData
+                    implicitWidth: 14
+                    implicitHeight: 14
+                    Icon {
+                        anchors.centerIn: parent
+                        name: mi.modelData.icon
+                        size: 14
+                        color: Theme.surfaceText
+                        opacity: miArea.containsMouse ? 1 : 0.6
+                        Behavior on opacity { NumberAnimation { duration: Theme.fast } }
+                    }
+                    MouseArea {
+                        id: miArea
+                        anchors.fill: parent
+                        anchors.margins: -3
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: mi.modelData.run()
+                    }
+                }
+            }
             Repeater {
                 model: SystemTray.items
                 delegate: TrayItem { menuEdge: root.menuEdge }

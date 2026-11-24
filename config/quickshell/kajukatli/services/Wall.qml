@@ -219,7 +219,7 @@ Singleton {
     function refreshLibrary() {
         if (listProc.running) return;
         listing = true;
-        listProc.command = [Config.bin + "kk-prep", "--list", Config.wallpaperDir];
+        listProc.command = [Config.bin + "kk-prep", "--list", Config.wallpaperDir, "--also", Config.home + "/Videos/wallpapers", "--also", Config.home + "/Videos/live", "--also", Config.home + "/Videos/Wallpapers"];
         listProc.running = true;
     }
 

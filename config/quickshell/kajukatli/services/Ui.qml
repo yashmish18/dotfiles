@@ -19,6 +19,16 @@ Singleton {
     property bool recording: false // kk-record tells us over ipc
     property string overlayQuery: ""
     property var projectionMode: ""
+    // a privileged action is waiting for your password: the full-screen overlays step aside so
+    // the password prompt (an ordinary window, under them) can be seen and typed into
+    property bool authWaiting: false
+    // right-click on a desktop widget: which one, where, and on which screen's layer
+    property string widgetMenu: ""
+    property real widgetMenuX: 0
+    property real widgetMenuY: 0
+    property var widgetMenuOwner: null
+    // right-click on the bar: ask the bar on the focused screen to open its menu at x
+    signal barMenu(real x)
     // focus: the bar and the widgets step away, notifications wait, the wallpaper dims
     property bool focusMode: false
     function toggleFocus() {

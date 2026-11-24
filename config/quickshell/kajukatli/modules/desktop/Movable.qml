@@ -6,6 +6,7 @@ import qs.components
 //   drag            move it anywhere
 //   ctrl + scroll   make it bigger or smaller
 //   double-click    put it back where it started, at its normal size
+//   right-click     its menu: bigger, smaller, put back, hide, settings
 // the position is a fraction of the room it has to move in, so it lands in the same place
 // on any screen; it also shrinks itself rather than ever hang off an edge.
 Item {
@@ -98,5 +99,17 @@ Item {
     TapHandler {
         enabled: root.editable && root.shown
         onDoubleTapped: Config.resetWidget(root.name)
+    }
+    // right-click: the widget's menu (bigger, smaller, move back, hide…) right where you clicked
+    TapHandler {
+        enabled: root.editable && root.shown
+        acceptedButtons: Qt.RightButton
+        onTapped: (pt, button) => {
+            const q = root.mapToItem(root.parent, pt.position.x, pt.position.y);
+            Ui.widgetMenuX = q.x;
+            Ui.widgetMenuY = q.y;
+            Ui.widgetMenuOwner = root.parent;
+            Ui.widgetMenu = root.name;
+        }
     }
 }

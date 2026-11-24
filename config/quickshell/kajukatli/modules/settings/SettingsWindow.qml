@@ -244,11 +244,6 @@ LazyLoader {
                 spacing: 18
                 Head { title: "Behaviour"; about: "How the desktop reacts. Each of these works the moment you change it." }
                 Group {
-                    title: "Control center"
-                    Setting { label: "Reconnect Bluetooth devices"; detail: "Turning Bluetooth back on brings back what was connected before."
-                        Switch { on: Config.s.btAutoReconnect; onToggled: Config.s.btAutoReconnect = !Config.s.btAutoReconnect } }
-                }
-                Group {
                     title: "Workspaces"
                     Setting { label: "No gaps"; detail: "Close workspace 3 of 1 2 3 4 and 4 becomes 3. Named workspaces keep their number."
                         Switch { on: Config.s.compactWorkspaces; onToggled: Config.s.compactWorkspaces = !Config.s.compactWorkspaces } }
@@ -257,26 +252,20 @@ LazyLoader {
                 }
                 Group {
                     title: "Keeping things"
-                    Setting { label: "Clipboard history"; detail: "At most this many things, trimmed as you go."
-                        Choice { options: [10, 30, 50].map(v => ({ value: v, label: v + " items" })); value: Config.s.clipboardKeep; onPicked: v => Config.s.clipboardKeep = v } }
-                    Setting { label: "Start each session with an empty clipboard history"
-                        Switch { on: Config.s.clipboardClearAtLogin; onToggled: Config.s.clipboardClearAtLogin = !Config.s.clipboardClearAtLogin } }
                     Setting { label: "Recycle bin"; detail: "Empty what's been there longer than this."
                         Choice { options: [{ value: 7, label: "7 days" }, { value: 30, label: "30 days" }, { value: 0, label: "keep" }]; value: Config.s.trashDays; onPicked: v => Config.s.trashDays = v } }
                     Setting { label: "Screenshots"; detail: "Delete the ones older than this (they're yours: kept by default)."
                         Choice { options: [{ value: 7, label: "7 days" }, { value: 30, label: "30 days" }, { value: 0, label: "keep" }]; value: Config.s.screenshotsDays; onPicked: v => Config.s.screenshotsDays = v } }
                     Setting { label: "Screen recordings"
                         Choice { options: [{ value: 7, label: "7 days" }, { value: 30, label: "30 days" }, { value: 0, label: "keep" }]; value: Config.s.recordingsDays; onPicked: v => Config.s.recordingsDays = v } }
-                    Setting { label: "Tidy up now"; detail: "Caches, the clipboard, old packages and logs. Runs by itself every three hours."
+                    Setting { label: "Tidy up now"; detail: "Caches, old packages and logs. Runs by itself every three hours."
                         Btn { text: "Tidy"; onClicked: Quickshell.execDetached([Config.bin + "kk-storage", "tidy"]) } }
                 }
                 Group {
                     title: "Apps"
                     Setting { label: "One tap on a tray icon opens its menu"; detail: "Everything the app offers, in one tap. Right-click opens the app itself."
                         Switch { on: Config.s.trayTapMenu; onToggled: Config.s.trayTapMenu = !Config.s.trayTapMenu } }
-                    Setting { label: "No apps in the background"; detail: "An app is asked to quit a few seconds after its last window closes, unless it's allowed: " + (Config.s.backgroundAllowed || []).join(", ")
-                        Switch { on: Config.s.noBackgroundApps; onToggled: Config.s.noBackgroundApps = !Config.s.noBackgroundApps } }
-                    Setting { label: "Allowed in the background"; detail: "Comma separated app ids (the running-apps panel can add them too)."
+                    Setting { label: "Allowed in the background"; detail: "Apps are closed a few seconds after their last window. These may keep running (comma separated; the running-apps panel can add them too)."
                         Field { implicitWidth: 260; size: Theme.md; text: (Config.s.backgroundAllowed || []).join(", "); onAccepted: Config.s.backgroundAllowed = text.split(",").map(x => x.trim()).filter(x => x !== "") } }
                 }
             }
@@ -618,6 +607,19 @@ LazyLoader {
                         id: mon
                         required property var modelData
                         readonly property var info: modelData.lastIpcObject || ({})
+                        // the refresh rates this screen really offers at its current size (from the
+                        // modes it reports), never a made-up list
+                        readonly property var rates: {
+                            const seen = {}, out = [];
+                            for (const m of (info.availableModes || [])) {
+                                const r = /^(\d+)x(\d+)@([\d.]+)Hz$/.exec(m);
+                                if (!r || +r[1] !== info.width || +r[2] !== info.height) continue;
+                                const hz = Math.round(parseFloat(r[3]));
+                                if (!seen[hz]) { seen[hz] = true; out.push(hz); }
+                            }
+                            out.sort((x, y) => y - x);
+                            return out;
+                        }
                         title: modelData.name
                         Setting {
                             label: "Scale"
@@ -631,7 +633,7 @@ LazyLoader {
                         Setting {
                             label: "Refresh"
                             Choice {
-                                options: [{ value: 0, label: "Preferred" }, { value: 60, label: "60 Hz" }, { value: 120, label: "120 Hz" }, { value: 144, label: "144 Hz" }, { value: 165, label: "165 Hz" }, { value: 240, label: "240 Hz" }]
+                                options: [{ value: 0, label: "Preferred" }].concat(mon.rates.map(r => ({ value: r, label: r + " Hz" })))
                                 value: System.monitorProfile(mon.modelData.name).refresh || 0
                                 onPicked: v => System.setMonitorProfile(mon.modelData.name, "refresh", v)
                             }

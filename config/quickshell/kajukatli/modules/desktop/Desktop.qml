@@ -25,7 +25,7 @@ Variants {
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
 
-        mask: Ui.editing ? fullRegion : widgetRegion
+        mask: Ui.editing || Ui.widgetMenu !== "" ? fullRegion : widgetRegion
         Region { id: fullRegion; item: root }
         Region {
             id: widgetRegion

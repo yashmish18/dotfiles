@@ -1,18 +1,4 @@
 #!/bin/sh
-# kk-hello   the terminal greeting: fastfetch with the smoking kitty.
-#            KK_HELLO_FIGURE=1 kk-hello: in kitty, the figure from your current wallpaper instead
+# kk-hello   the terminal greeting: fastfetch with the ascii cat (config/fastfetch/config.jsonc)
 set -u
-cut="${XDG_CACHE_HOME:-$HOME/.cache}/kajukatli/current/cut.png"
-if [ -n "${KITTY_WINDOW_ID:-}" ] && [ -f "$cut" ] && [ -n "${KK_HELLO_FIGURE:-}" ]; then
-    w=1; h=1
-    [ -f "${cut%.png}.txt" ] && read -r w h < "${cut%.png}.txt"
-    rows=14
-    cols=$(( rows * 2 * w / h ))          # a cell is about twice as tall as it is wide
-    [ "$cols" -lt 10 ] && cols=10
-    [ "$cols" -gt 36 ] && cols=36
-    exec fastfetch --logo-type kitty-direct --logo "$cut" --logo-width "$cols" --logo-height "$rows" "$@"
-fi
-# the kitty: drawn once per theme (kk-theme redraws it); make it if it isn't there yet
-logo="${XDG_CACHE_HOME:-$HOME/.cache}/kajukatli/hello-logo.txt"
-[ -s "$logo" ] || "$(dirname "$(readlink -f "$0")")/kk-hello-art" 2>/dev/null
 exec fastfetch "$@"

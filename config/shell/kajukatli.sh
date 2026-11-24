@@ -72,7 +72,7 @@ command -v bat >/dev/null && alias cat='bat --style=plain --paging=never --theme
 
 # small kindnesses
 alias please='sudo'
-alias meow='kk-hello'      # KK_HELLO_FIGURE=1 meow: your wallpaper's figure as the logo
+alias meow='kk-hello'
 alias ..='cd ..'
 alias ...='cd ../..'
 alias icat='kitten icat'

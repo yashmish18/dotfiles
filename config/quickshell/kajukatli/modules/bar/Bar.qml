@@ -62,7 +62,8 @@ Variants {
                 Region { item: bar.shownBar ? shapeA : null },
                 Region { item: bar.shownBar ? shapeB : null },
                 Region { item: bar.shownBar ? shapeC : null },
-                Region { item: bar.shown !== "" ? card : null }
+                Region { item: bar.shown !== "" ? card : null },
+                Region { item: bar.menuOpen ? bmenu : null }
             ]
         }
 
@@ -70,6 +71,47 @@ Variants {
             windows: [bar]
             active: bar.open && grabArmed.armed
             onCleared: Ui.panel = ""
+        }
+
+        // ---- right-click on the bar: change how it looks right here, no settings window
+        property bool menuOpen: false
+        property real menuAlong: 0
+        Connections {
+            target: Ui
+            function onBarMenu(x: real) {
+                if (!bar.focusedScreen || bar.style === "none") return;
+                Ui.panel = "";
+                bar.menuAlong = x;
+                bar.menuOpen = true;
+            }
+            function onPanelChanged() { if (Ui.panel !== "") bar.menuOpen = false; }
+        }
+        HyprlandFocusGrab {
+            windows: [bar]
+            active: bar.menuOpen
+            onCleared: bar.menuOpen = false
+        }
+        MenuList {
+            id: bmenu
+            visible: bar.menuOpen
+            z: 50
+            x: bar.vertical ? bar.thick + 10 : Math.max(10, Math.min(bar.width - width - 10, bar.menuAlong - width / 2))
+            y: bar.vertical ? Math.max(10, Math.min(bar.height - height - 10, bar.menuAlong))
+             : bar.atBottom ? bar.height - bar.thick - bar.edge - 10 - height
+             : bar.thick + bar.edge + 10
+            onDone: bar.menuOpen = false
+            function style(v: string) { Config.s.barStyle = v; Ui.barVisible = true; }
+            items: [
+                { label: "Islands", on: Config.s.barStyle === "islands", run: () => style("islands") },
+                { label: "Pill", on: Config.s.barStyle === "pill", run: () => style("pill") },
+                { label: "Long bar", on: Config.s.barStyle === "bar", run: () => style("bar") },
+                { label: "Side rail", on: Config.s.barStyle === "rail", run: () => style("rail") },
+                { sep: true },
+                { label: Config.s.barPosition === "top" ? "Move to the bottom" : "Move to the top", run: () => { Config.s.barPosition = Config.s.barPosition === "top" ? "bottom" : "top"; } },
+                { label: "Hide the bar (Super + Shift + B)", run: () => { Ui.barVisible = false; } },
+                { sep: true },
+                { label: "Choose what's in the bar…", run: () => Ui.settings("bar") }
+            ]
         }
 
         // the panel that's drawn lags behind Ui.panel on close, so it can fade out first
@@ -161,6 +203,13 @@ Variants {
                      : islandL.implicitWidth + 26
                 height: bar.vertical ? bar.height : shapes.pillH
 
+                MouseArea {
+                    z: -1
+                    anchors.fill: parent
+                    acceptedButtons: Qt.RightButton
+                    onClicked: m => Ui.barMenu(bar.vertical ? parent.y + m.y : parent.x + m.x)
+                }
+
                 // pill: everything in one row, groups separated by dots
                 Row {
                     id: pillRow
@@ -220,6 +269,12 @@ Variants {
                 height: visible ? shapes.pillH : 0
                 x: (bar.width - width) / 2
                 y: shapes.barY
+                MouseArea {
+                    z: -1
+                    anchors.fill: parent
+                    acceptedButtons: Qt.RightButton
+                    onClicked: m => Ui.barMenu(bar.vertical ? parent.y + m.y : parent.x + m.x)
+                }
                 Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; id: islandC; names: bar.style === "islands" ? bar.mods.center : []; anchors.centerIn: parent }
             }
             Shell {
@@ -229,6 +284,12 @@ Variants {
                 height: visible ? shapes.pillH : 0
                 x: bar.width - width - 10
                 y: shapes.barY
+                MouseArea {
+                    z: -1
+                    anchors.fill: parent
+                    acceptedButtons: Qt.RightButton
+                    onClicked: m => Ui.barMenu(bar.vertical ? parent.y + m.y : parent.x + m.x)
+                }
                 Group { vertical: bar.vertical; monitor: bar.monitor; menuEdge: bar.menuEdge; id: islandR; names: bar.style === "islands" ? bar.mods.right : []; anchors.centerIn: parent }
             }
         }

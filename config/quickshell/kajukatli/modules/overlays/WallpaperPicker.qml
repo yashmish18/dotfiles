@@ -281,7 +281,7 @@ Item {
         }
         Txt {
             Layout.alignment: Qt.AlignHCenter
-            text: "Put pictures or videos in " + Config.s.wallpaperDir + ", or run ./install.sh --walls"
+            text: "Put pictures or videos in " + Config.s.wallpaperDir + " (live ones can also go in ~/Videos/wallpapers), or run ./install.sh --walls"
             color: Theme.alpha("#ffffff", 0.6)
         }
     }

@@ -243,6 +243,49 @@ Item {
         anchors.bottomMargin: layer.padBottom
         anchors.leftMargin: layer.padLeft
 
+        // ---- right-click menu of a widget (see Movable). the window is click-through except
+        // while this is open (Desktop.qml widens its input region)
+        MouseArea {
+            anchors.fill: parent
+            z: 998
+            visible: !layer.behind && Ui.widgetMenu !== "" && Ui.widgetMenuOwner === area
+            acceptedButtons: Qt.AllButtons
+            onClicked: Ui.widgetMenu = ""
+        }
+        MenuList {
+            id: wmenu
+            z: 999
+            visible: !layer.behind && Ui.widgetMenu !== "" && Ui.widgetMenuOwner === area
+            x: Math.max(4, Math.min(area.width - width - 4, Ui.widgetMenuX))
+            y: Math.max(4, Math.min(area.height - height - 4, Ui.widgetMenuY))
+            onDone: Ui.widgetMenu = ""
+            readonly property string w: Ui.widgetMenu
+            readonly property real size: { const l = Config.pos(w, null); return l && l.s !== undefined ? l.s : 1; }
+            function hide() {
+                switch (w) {
+                case "calendar": Config.s.showCalendar = false; break;
+                case "stats": Config.s.showStats = false; break;
+                case "weather": Config.s.showWeather = false; break;
+                case "battery": Config.s.showBattery = false; break;
+                case "analog": Config.s.showAnalog = false; break;
+                case "note": Config.s.showNote = false; break;
+                case "timer": Config.s.showTimer = false; break;
+                case "media": Config.s.mediaWidget = "off"; break;
+                case "bars": Config.s.visualizer = "off"; break;
+                case "clock": Config.s.clockStyle = "off"; break;
+                }
+            }
+            items: [
+                { label: "Bigger", run: () => Config.setScale(w, Math.min(2.5, size + 0.15)) },
+                { label: "Smaller", run: () => Config.setScale(w, Math.max(0.3, size - 0.15)) },
+                { label: "Put back (place and size)", run: () => Config.resetWidget(w) },
+                { label: "Let the shell place it", run: () => Config.setAuto(w), sep: false },
+                { sep: true },
+                { label: "Hide", danger: true, run: () => hide() },
+                { label: "All widget settings…", run: () => Ui.settings("desktop") }
+            ]
+        }
+
         Movable {
             id: barsM
             name: "bars"

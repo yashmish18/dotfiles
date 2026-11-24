@@ -151,6 +151,7 @@ Item {
         stdout: StdioCollector { id: actOut }
         stderr: StdioCollector { id: actErr }
         onExited: code => {
+            Ui.authWaiting = false;
             const said = actOut.text.trim().split("\n").pop();
             root.note = code === 0 ? (said && said.length < 60 ? said : "done")
                       : code === 126 || code === 127 ? "needs your password: is the polkit agent running?"
@@ -165,8 +166,13 @@ Item {
     Timer { id: noteClear; interval: 4000; onTriggered: root.note = "" }
     function storage(args: var, after: var) {
         if (actProc.running) { note = "one moment, still working on the last one…"; noteClear.restart(); return; }
-        note = "working…";
+        const root_ = ["pacman", "journal", "orphans", "format"].some(k => args.indexOf(k) !== -1) || args[0] === "format";
+        note = root_ ? "waiting for your password…" : "working…";
         noteClear.stop();
+        if (root_) {
+            Ui.authWaiting = true;     // the password prompt sits under this overlay: step aside
+            Quickshell.execDetached(["notify-send", "-a", "System", "Waiting for your password", "Type it in the prompt; the window comes back when it's done."]);
+        }
         actProc.after = after || "";
         actProc.command = [Config.bin + "kk-storage"].concat(args);
         actProc.running = true;
@@ -203,6 +209,13 @@ Item {
                     }
                 }
                 Item { Layout.fillWidth: true }
+                Icon {
+                    visible: actProc.running
+                    name: "restart"
+                    size: 16
+                    color: Theme.primary
+                    RotationAnimation on rotation { running: actProc.running; from: 0; to: 360; duration: 900; loops: Animation.Infinite }
+                }
                 Txt { text: root.note; color: Theme.primary; font.pixelSize: Theme.sm }
                 Btn { icon: "close"; onClicked: Ui.overlay = "" }
             }
