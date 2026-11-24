@@ -9,8 +9,8 @@ import Quickshell.Services.SystemTray
 // window at all (anything of yours that has a desktop entry). the bar's apps pill and the
 // running panel show this, so nothing hides in the background.
 //
-// an app is asked to quit a few seconds after its last
-// window closes, unless it's in Config.s.backgroundAllowed.
+// with Config.s.noBackgroundApps on (off by default), an app is asked to quit a few seconds
+// after its last window closes, unless it's in Config.s.backgroundAllowed.
 Singleton {
     id: root
 
@@ -130,6 +130,7 @@ Singleton {
     Connections {
         target: Hyprland
         function onRawEvent(ev) {
+            if (!Config.s.noBackgroundApps) return;
             const n = ev.name || "";
             if (n === "openwindow") ownerProc.running = true;
             else if (n === "closewindow") {
@@ -152,7 +153,7 @@ Singleton {
             }
         }
     }
-    Component.onCompleted: ownerProc.running = true
+    Component.onCompleted: if (Config.s.noBackgroundApps) ownerProc.running = true
     Timer {
         id: reapTimer
         interval: 3000

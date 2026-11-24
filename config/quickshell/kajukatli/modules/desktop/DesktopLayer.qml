@@ -246,7 +246,7 @@ Item {
         fillOpacity: Config.s.visualizerOpacity
         gap: Config.s.visualizerGap
         round: Config.s.visualizerRound
-        smooth: Config.s.visualizerSmooth
+        easeMs: Config.s.visualizerSmooth
         sparks: Config.s.musicSparks && !layer.behind
     }
 
@@ -360,7 +360,7 @@ Item {
                 colorMode: Config.s.visualizerColor
                 fillOpacity: Config.s.visualizerOpacity
                 round: Config.s.visualizerRound
-                smooth: Config.s.visualizerSmooth
+                easeMs: Config.s.visualizerSmooth
                 sparks: Config.s.musicSparks && !layer.behind
             }
         }

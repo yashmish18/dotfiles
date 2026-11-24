@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Fixes after the last few updates: login starts the shell even when `kk-shell` isn't installed yet (it had been committed without its executable bit, and Hyprland ran it from ~/.local/bin, which a plain `git pull` never fills, so the whole shell and every shell shortcut stayed dead). Super + E falls back the same way.
+- Nautilus is the file manager again (installed with the apps; Super + E, folders and the dock use it). Thunar stays as a fallback.
+- Apps are no longer killed when their last window closes. That is opt-in again, off by default, with the switch back in the running-apps panel (tray apps like Discord, Steam or Spotify kept dying).
+- The app drawer (Super + Space) lists Kajukatli's own apps too: Task Manager, Software, Displays, Projection, Settings, Control Center, Running Apps, Phone, Wallpapers, Clipboard, Notes, Emoji, Screenshot & Record, Shortcuts.
+- The visualiser's easing setting no longer redefines Qt's built-in `smooth` property.
 - Graphics: "Close them all" (and `kk-gpu free`) closes every app using the NVIDIA card so a mode switch or switching the card off has nothing holding on to it; the desktop and the shell are never touched.
 - Crash guard: a closed overlay or emoji picker keeps its empty window for a third of a second before it is destroyed, so Qt never tears down a surface that still has a focused text field (the last thing in the shell logs before it died).
 - Right-click to edit: a desktop widget's menu (bigger, smaller, put back, let the shell place it, hide); the bar's menu on its empty space or the logo (style, top or bottom, hide, choose modules). The logo is now a kitty.

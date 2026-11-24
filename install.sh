@@ -731,7 +731,8 @@ defaults() {
     fi
     # folders open in the file manager, pictures and videos in their viewers (not the terminal)
     if command -v xdg-mime >/dev/null; then
-        [ -f /usr/share/applications/thunar.desktop ] && xdg-mime default thunar.desktop inode/directory
+        if [ -f /usr/share/applications/org.gnome.Nautilus.desktop ]; then xdg-mime default org.gnome.Nautilus.desktop inode/directory
+        elif [ -f /usr/share/applications/thunar.desktop ]; then xdg-mime default thunar.desktop inode/directory; fi
         [ -f /usr/share/applications/imv.desktop ] && xdg-mime default imv.desktop image/png image/jpeg image/webp image/gif
         [ -f /usr/share/applications/mpv.desktop ] && xdg-mime default mpv.desktop video/mp4 video/webm video/x-matroska
     fi

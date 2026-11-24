@@ -1,5 +1,6 @@
-# everyday apps, nothing from gnome or kde: thunar files (drives, phones, archives, thumbnails), browser, player, images, mixer, bluetooth, disk partitions · ~350 mb
+# everyday apps: nautilus files (thunar too, light and standalone) (drives, phones, archives, thumbnails), browser, player, images, mixer, bluetooth, disk partitions · ~350 mb
 # default: on
+nautilus
 thunar
 thunar-volman
 thunar-archive-plugin

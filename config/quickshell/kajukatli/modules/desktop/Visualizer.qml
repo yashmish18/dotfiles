@@ -21,7 +21,7 @@ Item {
     property real gap: 2
     property real minBar: 2
     property bool round: true
-    property int smooth: 60               // ms a bar takes to follow
+    property int easeMs: 60               // ms a bar takes to follow
     property bool flip: false             // hang from the top edge instead of standing on the bottom
     property bool sparks: false
     property bool active: visible
@@ -88,7 +88,7 @@ Item {
                         opacity: root.fillOpacity + (1 - root.fillOpacity) * parent.v
                         height: Math.max(root.minBar, parent.v * root.height)
                         y: root.style === "mirror" ? (root.height - height) / 2 : root.height - height
-                        Behavior on height { NumberAnimation { duration: root.smooth } }
+                        Behavior on height { NumberAnimation { duration: root.easeMs } }
                     }
                 }
             }

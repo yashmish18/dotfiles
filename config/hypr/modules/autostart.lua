@@ -5,7 +5,8 @@ hl.on("hyprland.start", function()
 
     -- the whole desktop: bar, wallpaper, control center, notifications, lock screen
     -- kk-shell keeps it running: if the shell ever crashes it comes straight back (and never starts a second one over it)
-    hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/kk-shell")
+    -- if kk-shell isn't installed yet (repo pulled without ./install.sh --update), start the shell plainly
+    hl.exec_cmd("sh -c '[ -x \"$HOME/.local/bin/kk-shell\" ] && exec \"$HOME/.local/bin/kk-shell\"; exec qs -n -c kajukatli'")
     -- after an auto-login: make sure the screen ends up locked even if the shell doesn't start
     hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/kk-startlock")
 

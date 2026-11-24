@@ -14,7 +14,7 @@ for c in Hyprland qs kitty hypridle hyprlock grim slurp wl-copy wtype cliphist b
     have "$c" && pass "$c" || fail "$c missing" "run install.sh again, or: sudo pacman -S <package for $c>"
 done
 # extras: only a note when they're missing (you may have left them out on purpose)
-for c in cava mpvpaper satty wf-recorder hyprpicker thunar blueman-manager pavucontrol starship; do
+for c in cava mpvpaper satty wf-recorder hyprpicker nautilus blueman-manager pavucontrol starship; do
     have "$c" && pass "$c" || echo "  note  $c not installed (an optional extra: ./install.sh to add it)"
 done
 

@@ -21,12 +21,17 @@ Singleton {
     // a settings file from an older version keeps the old defaults it saved. bring those
     // forward once (only things whose meaning changed, never your own choices)
     function migrate() {
-        if (adapter.configVersion >= 7) return;
-        // 7: no gnome or kde apps: thunar is the file manager
+        if (adapter.configVersion >= 8) return;
+        // 8: nautilus is the file manager again (7 had swapped it for thunar)
+        if (adapter.configVersion === 7) {
+            adapter.dockPinned = (adapter.dockPinned || []).map(x => x === "thunar" ? "org.gnome.Nautilus" : x);
+            adapter.configVersion = 8;
+            return;
+        }
+        // 7: kde connect and nm-applet no longer run in the background
         if (adapter.configVersion === 6) {
-            adapter.dockPinned = (adapter.dockPinned || []).map(x => x === "org.gnome.Nautilus" || x === "nautilus" ? "thunar" : x);
             adapter.backgroundAllowed = (adapter.backgroundAllowed || []).filter(x => !/kdeconnect|nm-applet/.test(x));
-            adapter.configVersion = 7;
+            adapter.configVersion = 8;
             return;
         }
         // 6: every running app is one tap away (apps), and the phone when kde connect is set up
@@ -35,9 +40,7 @@ Singleton {
             const all = [].concat(m.left || [], m.center || [], m.right || []);
             const add = ["apps", "phone"].filter(x => all.indexOf(x) === -1);
             if (add.length) adapter.barModules = { left: m.left || [], center: m.center || [], right: add.concat(m.right || []) };
-            adapter.configVersion = 6;
-            adapter.dockPinned = (adapter.dockPinned || []).map(x => x === "org.gnome.Nautilus" ? "thunar" : x);
-            adapter.configVersion = 7;
+            adapter.configVersion = 8;
             return;
         }
         // 5: the clock decides for itself, per wallpaper: face, spot and colour
@@ -53,8 +56,7 @@ Singleton {
         l.clock = Object.assign({}, l.clock || {}, { auto: true });
         adapter.layout = l;
         adapter.barModules = Object.assign({}, adapter.barModules || {}, { right: ["apps", "phone"].concat(((adapter.barModules || {}).right || []).filter(x => x !== "apps" && x !== "phone")) });
-        adapter.dockPinned = (adapter.dockPinned || []).map(x => x === "org.gnome.Nautilus" ? "thunar" : x);
-        adapter.configVersion = 7;
+        adapter.configVersion = 8;
     }
 
     // where a desktop widget sits, as a fraction of the room it has to move in (0..1 each way)
@@ -113,7 +115,7 @@ Singleton {
         JsonAdapter {
             id: adapter
 
-            property int configVersion: 7           // settings written by older versions get updated once
+            property int configVersion: 8           // settings written by older versions get updated once
 
             // ---------------------------------------------------- look
             property string look: "studio"          // the preset last applied (see Looks.qml)
@@ -180,7 +182,7 @@ Singleton {
             property bool dock: true
             property bool dockAutoHide: true
             property bool dockMedia: true
-            property var dockPinned: ["kitty", "firefox", "thunar"]
+            property var dockPinned: ["kitty", "firefox", "org.gnome.Nautilus"]
 
             // ---------------------------------------------------- data
             property string weatherLocation: ""     // a city name. "" = guess from your ip (wttr.in)

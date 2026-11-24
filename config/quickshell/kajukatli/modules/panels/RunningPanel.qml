@@ -181,6 +181,7 @@ Item {
                         }
                         RowLayout {
                             Layout.fillWidth: true
+                            visible: Config.s.noBackgroundApps
                             Txt { Layout.fillWidth: true; text: "May keep running without a window"; font.pixelSize: Theme.sm; wrapMode: Text.WordWrap }
                             Switch { on: Apps.allowed(app.g); onToggled: Apps.setAllowed(app.g, !Apps.allowed(app.g)) }
                         }
@@ -195,6 +196,12 @@ Item {
                     }
                 }
             }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Txt { Layout.fillWidth: true; text: "Quit apps when their last window closes"; font.pixelSize: Theme.sm; wrapMode: Text.WordWrap }
+            Switch { on: Config.s.noBackgroundApps; onToggled: Config.s.noBackgroundApps = !Config.s.noBackgroundApps }
         }
     }
 }

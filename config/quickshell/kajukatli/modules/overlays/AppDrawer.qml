@@ -40,6 +40,24 @@ Item {
     readonly property var launches: Store.s.launches || ({})
     property int index: 0
 
+    // kajukatli's own apps, listed and searched like any installed one
+    readonly property var mine: [
+        { id: "kk:system", action: "system", name: "Task Manager", icon: "utilities-system-monitor", keywords: ["processes", "memory", "storage", "drives", "format", "recycle bin", "trash", "cpu"] },
+        { id: "kk:packages", action: "packages", name: "Software", icon: "system-software-install", keywords: ["packages", "install", "aur", "flatpak", "updates", "store"] },
+        { id: "kk:displays", action: "displays", name: "Displays", icon: "preferences-desktop-display", keywords: ["monitor", "screen", "resolution", "refresh", "scale", "hdmi"] },
+        { id: "kk:projection", action: "projection", name: "Projection", icon: "video-display", keywords: ["hdmi", "mirror", "duplicate", "extend", "projector"] },
+        { id: "kk:settings", action: "settings", name: "Desktop Settings", icon: "preferences-system", keywords: ["settings", "preferences", "look", "theme", "bar", "clock"] },
+        { id: "kk:control", action: "control", name: "Control Center", icon: "preferences-system-network", keywords: ["wifi", "bluetooth", "sound", "battery", "nvidia", "volume"] },
+        { id: "kk:running", action: "running", name: "Running Apps", icon: "view-app-grid", keywords: ["background", "tray", "quit"] },
+        { id: "kk:phone", action: "phone", name: "Phone", icon: "phone", keywords: ["kde connect", "android", "sms", "files"] },
+        { id: "kk:wallpapers", action: "wallpapers", name: "Wallpapers", icon: "preferences-desktop-wallpaper", keywords: ["background", "live"] },
+        { id: "kk:clipboard", action: "clipboard", name: "Clipboard", icon: "edit-paste", keywords: ["history", "copy", "paste"] },
+        { id: "kk:notes", action: "notes", name: "Notes", icon: "accessories-text-editor", keywords: ["notepad", "text"] },
+        { id: "kk:emoji", action: "emoji", name: "Emoji", icon: "face-smile", keywords: ["emoticon", "smiley"] },
+        { id: "kk:capture", action: "capture", name: "Screenshot & Record", icon: "applets-screenshooter", keywords: ["screenshot", "screen recording", "capture"] },
+        { id: "kk:cheatsheet", action: "cheatsheet", name: "Shortcuts", icon: "preferences-desktop-keyboard-shortcuts", keywords: ["keys", "keyboard", "cheatsheet", "help"] }
+    ].map(x => Object.assign({ genericName: "Kajukatli", comment: "", mine: true }, x))
+
     function score(app: var, s: var): real {
         const name = (app.name || "").toLowerCase();
         if (name.startsWith(s)) return 100 - name.length * 0.1;
@@ -55,7 +73,7 @@ Item {
         if (mode !== "apps") return [];
         const s = q.toLowerCase();
         const out = [];
-        for (const a of DesktopEntries.applications.values) {
+        for (const a of [...root.mine, ...DesktopEntries.applications.values]) {
             if (a.noDisplay) continue;
             const v = s ? score(a, s) : 1;
             if (v > 0) out.push({ app: a, v: v + Math.min(30, (launches[a.id] || 0) * 2) });
@@ -82,6 +100,10 @@ Item {
         l[app.id] = (l[app.id] || 0) + 1;
         Store.s.launches = l;
         Ui.overlay = "";
+        if (app.mine) {       // one of ours: ask the shell to open it once the drawer has gone
+            Quickshell.execDetached(["sh", "-c", 'sleep 0.15; exec qs -c kajukatli ipc call shell run "$1"', "sh", app.action]);
+            return;
+        }
         const cmd = app.runInTerminal ? ["kitty", "--"].concat(app.command) : Gpu.wrap(app.command, app, onGpu === true);
         Quickshell.execDetached({ command: cmd, workingDirectory: app.workingDirectory || Config.home });
     }

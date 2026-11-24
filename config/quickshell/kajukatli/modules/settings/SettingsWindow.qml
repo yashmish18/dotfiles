@@ -265,7 +265,7 @@ LazyLoader {
                     title: "Apps"
                     Setting { label: "One tap on a tray icon opens its menu"; detail: "Everything the app offers, in one tap. Right-click opens the app itself."
                         Switch { on: Config.s.trayTapMenu; onToggled: Config.s.trayTapMenu = !Config.s.trayTapMenu } }
-                    Setting { label: "Allowed in the background"; detail: "Apps are closed a few seconds after their last window. These may keep running (comma separated; the running-apps panel can add them too)."
+                    Setting { label: "Allowed in the background"; detail: "When \"Quit apps when their last window closes\" is on (in running apps), these may keep running. Comma separated."
                         Field { implicitWidth: 260; size: Theme.md; text: (Config.s.backgroundAllowed || []).join(", "); onAccepted: Config.s.backgroundAllowed = text.split(",").map(x => x.trim()).filter(x => x !== "") } }
                 }
             }
