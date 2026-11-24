@@ -34,6 +34,13 @@ if [ -n "$pid" ] && runs_shell "$pid"; then
     exit 0
 fi
 
+# an app with other windows open (nautilus, browsers, editors run every window in one process):
+# killing the process would close all of them, so only this window is closed
+if [ -n "$pid" ] && [ "$(hyprctl clients -j 2>/dev/null | jq --argjson p "$pid" '[.[] | select(.pid == $p)] | length')" -gt 1 ] 2>/dev/null; then
+    close_polite
+    exit 0
+fi
+
 # everything else: killed outright, as before
 lua "hl.dsp.window.kill()" || hyprctl dispatch forcekillactive >/dev/null 2>&1 || close_polite
 exit 0

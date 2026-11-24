@@ -24,6 +24,9 @@ Singleton {
     property bool authWaiting: false
     // right-click on a desktop widget: which one, where, and on which screen's layer
     property string widgetMenu: ""
+    // typing into the desktop notepad: the desktop layer takes the keyboard until you click away
+    property bool deskTyping: false
+    property var deskTypingWin: null
     property real widgetMenuX: 0
     property real widgetMenuY: 0
     property var widgetMenuOwner: null

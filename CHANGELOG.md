@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Notepad takes typing again: a click in it lifts the desktop layer and hands it the keyboard (a bottom-layer surface was never given keyboard focus); clicking anywhere else or Esc gives it back.
+- Super + Q on an app with other windows open (Nautilus, browsers) closes only that window instead of killing the process, which closed every one of its windows.
+- Right-click a desktop widget: its own options in plain words (clock face, 12/24-hour, colour; player look; weather units, rain and snow, city; timer lengths) and Hide. Moving and sizing are by hand. The Bigger / Smaller / Put back list is gone.
+- Settings: each widget has its own group. Removed the wallpaper switch speed, the typed lists (apps allowed in the background, heavy NVIDIA apps), the lyrics folder path, the doctor and settings-file rows; the keyboard layout is a choice of names.
 - Wallpaper picker opens at once again: listing no longer waits for ffmpeg to grab a frame of every live wallpaper. Missing thumbnails (pictures too, at 480 px) are made afterwards in the background and the picker fills them in.
 - The prepared-wallpaper cache is back to 1.5 GB (512 MB kept throwing out prepared wallpapers and re-making them, so switches started from scratch).
 - Switching waits at most 0.9 s for a new picture's ink (was 4 s), and the ink takes 1.6 s (was 4.2 s). Settings → Wallpaper → Switch speed: quick, normal or slow.

@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import qs.services
 import qs.components
 
@@ -43,6 +44,10 @@ Rectangle {
             else if (r.y + r.height > contentY + height) contentY = r.y + r.height - height;
         }
 
+        // a press anywhere in the note: the desktop takes the keyboard and the cursor goes here
+        TapHandler {
+            onPressedChanged: if (pressed) root.startTyping()
+        }
         TextEdit {
             id: edit
             width: flick.width - 6
@@ -54,6 +59,12 @@ Rectangle {
             font.family: Theme.sans
             font.pixelSize: Theme.md + 1
             onCursorRectangleChanged: flick.follow(cursorRectangle)
+            onActiveFocusChanged: if (activeFocus) root.startTyping()
+            Keys.onEscapePressed: { edit.focus = false; Ui.deskTyping = false; }
+            Connections {
+                target: Ui
+                function onDeskTypingChanged() { if (!Ui.deskTyping && edit.activeFocus) edit.focus = false; }
+            }
             // save shortly after you stop typing
             onTextChanged: save.restart()
             Timer { id: save; interval: 600; onTriggered: if (Config.s.noteText !== edit.text) Config.s.noteText = edit.text }
@@ -63,6 +74,11 @@ Rectangle {
                 function onNoteTextChanged() { if (!edit.activeFocus && edit.text !== Config.s.noteText) edit.text = Config.s.noteText; }
             }
         }
+    }
+    function startTyping() {
+        Ui.deskTypingWin = root.QsWindow.window;
+        Ui.deskTyping = true;
+        edit.forceActiveFocus();
     }
     // a thin scroll bar, only when there's more than fits
     Rectangle {

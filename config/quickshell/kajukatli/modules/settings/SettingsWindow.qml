@@ -265,8 +265,6 @@ LazyLoader {
                     title: "Apps"
                     Setting { label: "One tap on a tray icon opens its menu"; detail: "Everything the app offers, in one tap. Right-click opens the app itself."
                         Switch { on: Config.s.trayTapMenu; onToggled: Config.s.trayTapMenu = !Config.s.trayTapMenu } }
-                    Setting { label: "Allowed in the background"; detail: "When \"Quit apps when their last window closes\" is on (in running apps), these may keep running. Comma separated."
-                        Field { implicitWidth: 260; size: Theme.md; text: (Config.s.backgroundAllowed || []).join(", "); onAccepted: Config.s.backgroundAllowed = text.split(",").map(x => x.trim()).filter(x => x !== "") } }
                 }
             }
         }
@@ -442,103 +440,102 @@ LazyLoader {
                 Group {
                     title: "Clock"
                     Setting { label: "Face"
-                        Choice { options: ["auto", "hero", "stack", "serif", "line", "day", "date", "off"]; value: Config.s.clockStyle; onPicked: v => Config.s.clockStyle = v } }
-                    Setting { label: "Typeface"; detail: "Any font installed on the system works; these come with the shell."
+                        Choice { options: [{ value: "auto", label: "Picks itself" }, { value: "hero", label: "Big" }, { value: "stack", label: "Stacked" }, { value: "serif", label: "Serif" }, { value: "line", label: "One line" }, { value: "day", label: "Day" }, { value: "date", label: "Date" }, { value: "off", label: "Off" }]; value: Config.s.clockStyle; onPicked: v => Config.s.clockStyle = v } }
+                    Setting { label: "Typeface"
                         Choice { options: ["Syne", "Unbounded", "Anton", "Fraunces", "Instrument Serif", "Bricolage Grotesque", "DM Mono"]; value: Config.s.clockFont; onPicked: v => Config.s.clockFont = v } }
-                    Setting { label: "Size"
-                        Knob { from: 0.4; to: 1.6; step: 0.05; value: Config.s.clockScale; onMoved: v => Config.s.clockScale = Math.round(v * 100) / 100 } }
-                    Setting {
-                        label: "Where"
-                        detail: "Pick a spot, or drag it anywhere with “arrange”."
-                        Row {
-                            spacing: 12
-                            Grid {
-                                columns: 3
-                                spacing: 4
-                                Repeater {
-                                    model: [[0.04, 0.06], [0.5, 0.06], [0.96, 0.06], [0.04, 0.5], [0.5, 0.45], [0.96, 0.5], [0.04, 0.94], [0.5, 0.92], [0.96, 0.94]]
-                                    Rectangle {
-                                        required property var modelData
-                                        readonly property var cur: Config.pos("clock", { x: 0.05, y: 0.1 })
-                                        readonly property bool on: !cur.auto && Math.abs(cur.x - modelData[0]) < 0.08 && Math.abs(cur.y - modelData[1]) < 0.1
-                                        width: 34; height: 22; radius: 6
-                                        color: on ? Theme.primary : spot.containsMouse ? Theme.surfaceHighest : Theme.surfaceHigh
-                                        MouseArea { id: spot; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Config.setPos("clock", parent.modelData[0], parent.modelData[1]) }
-                                    }
-                                }
-                            }
-                            Btn { anchors.verticalCenter: parent.verticalCenter; text: "Auto"; active: !!Config.pos("clock", {}).auto; onClicked: Config.setAuto("clock") }
-                        }
-                    }
-                    Setting { label: "Behind the subject"; detail: Wall.depthReady ? "This wallpaper has a subject, so the clock can tuck behind it." : "Needs the wallpaper ai and a picture with a clear figure."
+                    Setting { label: "Time"
+                        Choice { options: [{ value: false, label: "12-hour" }, { value: true, label: "24-hour" }]; value: Config.s.clock24h; onPicked: v => Config.s.clock24h = v } }
+                    Setting { label: "Colour"
+                        Choice { options: [{ value: "auto", label: "Whatever reads best" }, { value: "theme", label: "Accent" }]; value: Config.s.clockColor; onPicked: v => Config.s.clockColor = v } }
+                    Setting { label: "Behind the person in the picture"; detail: "Works on pictures with a clear person or object in front."
                         Switch { on: Config.s.clockDepth; onToggled: Config.s.clockDepth = !Config.s.clockDepth } }
-                    Setting { label: "Colour"; detail: "Auto picks light or dark ink from the picture under the clock."
-                        Choice { options: [{ value: "auto", label: "auto" }, { value: "theme", label: "theme" }]; value: Config.s.clockColor; onPicked: v => Config.s.clockColor = v } }
-                    Setting { label: "24-hour time"
-                        Switch { on: Config.s.clock24h; onToggled: Config.s.clock24h = !Config.s.clock24h } }
-                    Setting { label: "Put everything back"; detail: "Places and sizes, as the look had them. One widget: double-click it."
-                        Btn { text: "Reset"; icon: "restart"; onClicked: Config.resetLayout() } }
-                    Setting { label: "Moving widgets"; detail: "Drag any widget on the desktop; drag its corner dot to resize; right-click it for more."
-                        Btn { text: "Arrange"; icon: "move"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.editing = true; } } }
+                    Setting { label: "Find a good spot by itself"
+                        Switch { on: !!Config.pos("clock", {}).auto; onToggled: { const l = Config.pos("clock", { x: 0.5, y: 0.15 }); if (l.auto) Config.setPos("clock", l.x, l.y); else Config.setAuto("clock"); } } }
                 }
                 Group {
                     title: "Music bars"
-                    Setting { label: "Show"; detail: "Right-click the bars on the desktop for their shape, place, number, spacing and roundness. Drag the box's corner to resize it."
+                    Setting { label: "Show"; detail: "Right-click the bars on the desktop for their shape, place, number, spacing and roundness."
                         Choice { options: [{ value: "off", label: "Off" }, { value: "bars", label: "Bars" }, { value: "wave", label: "Wave" }, { value: "mirror", label: "Mirrored" }, { value: "both", label: "Wave + bars" }]; value: Config.s.visualizer; onPicked: v => Config.s.visualizer = v } }
                     Setting { label: "Colour"
                         Choice { options: [{ value: "wallpaper", label: "From the wallpaper" }, { value: "accent", label: "Accent" }, { value: "album", label: "From the album" }, { value: "rainbow", label: "Rainbow" }]; value: Config.s.visualizerColor; onPicked: v => Config.s.visualizerColor = v } }
                     Setting { label: "How solid"; detail: "Lower lets the wallpaper show through."
                         Slider { implicitWidth: 220; value: (Config.s.visualizerOpacity - 0.1) / 0.9; valueText: Math.round(Config.s.visualizerOpacity * 100) + "%"; onMoved: v => Config.s.visualizerOpacity = Math.round((0.1 + v * 0.9) * 100) / 100 } }
-                    Setting { label: "Movement"; detail: "Snappy follows every hit; smooth glides."
+                    Setting { label: "Movement"
                         Choice { options: [{ value: 20, label: "Snappy" }, { value: 60, label: "Normal" }, { value: 140, label: "Smooth" }]; value: Config.s.visualizerSmooth; onPicked: v => Config.s.visualizerSmooth = v } }
-                    Setting { label: "Behind the person in the picture"; detail: "When the wallpaper has a subject, the bars go behind them."
+                    Setting { label: "Behind the person in the picture"
                         Switch { on: Config.s.visualizerBehind; onToggled: Config.s.visualizerBehind = !Config.s.visualizerBehind } }
                 }
                 Group {
                     title: "Music fun"
                     Setting { label: "Bouncing clock"; detail: "The clock kicks on every beat."
                         Switch { on: Config.s.musicPulse; onToggled: Config.s.musicPulse = !Config.s.musicPulse } }
-                    Setting { label: "Sparks"; detail: "A burst off the visualiser on every beat (needs the visualiser on)."
+                    Setting { label: "Sparks"; detail: "A burst off the music bars on every beat."
                         Switch { on: Config.s.musicSparks; onToggled: Config.s.musicSparks = !Config.s.musicSparks } }
-                    Setting { label: "Edge glow"; detail: "The screen edges flash in the album's colour on the beat, even over windows. Off in fullscreen."
+                    Setting { label: "Edge glow"; detail: "The screen edges flash in the album's colour on the beat."
                         Switch { on: Config.s.musicGlow; onToggled: Config.s.musicGlow = !Config.s.musicGlow } }
+                    Setting { label: "Album colours"; detail: "While music plays, the desktop takes the cover's colour."
+                        Switch { on: Config.s.musicTint; onToggled: Config.s.musicTint = !Config.s.musicTint } }
                 }
                 Group {
-                    title: "Widgets"
-                    Setting { label: "Player"; detail: "Shown only while something plays."
-                        Choice { options: ["off", "lyrics", "card", "portrait"]; value: Config.s.mediaWidget; onPicked: v => Config.s.mediaWidget = v } }
-                    Setting { label: "Network lyrics"; detail: "Off by default. Sends track title and artist to lrclib.net."
+                    title: "Now playing"
+                    Setting { label: "Show"; detail: "Only while something plays."
+                        Choice { options: [{ value: "off", label: "Off" }, { value: "card", label: "Card" }, { value: "lyrics", label: "Lyrics" }, { value: "portrait", label: "Cover" }]; value: Config.s.mediaWidget; onPicked: v => Config.s.mediaWidget = v } }
+                    Setting { label: "Find lyrics online"; detail: "Sends the song's title and artist to lrclib.net."
                         Switch { on: Config.s.networkLyrics; onToggled: Config.s.networkLyrics = !Config.s.networkLyrics } }
-                    Setting { label: "Local lyrics folder"; detail: "Place .lrc or .txt files in this folder."
-                        Field { implicitWidth: 220; size: Theme.md; text: Config.s.localLyricsDir; onAccepted: Config.s.localLyricsDir = text.trim() } }
-                    Setting { label: "Calendar"
-                        Switch { on: Config.s.showCalendar; onToggled: Config.s.showCalendar = !Config.s.showCalendar } }
-                    Setting { label: "System stats"
-                        Switch { on: Config.s.showStats; onToggled: Config.s.showStats = !Config.s.showStats } }
-                    Setting { label: "Weather"
+                }
+                Group {
+                    title: "Weather"
+                    Setting { label: "Show"
                         Switch { on: Config.s.showWeather; onToggled: Config.s.showWeather = !Config.s.showWeather } }
-                    Setting { label: "Battery ring"
-                        Switch { on: Config.s.showBattery; onToggled: Config.s.showBattery = !Config.s.showBattery } }
-                    Setting { label: "Analog clock"
-                        Switch { on: Config.s.showAnalog; onToggled: Config.s.showAnalog = !Config.s.showAnalog } }
-                    Setting { label: "Note"
-                        Switch { on: Config.s.showNote; onToggled: Config.s.showNote = !Config.s.showNote } }
-                    Setting { label: "Timer"; detail: "Click to start, scroll for minutes, right click to reset. Super + Shift + P."
-                        Switch { on: Config.s.showTimer; onToggled: Config.s.showTimer = !Config.s.showTimer } }
-                    Setting { label: "Rain and snow"; detail: "When it's falling where you are. Needs the weather."
-                        Switch { on: Config.s.weatherFx; onToggled: Config.s.weatherFx = !Config.s.weatherFx } }
-                    Setting { label: "Album colours"; detail: "While music plays, the accent takes the cover's colour."
-                        Switch { on: Config.s.musicTint; onToggled: Config.s.musicTint = !Config.s.musicTint } }
-                    Setting { label: "Hot corners"; detail: "Top left: overview. Bottom right: the desktop, and back."
-                        Switch { on: Config.s.hotCorners; onToggled: Config.s.hotCorners = !Config.s.hotCorners } }
-                    Setting { label: "Place them"
-                        Btn { text: "Arrange"; icon: "move"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.editing = true; } } }
-                    Setting { label: "Weather city"; detail: "Empty guesses from your connection (wttr.in)."
-                        Field { implicitWidth: 220; size: Theme.md; placeholder: "e.g. Pune"; text: Config.s.weatherLocation; onAccepted: Config.s.weatherLocation = text.trim() } }
-                    Setting { label: "Network weather"; detail: "Off by default. Sends the city or IP location to wttr.in."
-                        Switch { on: Config.s.networkWeather; onToggled: Config.s.networkWeather = !Config.s.networkWeather } }
                     Setting { label: "Temperature in"
                         Choice { options: [{ value: "c", label: "°C" }, { value: "f", label: "°F" }]; value: Config.s.tempUnit; onPicked: v => Config.s.tempUnit = v } }
+                    Setting { label: "Rain and snow on the wallpaper"; detail: "When it's falling where you are."
+                        Switch { on: Config.s.weatherFx; onToggled: Config.s.weatherFx = !Config.s.weatherFx } }
+                    Setting { label: "Get the weather online"; detail: "Sends your city (or your rough location) to wttr.in."
+                        Switch { on: Config.s.networkWeather; onToggled: Config.s.networkWeather = !Config.s.networkWeather } }
+                    Setting { label: "City"; detail: "Leave empty to guess."
+                        Field { implicitWidth: 220; size: Theme.md; placeholder: "e.g. Pune"; text: Config.s.weatherLocation; onAccepted: Config.s.weatherLocation = text.trim() } }
+                }
+                Group {
+                    title: "Focus timer"
+                    Setting { label: "Show"
+                        Switch { on: Config.s.showTimer; onToggled: Config.s.showTimer = !Config.s.showTimer } }
+                    Setting { label: "Focus for"
+                        Choice { options: [15, 25, 45, 60].map(v => ({ value: v, label: v + " min" })); value: Config.s.timerMinutes; onPicked: v => Config.s.timerMinutes = v } }
+                    Setting { label: "Then a break of"
+                        Choice { options: [5, 10, 15].map(v => ({ value: v, label: v + " min" })); value: Config.s.timerBreak; onPicked: v => Config.s.timerBreak = v } }
+                }
+                Group {
+                    title: "Notepad"
+                    Setting { label: "Show"
+                        Switch { on: Config.s.showNote; onToggled: Config.s.showNote = !Config.s.showNote } }
+                }
+                Group {
+                    title: "Calendar"
+                    Setting { label: "Show"
+                        Switch { on: Config.s.showCalendar; onToggled: Config.s.showCalendar = !Config.s.showCalendar } }
+                }
+                Group {
+                    title: "System stats"
+                    Setting { label: "Show"
+                        Switch { on: Config.s.showStats; onToggled: Config.s.showStats = !Config.s.showStats } }
+                }
+                Group {
+                    title: "Battery"
+                    Setting { label: "Show"
+                        Switch { on: Config.s.showBattery; onToggled: Config.s.showBattery = !Config.s.showBattery } }
+                }
+                Group {
+                    title: "Analog clock"
+                    Setting { label: "Show"
+                        Switch { on: Config.s.showAnalog; onToggled: Config.s.showAnalog = !Config.s.showAnalog } }
+                }
+                Group {
+                    title: "Desktop"
+                    Setting { label: "Hot corners"; detail: "Top left: every workspace. Bottom right: the desktop, and back."
+                        Switch { on: Config.s.hotCorners; onToggled: Config.s.hotCorners = !Config.s.hotCorners } }
+                    Setting { label: "Put every widget back"; detail: "Where and how big they started."
+                        Btn { text: "Put back"; onClicked: Config.resetLayout() } }
                 }
             }
         }
@@ -556,8 +553,6 @@ LazyLoader {
                             Btn { text: Wall.fetching ? "Getting…" : "Get anime ones"; icon: "download"; enabled: !Wall.fetching; onClicked: Wall.fetchAnime() }
                             Btn { text: "Surprise me"; icon: "shuffle"; onClicked: Wall.random() }
                             Btn { text: "Browse"; icon: "image"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.toggleOverlay("wallpapers"); } } } }
-                    Setting { label: "Switch speed"; detail: "How long the ink takes to fill in a new wallpaper."
-                        Choice { options: [{ value: 800, label: "Quick" }, { value: 1600, label: "Normal" }, { value: 3200, label: "Slow" }]; value: Config.s.transitionMs; onPicked: v => Config.s.transitionMs = v } }
                     Setting { label: "Folder"
                         Field { implicitWidth: 260; size: Theme.md; text: Config.s.wallpaperDir; onAccepted: { Config.s.wallpaperDir = text.trim(); Wall.refreshLibrary(); } } }
                     Setting { label: "A new one by itself"
@@ -686,17 +681,6 @@ LazyLoader {
                         Btn { text: "Log out now"; icon: "logout"; onClicked: Quickshell.execDetached(["sh", "-c", "command -v hyprshutdown >/dev/null && exec hyprshutdown; exec hyprctl dispatch 'hl.dsp.exit()'"]) }
                     }
                     Setting {
-                        label: "Heavy apps on NVIDIA"
-                        detail: "These start on the NVIDIA card from the launcher (right-click any app for a one-off). Comma separated: " + (Config.s.gpuApps || []).join(", ")
-                        Field {
-                            implicitWidth: 260
-                            size: Theme.md
-                            placeholder: "blender, steam, …"
-                            text: (Config.s.gpuApps || []).join(", ")
-                            onAccepted: Config.s.gpuApps = text.split(",").map(x => x.trim()).filter(x => x !== "")
-                        }
-                    }
-                    Setting {
                         label: "Notice heavy apps"
                         detail: "When one opens on the integrated card anyway, offer to restart it on NVIDIA."
                         Switch { on: Config.s.gpuHint; onToggled: Config.s.gpuHint = !Config.s.gpuHint }
@@ -750,8 +734,8 @@ LazyLoader {
                 }
                 Group {
                     title: "Keyboard"
-                    Setting { label: "Layout"; detail: "xkb names, comma separated: us, de, us,ru…"
-                        Field { implicitWidth: 180; size: Theme.md; text: Config.s.kbLayout; onAccepted: { Config.s.kbLayout = text.trim() || "us"; System.applyInput(); } } }
+                    Setting { label: "Layout"
+                        Choice { options: [{ value: "us", label: "English (US)" }, { value: "gb", label: "English (UK)" }, { value: "in", label: "Hindi" }, { value: "de", label: "German" }, { value: "fr", label: "French" }, { value: "es", label: "Spanish" }, { value: "ru", label: "Russian" }]; value: Config.s.kbLayout; onPicked: v => { Config.s.kbLayout = v; System.applyInput(); } } }
                     Setting { label: "Repeat rate"; detail: Config.s.repeatRate + " per second"
                         Knob { from: 10; to: 60; step: 1; value: Config.s.repeatRate; onMoved: v => { Config.s.repeatRate = Math.round(v); System.applyInput(); } } }
                     Setting { label: "Repeat delay"; detail: Config.s.repeatDelay + " ms"
@@ -934,10 +918,6 @@ LazyLoader {
                 spacing: 18
                 Head { title: "About"; about: "A desktop shell for arch + hyprland. Everything here lives in ~/dotfiles." }
                 Group {
-                    Setting { label: "Check that everything is in place"
-                        Btn { text: "Run doctor"; onClicked: Quickshell.execDetached(["kitty", "-e", "sh", "-c", Config.bin + "kk-doctor; printf '\\npress enter '; read x"]) } }
-                    Setting { label: "Settings file"; detail: "~/.config/kajukatli/settings.json"
-                        Btn { text: "Open folder"; icon: "external"; onClicked: Quickshell.execDetached(["xdg-open", Config.home + "/.config/kajukatli"]) } }
                     Setting { label: "Restart the shell"; detail: "Picks up changes you made to its files."
                         Btn { text: "Restart"; icon: "restart"; onClicked: Quickshell.reload(true) } }
                 }

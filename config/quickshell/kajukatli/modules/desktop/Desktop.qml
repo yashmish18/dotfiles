@@ -18,9 +18,18 @@ Variants {
         required property var modelData
         screen: modelData
 
-        WlrLayershell.layer: Ui.editing ? WlrLayer.Top : WlrLayer.Bottom
+        // typing in the notepad (or a widget's popup open): lifted and given the keyboard, because
+        // a bottom-layer surface is never handed keyboard focus reliably
+        readonly property bool typingHere: (Ui.deskTyping && Ui.deskTypingWin === win) || (Ui.widgetMenu !== "" && Ui.widgetMenuOwner && Ui.widgetMenuOwner.QsWindow.window === win)
+        WlrLayershell.layer: Ui.editing || typingHere ? WlrLayer.Top : WlrLayer.Bottom
         WlrLayershell.namespace: "kajukatli-desktop"
-        WlrLayershell.keyboardFocus: Ui.editing || Config.s.showNote ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: typingHere ? WlrKeyboardFocus.Exclusive : Ui.editing || Config.s.showNote ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+        // click anywhere else: stop typing, close the popup
+        HyprlandFocusGrab {
+            windows: [win]
+            active: win.typingHere
+            onCleared: { Ui.deskTyping = false; Ui.widgetMenu = ""; }
+        }
         exclusionMode: ExclusionMode.Ignore
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
