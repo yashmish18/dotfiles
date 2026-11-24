@@ -836,8 +836,30 @@ LazyLoader {
                     visible: Power.hasBattery
                     Uses { service: Battery }
                     Setting { label: "Right now"; detail: Power.onBattery ? (Battery.watts > 0 ? Battery.watts.toFixed(1) + " W from the battery" : "measuring…") : "on the charger" }
-                    Setting { label: "When unplugged"; detail: "60 Hz screen, cached blur, no shadows, a lighter visualizer. Back to normal on the charger."
+                    Setting { label: "When unplugged"; detail: "60 Hz screen, cached blur, no shadows, slower stats, and the choices below. Back to normal on the charger."
                         Switch { on: Config.s.batterySaver; onToggled: Config.s.batterySaver = !Config.s.batterySaver } }
+                    Setting { label: "Stop the music bars"; detail: "No audio analysis while unplugged."; visible: Config.s.batterySaver
+                        Switch { on: Config.s.saverAudio; onToggled: Config.s.saverAudio = !Config.s.saverAudio } }
+                    Setting { label: "Short fade for new wallpapers"; detail: "Instead of the ink animation."; visible: Config.s.batterySaver
+                        Switch { on: Config.s.saverInk; onToggled: Config.s.saverInk = !Config.s.saverInk } }
+                    Setting { label: "No pointer parallax"; detail: "The wallpaper stops following the pointer."; visible: Config.s.batterySaver
+                        Switch { on: Config.s.saverParallax; onToggled: Config.s.saverParallax = !Config.s.saverParallax } }
+                    Setting { label: "No window animations"; detail: "Windows appear and move without easing."; visible: Config.s.batterySaver
+                        Switch { on: Config.s.saverAnimations; onToggled: Config.s.saverAnimations = !Config.s.saverAnimations } }
+                    Setting { label: "No beat glow or bouncing clock"; visible: Config.s.batterySaver
+                        Switch { on: Config.s.saverFun; onToggled: Config.s.saverFun = !Config.s.saverFun } }
+                    Setting { label: "Refresh the apps list slower"; detail: "Every 12 seconds instead of 3."; visible: Config.s.batterySaver
+                        Switch { on: Config.s.saverSlowApps; onToggled: Config.s.saverSlowApps = !Config.s.saverSlowApps } }
+                }
+                Group {
+                    title: "Sleeping on battery"
+                    visible: Power.hasBattery
+                    Setting { label: "Dim the screen"; detail: "After this long without touching anything."
+                        Choice { options: [{ value: 30, label: "30 s" }, { value: 60, label: "1 min" }, { value: 120, label: "2 min" }, { value: 300, label: "5 min" }, { value: 0, label: "never" }]; value: Config.s.idleBatDim; onPicked: v => { Config.s.idleBatDim = v; Quickshell.execDetached([Config.bin + "kk-idle", "apply"]); } } }
+                    Setting { label: "Turn the screen off"
+                        Choice { options: [{ value: 60, label: "1 min" }, { value: 120, label: "2 min" }, { value: 300, label: "5 min" }, { value: 600, label: "10 min" }, { value: 0, label: "never" }]; value: Config.s.idleBatOff; onPicked: v => { Config.s.idleBatOff = v; Quickshell.execDetached([Config.bin + "kk-idle", "apply"]); } } }
+                    Setting { label: "Put the laptop to sleep"
+                        Choice { options: [{ value: 3, label: "3 min" }, { value: 7, label: "7 min" }, { value: 15, label: "15 min" }, { value: 30, label: "30 min" }, { value: 0, label: "never" }]; value: Config.s.idleBatSuspend; onPicked: v => { Config.s.idleBatSuspend = v; Quickshell.execDetached([Config.bin + "kk-idle", "apply"]); } } }
                 }
                 Group {
                     title: "Battery"

@@ -10,7 +10,8 @@ hl.on("hyprland.start", function()
     -- after an auto-login: make sure the screen ends up locked even if the shell doesn't start
     hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/kk-startlock")
 
-    hl.exec_cmd("hypridle")
+    -- idle times come from settings → power: kk-idle writes the config, then starts hypridle with it
+    hl.exec_cmd("sh -c '[ -x \"$HOME/.local/bin/kk-idle\" ] && exec \"$HOME/.local/bin/kk-idle\" apply; exec hypridle'")
     -- nautilus's background service, so super + e opens a window at once instead of starting the app cold
     hl.exec_cmd("sh -c 'command -v nautilus >/dev/null && exec nautilus --gapplication-service'")
     -- the phone service (kk-phone): finds your phone's KDE Connect app on the wi-fi

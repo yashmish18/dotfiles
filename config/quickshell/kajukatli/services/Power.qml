@@ -74,6 +74,14 @@ Singleton {
     // unplugged: quieter profile, and the battery saver. plugged in: back to normal.
     // (also once at login: booting on battery is the common case, and there's no "change" then)
     readonly property bool saving: onBattery && Config.s.batterySaver
+    // each saving can be turned off on its own (settings → power)
+    readonly property bool saveAudio: saving && Config.s.saverAudio
+    readonly property bool saveInk: saving && Config.s.saverInk
+    readonly property bool saveParallax: saving && Config.s.saverParallax
+    readonly property bool saveAnimations: saving && Config.s.saverAnimations
+    readonly property bool saveFun: saving && Config.s.saverFun
+    readonly property bool saveSlowApps: saving && Config.s.saverSlowApps
+    onSaveAnimationsChanged: applyPower()
     onOnBatteryChanged: applyPower()
     onSavingChanged: applyPower()
     Timer { id: atLogin; interval: 2500; running: true; onTriggered: root.applyPower() }
@@ -87,7 +95,7 @@ Singleton {
             ? "hl.config({ decoration = { blur = { passes = 1, xray = true }, shadow = { enabled = false } } })"
             : "hl.config({ decoration = { blur = { passes = 2, xray = false }, shadow = { enabled = true } } })");
         // no window animations while saving: every animated frame is gpu work
-        Hypr.hyprEval(saving ? "hl.config({ animations = { enabled = false } })" : "hl.config({ animations = { enabled = true } })");
+        Hypr.hyprEval(saveAnimations ? "hl.config({ animations = { enabled = false } })" : "hl.config({ animations = { enabled = true } })");
         System.applyAll();          // the refresh rate (60 hz while saving)
     }
 

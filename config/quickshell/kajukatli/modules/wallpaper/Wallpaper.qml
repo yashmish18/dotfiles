@@ -99,7 +99,7 @@ Variants {
             // a brand-new picture shows up before kk-prep has made its ink map: give the fast
             // stage a moment (it's usually ~0.2 s) so the switch can still ink in
             if (!m.ink && (m.stage || 0) === 0 && waitedMs < 4000) return;
-            const wantInk = !!m.ink && !Config.s.reducedMotion && !Power.saving;   // reduced motion: a short fade
+            const wantInk = !!m.ink && !Config.s.reducedMotion && !Power.saveInk;   // reduced motion: a short fade
             if (wantInk && !settled(inkImg.status)) return;
             inkRun = wantInk;
             waiting = false;
@@ -191,7 +191,7 @@ Variants {
             return list.length > 1 && i >= 0 ? (i / (list.length - 1)) * 2 - 1 : 0;
         }
         // (it only redraws while the pointer moves over the bare desktop, so battery is fine)
-        readonly property bool cursorOn: Config.s.parallax && Config.s.cursorParallax && !Power.saving
+        readonly property bool cursorOn: Config.s.parallax && Config.s.cursorParallax && !Power.saveParallax
         property real mx: 0
         property real my: 0
         property real camX: -wsCam

@@ -1,0 +1,75 @@
+#!/bin/sh
+# kk-idle apply   write ~/.config/kajukatli/hypridle.conf from the settings (settings → power) and
+#                 (re)start hypridle with it. on the charger: dim at 2 min, lock at 5, screen off at 6.
+#                 on battery: the times you chose (dim, screen off, sleep).
+# kk-idle         the same, without restarting hypridle (what login uses before it starts it)
+set -u
+cfg="${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli"
+set_="$cfg/settings.json"
+out="$cfg/hypridle.conf"
+mkdir -p "$cfg"
+pref() { jq -r --arg k "$1" --arg d "$2" '.[$k] // $d' "$set_" 2>/dev/null || echo "$2"; }
+dim="$(pref idleBatDim 60)"; off="$(pref idleBatOff 120)"; sus="$(pref idleBatSuspend 7)"
+case "$dim$off$sus" in *[!0-9]*) dim=60; off=120; sus=7 ;; esac
+
+{
+cat <<EOT
+# written by kk-idle from settings → power: edit it there, not here
+general {
+    lock_cmd = ~/.local/bin/kk-lock
+    before_sleep_cmd = loginctl lock-session
+    after_sleep_cmd = hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })'; qs -c kajukatli ipc call lock wake
+    ignore_dbus_inhibit = false
+}
+
+# plugged in: dim at 2 min, lock at 5, screen off at 6
+listener {
+    timeout = 120
+    on-timeout = kk-power on-battery || { brightnessctl -s set 12%; brightnessctl -sd '*kbd_backlight*' set 0; }
+    on-resume = brightnessctl -r; brightnessctl -rd '*kbd_backlight*'
+}
+listener {
+    timeout = 300
+    on-timeout = loginctl lock-session
+}
+listener {
+    timeout = 360
+    on-timeout = hyprctl dispatch 'hl.dsp.dpms({ action = "disable" })'
+    on-resume = hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })'
+}
+EOT
+if [ "$dim" -gt 0 ]; then cat <<EOT
+
+# on battery: dim
+listener {
+    timeout = $dim
+    on-timeout = kk-power on-battery && { brightnessctl -s set 15%; brightnessctl -sd '*kbd_backlight*' set 0; }
+    on-resume = kk-power on-battery && { brightnessctl -r; brightnessctl -rd '*kbd_backlight*'; }
+}
+EOT
+fi
+if [ "$off" -gt 0 ]; then cat <<EOT
+
+# on battery: screen off
+listener {
+    timeout = $off
+    on-timeout = kk-power on-battery && hyprctl dispatch 'hl.dsp.dpms({ action = "disable" })'
+    on-resume = hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })'
+}
+EOT
+fi
+if [ "$sus" -gt 0 ]; then cat <<EOT
+
+# on battery: sleep
+listener {
+    timeout = $((sus * 60))
+    on-timeout = kk-power on-battery && systemctl suspend
+}
+EOT
+fi
+} > "$out"
+
+[ "${1:-}" = apply ] || exit 0
+pkill -x hypridle 2>/dev/null
+sleep 0.3
+setsid -f hypridle -c "$out" >/dev/null 2>&1
