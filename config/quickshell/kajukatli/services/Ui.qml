@@ -49,6 +49,12 @@ Singleton {
         overlay = "";
         panel = name;
     }
+    // super + tab while the overview is open: step along instead of closing it
+    signal overviewCycle(int dir)
+    function overview(dir: int) {
+        if (overlay === "overview") overviewCycle(dir);
+        else { panel = ""; overlay = "overview"; }
+    }
     function toggleOverlay(name: string) {
         panel = "";
         overlay = overlay === name ? "" : name;

@@ -1,0 +1,9 @@
+#!/bin/sh
+# nautilus → right-click a drive's folder → scripts: open GNOME Disks on the partition it lives on
+p="$(printf '%s\n' "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS" | head -n1)"
+[ -n "$p" ] || p="$(pwd)"
+dev="$(findmnt -n -o SOURCE --target "$p" 2>/dev/null)"
+case "$(findmnt -n -o TARGET --target "$p")" in
+    /|/boot|/boot/efi|/efi|/home) notify-send -a Files "That's the system drive" "It can't be formatted while the system runs from it."; exit 0 ;;
+esac
+exec gnome-disks --block-device "$dev" --format-device

@@ -34,9 +34,13 @@ Item {
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         cursorShape: Qt.PointingHandCursor
+        // one tap: everything the app offers (its menu). right-click opens the app itself,
+        // middle-click its second action. settings → behaviour can swap tap back to "open".
         onClicked: e => {
+            const tapMenu = Config.s.trayTapMenu && root.modelData.hasMenu;
             if (e.button === Qt.MiddleButton) root.modelData.secondaryActivate();
-            else if (e.button === Qt.RightButton || root.modelData.onlyMenu) { if (root.modelData.hasMenu) menu.open(); }
+            else if (e.button === Qt.RightButton) { if (tapMenu || root.modelData.onlyMenu) root.modelData.activate(); else if (root.modelData.hasMenu) menu.open(); }
+            else if (tapMenu || root.modelData.onlyMenu) { if (root.modelData.hasMenu) menu.open(); }
             else root.modelData.activate();
         }
         onWheel: e => root.modelData.scroll(e.angleDelta.y, false)

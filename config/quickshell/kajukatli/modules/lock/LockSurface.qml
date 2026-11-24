@@ -90,7 +90,7 @@ Item {
             spacing: -parent.height * 0.06
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: Qt.formatTime(clock.date, Config.s.clock24h ? "HH" : "hh")
+                text: Config.s.clock24h ? Qt.formatTime(clock.date, "HH") : String(clock.date.getHours() % 12 || 12).padStart(2, "0")
                 font.family: Theme.display
                 font.pixelSize: root.height * 0.3
                 font.weight: Font.Black

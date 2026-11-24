@@ -21,7 +21,11 @@ bind(M .. " + N",      sh("notifications"), { description = "notifications" })
 bind(M .. " + W",      sh("wallpapers"),    { description = "wallpaper picker" })
 bind(M .. " + SHIFT + W", hl.dsp.exec_cmd(B .. "kk-wall random"), { description = "random wallpaper" })
 bind(M .. " + V",      sh("clipboard"),     { description = "clipboard history" })
-bind(M .. " + Tab",    sh("overview"),      { description = "workspace overview" })
+bind(M .. " + Tab",    sh("overview"),      { description = "workspace overview (again: next, let go of super: go)" })
+bind(M .. " + SHIFT + Tab", sh("overview_back"), { description = "workspace overview, stepping back" })
+bind("CTRL + SHIFT + Escape", sh("system"), { description = "task manager · memory · storage" })
+bind(M .. " + SHIFT + A", sh("running"),  { description = "every running app" })
+bind(M .. " + SHIFT + M", sh("phone"),    { description = "your phone (kde connect)" })
 bind(M .. " + Escape", sh("session"),       { description = "power menu" })
 bind(M .. " + slash",  sh("cheatsheet"),    { description = "this cheatsheet" })
 bind(M .. " + L",      hl.dsp.exec_cmd(B .. "kk-lock"), { description = "lock" })
@@ -80,6 +84,9 @@ bind(M .. " + R",               sh("ws_rename"),   { description = "rename works
 bind(M .. " + period",          sh("emoji"),       { description = "emoji picker" })
 bind(M .. " + D",               sh("projection"),  { description = "display / projection menu" })
 bind(M .. " + SHIFT + I",       sh("packages"),    { description = "package manager" })
+-- windows to the other screen (extended displays): super + alt + shift + ← →
+bind(M .. " + ALT + SHIFT + left",  hl.dsp.exec_cmd(B .. "kk-display send -1"), { description = "window to the screen on the left" })
+bind(M .. " + ALT + SHIFT + right", hl.dsp.exec_cmd(B .. "kk-display send +1"), { description = "window to the screen on the right" })
 
 -- scratchpad
 bind(M .. " + S",         hl.dsp.workspace.toggle_special("magic"),           { description = "scratchpad" })

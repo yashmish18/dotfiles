@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Hyprland
 
 // thin helpers over hyprland ipc. works with the lua config and the old hyprlang one.
@@ -16,7 +17,23 @@ Singleton {
             if (n === "monitoradded" || n === "monitoraddedv2") {
                 monitorHotplug.restart();
             }
-            if (n === "fullscreen") root.fullscreen = (ev.data || "").trim() === "1";
+            const data = ev.data || "";
+            // a window closed or moved away: close the gap it may have left (1 2 _ 4 → 1 2 3)
+            if (n === "closewindow" || n === "destroyworkspace" || n === "destroyworkspacev2" || n === "movewindowv2")
+                compactSoon.restart();
+            // a sign-in page (or a link another app opened) in a browser somewhere else
+            if (n === "openwindow") {
+                const f = data.split(",");
+                const addr = "0x" + f[0].replace(/^0x/, "");
+                root.consider(addr, f[2] || "", f.slice(3).join(","), false);
+                Gpu.checkWindow(addr, f[2] || "");
+            } else if (n === "windowtitlev2") {
+                const i = data.indexOf(",");
+                root.consider("0x" + data.slice(0, i).replace(/^0x/, ""), "", data.slice(i + 1), false);
+            } else if (n === "urgent") {
+                root.consider("0x" + data.trim().replace(/^0x/, ""), "", "", true);
+            }
+            if (n === "fullscreen") root.fullscreen = data.trim() === "1";
             else if (n === "workspace" || n === "workspacev2") root.fullscreen = false;
             if (n.startsWith("workspace") || n.startsWith("createworkspace") || n.startsWith("destroyworkspace")
                 || n.startsWith("focusedmon") || n.startsWith("moveworkspace") || n.startsWith("openwindow")
@@ -136,5 +153,86 @@ Singleton {
 
     function hyprEval(lua: string) {
         Quickshell.execDetached(["hyprctl", "eval", lua]);
+    }
+
+    // ------------------------------------------------------------- no gaps
+    // close workspace 3 of 1 2 3 4 and 4 becomes 3. only on the screen you're on (ids are shared
+    // between screens, and a window sent to a new id lands on the focused screen), only into ids
+    // nobody uses, and never a workspace you gave a name. settings: compactWorkspaces.
+    Timer {
+        id: compactSoon
+        interval: 450
+        onTriggered: if (Config.s.compactWorkspaces && !snapProc.running) snapProc.running = true
+    }
+    Process {
+        id: snapProc
+        command: ["sh", "-c", 'jq -nc --argjson c "$(hyprctl clients -j)" --argjson w "$(hyprctl workspaces -j)" --argjson m "$(hyprctl monitors -j)" \'{c: $c, w: $w, m: $m}\'']
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let j;
+                try { j = JSON.parse(text); } catch (e) { return; }
+                root.compact(j.c || [], j.w || [], j.m || []);
+            }
+        }
+    }
+    function compact(clients, workspaces, monitors) {
+        const mon = monitors.find(m => m.focused);
+        if (!mon) return;
+        const active = mon.activeWorkspace ? mon.activeWorkspace.id : -1;
+        const used = {};
+        for (const w of workspaces) used[w.id] = true;
+        const mine = workspaces.filter(w => w.id > 0 && w.monitor === mon.name && w.name === String(w.id)).sort((a, b) => a.id - b.id);
+        for (const w of mine) {
+            let free = 1;
+            while (used[free]) free++;
+            if (free >= w.id) continue;
+            const wins = clients.filter(c => c.workspace && c.workspace.id === w.id && c.address);
+            if (wins.length === 0 && w.id !== active) continue;
+            for (const c of wins) moveWindowTo(free, c.address, false);
+            if (w.id === active) focusWorkspace(free);
+            delete used[w.id];
+            used[free] = true;
+        }
+    }
+
+    // ------------------------------------------------------------- sign-ins
+    // "log in with your browser" from a terminal, an app's oauth page, a link opened from chat:
+    // when it shows up in a browser on another workspace, go there (once per page).
+    // settings: followLogins.
+    readonly property var loginWords: /\b(sign[\s-]?in|log[\s-]?in|login|sign[\s-]?up|authenticat\w*|authori[sz]\w*|verify|verification|two[\s-]factor|2fa|one[\s-]time|oauth|sso|single sign[\s-]on|device (code|activation)|choose an account|connect (your )?account)\b/i
+    readonly property var browsers: /firefox|librewolf|zen|floorp|waterfox|chrom|brave|vivaldi|opera|edge|epiphany|qutebrowser|falkon|thorium|mullvad|torbrowser/i
+    property var followed: ({})
+    function consider(address: string, cls: string, title: string, urgent: bool) {
+        if (!Config.s.followLogins) return;
+        if (!urgent && !loginWords.test(title)) return;
+        const key = address + "|" + (urgent ? "urgent" : title);
+        if (followed[key] && Date.now() - followed[key] < 15000) return;
+        followed[key] = Date.now();
+        loginProc.address = address;
+        loginProc.cls = cls;
+        if (!loginProc.running) loginProc.running = true;
+    }
+    Process {
+        id: loginProc
+        property string address: ""
+        property string cls: ""
+        command: ["hyprctl", "clients", "-j"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let list;
+                try { list = JSON.parse(text); } catch (e) { return; }
+                const c = list.find(x => x.address === loginProc.address);
+                if (!c || !root.browsers.test(c.class || loginProc.cls)) return;
+                const here = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : -1;
+                if (c.workspace && c.workspace.id !== here && c.workspace.id > 0) root.focusWindow(c.address);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------- windows to other screens
+    function moveWindowToMonitor(address: string, monitorName: string) {
+        const m = Hyprland.monitors.values.find(x => x.name === monitorName);
+        if (!m || !m.activeWorkspace) return;
+        moveWindowTo(m.activeWorkspace.id, address, false);
     }
 }

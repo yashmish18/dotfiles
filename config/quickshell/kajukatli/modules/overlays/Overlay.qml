@@ -59,7 +59,7 @@ LazyLoader {
             Behavior on y { NumberAnimation { duration: Theme.slow; easing.type: Easing.OutCubic } }
             sourceComponent: Ui.overlay === "overview" ? overviewC : Ui.overlay === "wallpapers" ? wallC : Ui.overlay === "cheatsheet" ? cheatC
                            : Ui.overlay === "apps" ? appsC : Ui.overlay === "projection" ? projectionC : Ui.overlay === "packages" ? packagesC
-                           : Ui.overlay === "power" ? powerC : Ui.overlay === "notes" ? notesC : null
+                           : Ui.overlay === "power" ? powerC : Ui.overlay === "notes" ? notesC : Ui.overlay === "system" ? systemC : null
             Keys.onEscapePressed: Ui.overlay = ""
         }
 
@@ -71,5 +71,6 @@ LazyLoader {
         Component { id: packagesC; PackageManager {} }
         Component { id: powerC; PowerMenu {} }
         Component { id: notesC; Notes {} }
+        Component { id: systemC; SystemMonitor {} }
     }
 }

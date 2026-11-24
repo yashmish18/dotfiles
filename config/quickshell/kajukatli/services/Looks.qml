@@ -33,7 +33,7 @@ Singleton {
         studio: {
             themeScheme: "vibrant", radius: 14,
             barStyle: "islands", barPosition: "top", workspaceStyle: "dots",
-            barModules: { left: ["workspaces"], center: ["clock", "notifs"], right: ["tray", "control"] },
+            barModules: { left: ["workspaces"], center: ["clock", "notifs"], right: ["apps", "phone", "tray", "control"] },
             clockStyle: "hero", clockDepth: true, clockFont: "Syne", clockScale: 0.8,
             visualizer: "off", visualizerBehind: false, visualizerBars: 48,
             showCalendar: false, mediaWidget: "card", showStats: false,
@@ -43,7 +43,7 @@ Singleton {
         tide: {
             themeScheme: "vibrant", radius: 14,
             barStyle: "pill", barPosition: "top", workspaceStyle: "dots",
-            barModules: { left: ["logo", "workspaces"], center: ["media", "visualizer", "clock", "weather"], right: ["tray", "brightness", "volume", "network", "battery", "power"] },
+            barModules: { left: ["logo", "workspaces"], center: ["media", "visualizer", "clock", "weather"], right: ["apps", "phone", "tray", "brightness", "volume", "network", "battery", "power"] },
             clockStyle: "stack", clockDepth: true, clockFont: "Unbounded", clockScale: 1.0,
             visualizer: "wave", visualizerBehind: true, visualizerBars: 56,
             showCalendar: false, mediaWidget: "card", showStats: false,
@@ -53,7 +53,7 @@ Singleton {
         ronin: {
             themeScheme: "tonal", radius: 10,
             barStyle: "rail", barPosition: "top", workspaceStyle: "dots",
-            barModules: { left: ["logo", "workspaces"], center: ["media"], right: ["tray", "volume", "bluetooth", "network", "clock", "battery", "power"] },
+            barModules: { left: ["logo", "workspaces"], center: ["media"], right: ["apps", "phone", "tray", "volume", "bluetooth", "network", "clock", "battery", "power"] },
             clockStyle: "date", clockDepth: false, clockFont: "Anton", clockScale: 1.0,
             visualizer: "bars", visualizerBehind: false, visualizerBars: 64,
             showCalendar: false, mediaWidget: "card", showStats: false,
@@ -63,7 +63,7 @@ Singleton {
         komorebi: {
             themeScheme: "vibrant", radius: 16,
             barStyle: "pill", barPosition: "top", workspaceStyle: "numbers",
-            barModules: { left: ["logo", "temp", "notifs", "workspaces"], center: ["volume", "clock", "weather"], right: ["brightness", "battery", "network", "power"] },
+            barModules: { left: ["logo", "temp", "notifs", "workspaces"], center: ["volume", "clock", "weather"], right: ["apps", "phone", "brightness", "battery", "network", "power"] },
             clockStyle: "hero", clockDepth: true, clockFont: "Syne", clockScale: 1.0,
             visualizer: "off", visualizerBehind: false, visualizerBars: 48,
             showCalendar: true, mediaWidget: "card", showStats: false,
@@ -73,7 +73,7 @@ Singleton {
         currents: {
             themeScheme: "vibrant", radius: 12,
             barStyle: "bar", barPosition: "bottom", workspaceStyle: "diamonds",
-            barModules: { left: ["logo", "workspaces", "notifs", "cpu", "mem", "volume"], center: ["clock", "weather", "media", "visualizer"], right: ["brightness", "network", "bluetooth", "temp", "battery", "power"] },
+            barModules: { left: ["logo", "workspaces", "notifs", "cpu", "mem", "volume"], center: ["clock", "weather", "media", "visualizer"], right: ["apps", "phone", "brightness", "network", "bluetooth", "temp", "battery", "power"] },
             clockStyle: "day", clockDepth: false, clockFont: "Bricolage Grotesque", clockScale: 1.0,
             visualizer: "off", visualizerBehind: false, visualizerBars: 48,
             showCalendar: true, mediaWidget: "lyrics", showStats: false,
@@ -83,7 +83,7 @@ Singleton {
         dreamer: {
             themeScheme: "tonal", radius: 12,
             barStyle: "islands", barPosition: "top", workspaceStyle: "numbers",
-            barModules: { left: ["logo", "temp", "notifs", "workspaces"], center: ["clock", "weather", "volume", "battery"], right: ["brightness", "network", "mem", "power"] },
+            barModules: { left: ["logo", "temp", "notifs", "workspaces"], center: ["clock", "weather", "volume", "battery"], right: ["apps", "phone", "brightness", "network", "mem", "power"] },
             clockStyle: "line", clockDepth: true, clockFont: "Bricolage Grotesque", clockScale: 1.0,
             visualizer: "off", visualizerBehind: false, visualizerBars: 48,
             showCalendar: false, mediaWidget: "portrait", showStats: true,
@@ -93,7 +93,7 @@ Singleton {
         grove: {
             themeScheme: "vibrant", radius: 14,
             barStyle: "none", barPosition: "top", workspaceStyle: "dots",
-            barModules: { left: ["logo", "workspaces"], center: ["clock"], right: ["volume", "network", "battery", "power"] },
+            barModules: { left: ["logo", "workspaces"], center: ["clock"], right: ["apps", "phone", "volume", "network", "battery", "power"] },
             clockStyle: "serif", clockDepth: true, clockFont: "Fraunces", clockScale: 1.0,
             visualizer: "off", visualizerBehind: false, visualizerBars: 48,
             showCalendar: false, mediaWidget: "card", showStats: false,
@@ -103,7 +103,7 @@ Singleton {
         print: {
             themeScheme: "mono", radius: 6,
             barStyle: "bar", barPosition: "top", workspaceStyle: "numbers",
-            barModules: { left: ["workspaces", "media"], center: ["clock"], right: ["tray", "volume", "network", "battery", "notifs"] },
+            barModules: { left: ["workspaces", "media"], center: ["clock"], right: ["apps", "phone", "tray", "volume", "network", "battery", "notifs"] },
             clockStyle: "line", clockDepth: false, clockFont: "Instrument Serif", clockScale: 0.6,
             visualizer: "off", visualizerBehind: false, visualizerBars: 32,
             showCalendar: false, mediaWidget: "card", showStats: false,

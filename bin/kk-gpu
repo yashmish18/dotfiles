@@ -1,11 +1,28 @@
 #!/bin/sh
-# kk-gpu status          one line of json: { hybrid, mode, dgpuPorts }
-# kk-gpu set igpu|both   which gpus hyprland may drive screens with (in hypr/modules/gpu.lua):
-#   igpu   the integrated one only: best battery; ports wired to the nvidia card stay dark
-#   both   integrated first, nvidia too: every port works; the nvidia card wakes more often
-# takes effect at the next login.
+# kk-gpu status              one line of json: hybrid, which card draws the desktop, the nvidia
+#                            card's power state, the ports wired to it
+# kk-gpu set igpu|both|nvidia   which card hyprland draws with (next login):
+#   igpu     the integrated one only: best battery; ports wired to nvidia stay dark
+#   both     integrated first, nvidia too: every port works; nvidia wakes more often
+#   nvidia   everything on the nvidia card: fastest, every port works, the most power
+# kk-gpu off | on            take the nvidia card off the bus (no power at all) until `on` or
+#                            a reboot. only while the desktop isn't drawing with it.
+# kk-gpu run <app> [args]    start one app on the nvidia card (like prime-run)
+# kk-gpu hint <addr> <class> a heavy app opened on the integrated card: offer to restart it
 set -u
 gpu_lua="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/modules/gpu.lua"
+env_file="${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli/gpu.env"
+state="${XDG_STATE_HOME:-$HOME/.local/state}/kajukatli"
+mkdir -p "$state"
+
+# the nvidia card's pci address (remembered, since it vanishes from sysfs once removed)
+pci=""
+for d in /sys/bus/pci/devices/*; do
+    [ "$(cat "$d/vendor" 2>/dev/null)" = 0x10de ] || continue
+    case "$(cat "$d/class" 2>/dev/null)" in 0x03*) pci="${d##*/}"; break ;; esac
+done
+[ -n "$pci" ] && echo "$pci" > "$state/dgpu-pci"
+[ -n "$pci" ] || pci="$(cat "$state/dgpu-pci" 2>/dev/null || true)"
 
 ports=""
 for c in /sys/class/drm/card*-*; do
@@ -17,38 +34,122 @@ for c in /sys/class/drm/card*-*; do
     fi
 done
 hybrid=false
-[ -e /dev/dri/kk-igpu ] && [ -e /dev/dri/kk-dgpu ] && hybrid=true
+[ -e /dev/dri/kk-igpu ] && { [ -e /dev/dri/kk-dgpu ] || [ -n "$pci" ]; } && hybrid=true
+
+hypr_pid() { pgrep -x Hyprland | head -n1; }
+live_devs() {
+    p="$(hypr_pid)"
+    [ -n "$p" ] && tr '\0' '\n' < "/proc/$p/environ" 2>/dev/null | sed -n 's/^AQ_DRM_DEVICES=//p'
+}
+devs_mode() { # AQ_DRM_DEVICES value → igpu|both|nvidia|all
+    case "$1" in
+        "") echo all ;;
+        /dev/dri/kk-dgpu*) echo nvidia ;;
+        *kk-dgpu*) echo both ;;
+        *) echo igpu ;;
+    esac
+}
 
 case "${1:-status}" in
     status)
-        mode=igpu
-        grep -q 'AQ_DRM_DEVICES.*kk-dgpu' "$gpu_lua" 2>/dev/null && mode=both
-        grep -q 'AQ_DRM_DEVICES' "$gpu_lua" 2>/dev/null || mode=all
-        live=""
-        pid="$(pgrep -x Hyprland | head -n1)"
-        [ -n "$pid" ] && live="$(tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | sed -n 's/^AQ_DRM_DEVICES=//p')"
-        case "$live" in *kk-dgpu*) now=both ;; "") now=all ;; *) now=igpu ;; esac
-        [ -n "$pid" ] || now=""
-        printf '{"hybrid":%s,"mode":"%s","running":"%s","dgpuPorts":[%s]}\n' "$hybrid" "$mode" "$now" "$ports"
+        saved="$(sed -n 's/^AQ_DRM_DEVICES=//p' "$env_file" 2>/dev/null)"
+        [ -n "$saved" ] || saved="$(grep -o 'AQ_DRM_DEVICES", *"[^"]*' "$gpu_lua" 2>/dev/null | sed 's/.*"//')"
+        mode="$(devs_mode "$saved")"
+        now=""
+        [ -n "$(hypr_pid)" ] && now="$(devs_mode "$(live_devs)")"
+        power=absent
+        if [ -n "$pci" ]; then
+            if [ -e "/sys/bus/pci/devices/$pci" ]; then
+                power="$(cat "/sys/bus/pci/devices/$pci/power/runtime_status" 2>/dev/null || echo active)"
+            else
+                power=removed
+            fi
+        fi
+        name="$(lspci -s "$pci" 2>/dev/null | sed 's/.*\[\(.*\)\].*/\1/;s/.*: //' | head -n1)"
+        dgpu=false; [ -n "$pci" ] && dgpu=true
+        printf '{"hybrid":%s,"dgpu":%s,"mode":"%s","running":"%s","power":"%s","runtime":"%s","name":"%s","pci":"%s","dgpuPorts":[%s]}\n' \
+            "$hybrid" "$dgpu" "$mode" "$now" "$power" "$power" "$(printf '%s' "$name" | tr -d '"\\')" "$pci" "$ports"
         ;;
     set)
         [ "$hybrid" = true ] || { echo "kk-gpu: not a hybrid (two-gpu) machine" >&2; exit 1; }
+        extra=""
         case "${2:-}" in
-            igpu) devs="/dev/dri/kk-igpu" ;;
-            both) devs="/dev/dri/kk-igpu:/dev/dri/kk-dgpu" ;;
-            *) echo "usage: kk-gpu set igpu|both" >&2; exit 2 ;;
+            igpu)   devs="/dev/dri/kk-igpu" ;;
+            both)   devs="/dev/dri/kk-igpu:/dev/dri/kk-dgpu" ;;
+            nvidia) devs="/dev/dri/kk-dgpu:/dev/dri/kk-igpu"
+                    extra="LIBVA_DRIVER_NAME=nvidia
+__GLX_VENDOR_LIBRARY_NAME=nvidia
+GBM_BACKEND=nvidia-drm
+NVD_BACKEND=direct" ;;
+            *) echo "usage: kk-gpu set igpu|both|nvidia" >&2; exit 2 ;;
         esac
-        mkdir -p "$(dirname "$gpu_lua")"
-        if grep -q 'AQ_DRM_DEVICES' "$gpu_lua" 2>/dev/null; then
-            sed -i "s|^hl.env(\"AQ_DRM_DEVICES\".*|hl.env(\"AQ_DRM_DEVICES\", \"$devs\")|" "$gpu_lua"
-        else
-            printf 'hl.env("AQ_DRM_DEVICES", "%s")\n' "$devs" >> "$gpu_lua"
-        fi
-        # and for kk-session, which exports it before hyprland opens the cards
-        env_file="${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli/gpu.env"
-        mkdir -p "$(dirname "$env_file")"
-        printf 'AQ_DRM_DEVICES=%s\n' "$devs" > "$env_file"
-        echo "set: $devs (log out and back in to apply)"
+        [ -e "/sys/bus/pci/devices/$pci" ] || [ "$2" = igpu ] || { echo "the nvidia card is switched off: kk-gpu on first" >&2; exit 1; }
+        mkdir -p "$(dirname "$gpu_lua")" "$(dirname "$env_file")"
+        [ -L "$gpu_lua" ] && rm -f "$gpu_lua"
+        {
+            echo "-- written by kk-gpu (settings → display → graphics). mode: $2"
+            echo "hl.env(\"AQ_DRM_DEVICES\", \"$devs\")"
+            printf '%s\n' "$extra" | while IFS='=' read -r k v; do
+                [ -n "$k" ] && echo "hl.env(\"$k\", \"$v\")"
+            done
+            [ "$2" = nvidia ] && echo 'hl.config({ cursor = { no_hardware_cursors = 1 } })'
+        } > "$gpu_lua"
+        # and for kk-session, which exports these before hyprland opens the cards
+        { echo "AQ_DRM_DEVICES=$devs"; [ -n "$extra" ] && printf '%s\n' "$extra"; } > "$env_file"
+        echo "set to $2. log out and back in to apply."
         ;;
-    *) sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+    off)
+        [ -n "$pci" ] && [ -e "/sys/bus/pci/devices/$pci" ] || { echo "already off"; exit 0; }
+        case "$(live_devs)" in *kk-dgpu*) echo "the desktop is drawing with the nvidia card right now. choose 'integrated only', log out and back in, then switch it off." >&2; exit 1 ;; esac
+        users="$(fuser /dev/nvidia* 2>/dev/null | tr -s ' ')"
+        if [ -n "$users" ]; then
+            echo "these programs are using the nvidia card: $(for p in $users; do cat "/proc/$p/comm" 2>/dev/null; done | sort -u | tr '\n' ' ')- close them first." >&2
+            exit 1
+        fi
+        pkexec sh -c "modprobe -r nvidia_drm nvidia_modeset nvidia_uvm nvidia 2>/dev/null; echo 1 > /sys/bus/pci/devices/$pci/remove" \
+            && echo "the nvidia card is off (until kk-gpu on, or a reboot)."
+        ;;
+    on)
+        [ -n "$pci" ] && [ -e "/sys/bus/pci/devices/$pci" ] && { echo "already on"; exit 0; }
+        pkexec sh -c 'echo 1 > /sys/bus/pci/rescan; modprobe nvidia_drm 2>/dev/null; true' && echo "the nvidia card is back."
+        ;;
+    run)
+        shift
+        [ "$#" -gt 0 ] || { echo "usage: kk-gpu run <app> [args]" >&2; exit 2; }
+        if command -v prime-run >/dev/null; then exec prime-run "$@"; fi
+        __NV_PRIME_RENDER_OFFLOAD=1 __VK_LAYER_NV_optimus=NVIDIA_only __GLX_VENDOR_LIBRARY_NAME=nvidia exec "$@"
+        ;;
+    hint)
+        addr="${2:-}"; cls="${3:-}"
+        [ "$hybrid" = true ] && [ -n "$addr" ] || exit 0
+        case "$(live_devs)" in /dev/dri/kk-dgpu*) exit 0 ;; esac          # everything is on nvidia already
+        pid="$(hyprctl clients -j | jq -r --arg a "$addr" '.[] | select(.address == $a) | .pid' | head -n1)"
+        [ -n "$pid" ] && [ "$pid" -gt 0 ] 2>/dev/null || exit 0
+        # started on nvidia already?
+        tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | grep -q '^__NV_PRIME_RENDER_OFFLOAD=1' && exit 0
+        name="$(cat "/proc/$pid/comm" 2>/dev/null || echo "$cls")"
+        case "$cls" in
+            steam_app_*)
+                notify-send -a Graphics -i nvidia "This game is on the integrated graphics" \
+                    "Start Steam from the launcher (it opens on NVIDIA now), or add  kk-gpu run %command%  to the game's launch options." ;;
+            *)
+                cmd="$(tr '\0' '\n' < "/proc/$pid/cmdline" 2>/dev/null)"
+                [ -n "$cmd" ] || exit 0
+                act="$(notify-send -a Graphics -i nvidia --action=restart="Restart on NVIDIA" \
+                    "$name is on the integrated graphics" "It runs faster on the NVIDIA card. Unsaved work is lost if it restarts.")"
+                [ "$act" = restart ] || exit 0
+                cwd="$(readlink "/proc/$pid/cwd" 2>/dev/null || echo "$HOME")"
+                kill "$pid" 2>/dev/null
+                i=0; while kill -0 "$pid" 2>/dev/null && [ "$i" -lt 30 ]; do sleep 0.2; i=$((i + 1)); done
+                kill -9 "$pid" 2>/dev/null || true
+                # the same command line again, through prime-run
+                cd "$cwd" 2>/dev/null || cd "$HOME"
+                printf '%s\n' "$cmd" | {
+                    set --
+                    while IFS= read -r a; do set -- "$@" "$a"; done
+                    setsid -f "$0" run "$@" >/dev/null 2>&1
+                } ;;
+        esac
+        ;;
+    *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

@@ -11,12 +11,16 @@
 #   ./install.sh --walls          only download the wallpaper pack
 #   ./install.sh --ai             only (re)build the wallpaper ai
 #   ./install.sh --dry-run        print the actions; change nothing
-#   ./install.sh --update         git-pull only after local-change checks
+#   ./install.sh --update         fetch the newest dotfiles (only them: no history, no screenshots),
+#                                 after a snapshot, then relink. --rollback undoes it
+#   ./install.sh --rollback       back to the version before the last --update, settings included
 #   ./install.sh --snapshot       back up kajukatli's settings and state (kk-personal-backup: your files)
 #   ./install.sh --restore        restore the latest Kajukatli snapshot
 #
 # safe to run again: packages use --needed, links are replaced, and your own files are
 # moved to ~/.local/share/kajukatli/backup/<date>/ before anything is linked over them.
+# the first run also writes down how the system looked before (packages, login screen, shell,
+# every system file it touches): ./uninstall.sh --all puts all of it back.
 
 set -euo pipefail
 
@@ -48,10 +52,11 @@ for a in "$@"; do
         --savings) ONLY=savings ;;
         --dry-run) DRY_RUN=1 ;;
         --update) MODE=update ;;
+        --rollback) MODE=rollback ;;
         --snapshot) MODE=snapshot ;;
         --restore) MODE=restore ;;
         --no-ai) EXTRAS_ARG="${EXTRAS_ARG:-default}"; NO_AI=1 ;;
-        -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown option: $a (try --help)"; exit 2 ;;
     esac
 done
@@ -71,6 +76,40 @@ snapshot() {
     done
     (umask 077; tar -C "$HOME" -czf "$out" "${have[@]}")
     echo "$out"
+}
+
+# ------------------------------------------------------------------ the system before kajukatli
+# written once, on the first install, so uninstall.sh --all can put a plain arch back
+BASE="$DATA/baseline"
+baseline_record() {
+    [ "$DRY_RUN" = 1 ] && return 0
+    mkdir -p "$BASE/files"
+    [ -f "$BASE/packages-explicit.txt" ] && return 0
+    pacman -Qqe > "$BASE/packages-explicit.txt" 2>/dev/null || true
+    pacman -Qq > "$BASE/packages-all.txt" 2>/dev/null || true
+    basename "$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null)" 2>/dev/null > "$BASE/display-manager" || true
+    getent passwd "$USER" | cut -d: -f7 > "$BASE/shell"
+    systemctl list-unit-files --state=enabled --no-legend 2>/dev/null | awk '{print $1}' > "$BASE/services-enabled.txt" || true
+    id -nG "$USER" > "$BASE/groups"
+    date -Iseconds > "$BASE/when"
+}
+# before the first change to a system file: keep the original, or note that there wasn't one
+sys_keep() { # sys_keep /etc/some/file
+    local f="$1" key
+    [ "$DRY_RUN" = 1 ] && return 0
+    mkdir -p "$BASE/files"
+    cut -f2 "$BASE/system-files.tsv" 2>/dev/null | grep -qxF "$f" && return 0
+    key="$(printf '%s' "$f" | sed 's|/|%|g')"
+    if sudo test -e "$f"; then
+        sudo cp -a "$f" "$BASE/files/$key" && sudo chown -R "$USER" "$BASE/files/$key"
+        printf 'existed\t%s\n' "$f" >> "$BASE/system-files.tsv"
+    else
+        printf 'new\t%s\n' "$f" >> "$BASE/system-files.tsv"
+    fi
+}
+sys_install() { # sys_install MODE SRC DST
+    sys_keep "$3"
+    sudo install -Dm"$1" "$2" "$3"
 }
 
 # ------------------------------------------------------------------ voice
@@ -95,10 +134,49 @@ case "$MODE" in
         git -C "$REPO" config core.fileMode false 2>/dev/null || true
         branch="$(git -C "$REPO" branch --show-current 2>/dev/null || true)"
         [ -n "$branch" ] || die "cannot update a detached checkout"
-        [ -z "$(git -C "$REPO" status --porcelain 2>/dev/null)" ] || die "local changes found; commit, stash, or restore them before --update"
-        git -C "$REPO" fetch --prune origin
-        git -C "$REPO" pull --ff-only origin "$branch"
-        exit $?
+        [ -z "$(git -C "$REPO" status --porcelain --untracked-files=no 2>/dev/null)" ] || die "local changes found; commit, stash, or restore them before --update"
+        old="$(git -C "$REPO" rev-parse HEAD)"
+        file="$(snapshot)"
+        # only the dotfiles: the newest commit (no history), and none of the preview screenshots
+        git -C "$REPO" sparse-checkout set --no-cone '/*' '!/assets/' 2>/dev/null || true
+        if [ "$(git -C "$REPO" rev-parse --is-shallow-repository 2>/dev/null)" = true ]; then
+            git -C "$REPO" fetch --depth 1 --prune origin "$branch" && git -C "$REPO" reset --hard FETCH_HEAD
+        else
+            git -C "$REPO" fetch --prune origin "$branch" && git -C "$REPO" merge --ff-only FETCH_HEAD
+        fi || die "update failed; nothing changed"
+        new="$(git -C "$REPO" rev-parse HEAD)"
+        if [ "$old" = "$new" ]; then ok "already up to date"; exit 0; fi
+        printf '%s %s %s %s\n' "$(date -Iseconds)" "$old" "$new" "$file" >> "$DATA/updates.log"
+        ok "updated $(git -C "$REPO" log -1 --format=%h "$old")..$(git -C "$REPO" log -1 --format=%h "$new")"
+        note "something wrong? ./install.sh --rollback puts the old version and your settings back"
+        exec "$REPO/install.sh" --links
+        ;;
+    rollback)
+        last="$(tail -n1 "$DATA/updates.log" 2>/dev/null || true)"
+        if [ -n "$last" ] && [ -d "$REPO/.git" ]; then
+            read -r _when old new file <<<"$last"
+            [ "$(git -C "$REPO" rev-parse HEAD)" = "$new" ] || warn "the checkout moved since that update; going back to $old anyway"
+            git -C "$REPO" cat-file -e "$old^{commit}" 2>/dev/null || git -C "$REPO" fetch --depth 1 origin "$old" || die "can't find the old version $old"
+            git -C "$REPO" reset --hard "$old"
+            [ -f "$file" ] && tar -xzf "$file" -C "$HOME" && note "settings from $file"
+            sed -i '$d' "$DATA/updates.log"
+            ok "back to $(git -C "$REPO" log -1 --format='%h %s' "$old")"
+            exec "$REPO/install.sh" --links
+        fi
+        # no update to undo: put back the newest snapshot and the files the last install moved
+        latest="$(ls -1t "$DATA"/snapshot-*.tar.gz 2>/dev/null | head -n1 || true)"
+        [ -n "$latest" ] && tar -xzf "$latest" -C "$HOME" && ok "restored settings from $latest"
+        moved="$(ls -1d "$DATA"/backup/*/ 2>/dev/null | tail -n1 || true)"
+        if [ -n "$moved" ] && [ -f "$moved/.moved" ]; then
+            while IFS= read -r dst; do
+                src="$moved/${dst#$HOME/}"
+                [ -e "$src" ] || continue
+                [ -L "$dst" ] && rm -f "$dst"
+                [ -e "$dst" ] || { mkdir -p "$(dirname "$dst")"; cp -a "$src" "$dst"; note "restored ${dst#$HOME/}"; }
+            done < "$moved/.moved"
+        fi
+        [ -n "$latest$moved" ] || die "nothing to roll back to"
+        exit 0
         ;;
     snapshot)
         file="$(snapshot)"
@@ -263,9 +341,9 @@ gpu() {
     if printf '%s\n' "$gpus" | grep -iE '8086:|1002:' >/dev/null; then has_ig=1; fi
 
     say "graphics: $( [ $has_ig = 1 ] && echo -n "integrated " )$( [ $has_nv = 1 ] && echo -n "nvidia" )"
-    sudo install -Dm644 "$REPO/system/udev/61-kajukatli-gpu.rules" /etc/udev/rules.d/61-kajukatli-gpu.rules
+    sys_install 644 "$REPO/system/udev/61-kajukatli-gpu.rules" /etc/udev/rules.d/61-kajukatli-gpu.rules
     # the battery's charge limit, settable from settings → power
-    sudo install -Dm644 "$REPO/system/udev/62-kajukatli-battery.rules" /etc/udev/rules.d/62-kajukatli-battery.rules
+    sys_install 644 "$REPO/system/udev/62-kajukatli-battery.rules" /etc/udev/rules.d/62-kajukatli-battery.rules
 
     if [ $has_nv = 1 ]; then
         # any nvidia kernel driver already there (nvidia, nvidia-open, -dkms, -lts, 580xx…)? keep it:
@@ -280,8 +358,8 @@ gpu() {
             fi
         fi
         sudo pacman -S --needed --noconfirm nvidia-prime nvidia-utils 2>/dev/null || true
-        sudo install -Dm644 "$REPO/system/modprobe/nvidia.conf" /etc/modprobe.d/kajukatli-nvidia.conf
-        sudo install -Dm644 "$REPO/system/udev/80-nvidia-pm.rules" /etc/udev/rules.d/80-nvidia-pm.rules
+        sys_install 644 "$REPO/system/modprobe/nvidia.conf" /etc/modprobe.d/kajukatli-nvidia.conf
+        sys_install 644 "$REPO/system/udev/80-nvidia-pm.rules" /etc/udev/rules.d/80-nvidia-pm.rules
         for s in nvidia-suspend nvidia-hibernate nvidia-resume; do
             systemctl list-unit-files "$s.service" >/dev/null 2>&1 && sudo systemctl enable "$s.service" >/dev/null 2>&1 || true
         done
@@ -364,6 +442,10 @@ links() {
     # quickshell: the whole folder, so compiled shaders sit next to the qml that loads them
     backup_and_link "$REPO/config/quickshell/kajukatli" "$CONFIG/quickshell/kajukatli"
     backup_and_link "$REPO/config/quickshell/kk-photobooth" "$CONFIG/quickshell/kk-photobooth"
+    # right-click → scripts in the file manager: format a drive, disk usage, send to phone, admin
+    for f in "$REPO"/system/nautilus-scripts/*; do
+        [ -f "$f" ] && install -Dm755 "$f" "${XDG_DATA_HOME:-$HOME/.local/share}/nautilus/scripts/$(basename "$f")"
+    done
     # our own apps in the app drawer
     for f in "$REPO"/system/applications/*.desktop; do
         [ -f "$f" ] && install -Dm644 "$f" "$HOME/.local/share/applications/$(basename "$f")"
@@ -390,7 +472,7 @@ links() {
 
     # scripts
     for f in "$REPO"/bin/*; do [ -f "$f" ] || continue; backup_and_link "$f" "$BIN/$(basename "$f")"; chmod +x "$f"; done
-    sudo install -Dm755 "$REPO/system/bin/kk-session" /usr/local/bin/kk-session
+    sys_install 755 "$REPO/system/bin/kk-session" /usr/local/bin/kk-session
 
     # shell extras into bash / zsh
     local line="[ -f \"$CONFIG/shell/kajukatli.sh\" ] && . \"$CONFIG/shell/kajukatli.sh\""
@@ -481,7 +563,7 @@ wallpapers() {
     done
     ok "wallpapers ($got in ~/Pictures/wallpapers/paintings)"
     # anime: the month's top ones from wallhaven (sfw), straight to your machine
-    if ask "also download 16 top anime wallpapers from wallhaven.cc (~60 mb)" y; then
+    if ask "also download 16 top anime wallpapers from wallhaven.cc (~60 mb)" n; then
         "$REPO/bin/kk-getwalls" 16 || warn "wallhaven didn't answer; try later: kk-getwalls"
     fi
 }
@@ -531,8 +613,28 @@ services() {
     done
     # let networkmanager notice wi-fi that wants a sign-in page (the shell then opens it)
     if [ ! -f /etc/NetworkManager/conf.d/20-connectivity.conf ]; then
+        sys_keep /etc/NetworkManager/conf.d/20-connectivity.conf
         printf '[connectivity]\nenabled=true\nuri=http://ping.archlinux.org/nm-check.txt\ninterval=300\n' \
             | sudo tee /etc/NetworkManager/conf.d/20-connectivity.conf >/dev/null
+    fi
+    # bluetooth: a device you paired once stays saved and reconnects by itself after
+    # bluetooth was off (or after a reboot); the adapter powers up on its own
+    if [ -f /etc/bluetooth/main.conf ]; then
+        sys_keep /etc/bluetooth/main.conf
+        local bt=/etc/bluetooth/main.conf
+        bt_set() { # bt_set SECTION KEY VALUE: set it, uncomment it, or add it under its section
+            if sudo grep -qE "^#?[[:space:]]*$2[[:space:]]*=" "$bt"; then
+                sudo sed -i -E "s|^#?[[:space:]]*$2[[:space:]]*=.*|$2 = $3|" "$bt"
+            elif sudo grep -q "^\[$1\]" "$bt"; then
+                sudo sed -i "/^\[$1\]/a $2 = $3" "$bt"
+            else
+                printf '\n[%s]\n%s = %s\n' "$1" "$2" "$3" | sudo tee -a "$bt" >/dev/null
+            fi
+        }
+        bt_set General FastConnectable true
+        bt_set Policy ReconnectAttempts 7
+        bt_set Policy ReconnectIntervals 1,2,4,8,16,32,64
+        bt_set Policy AutoEnable true
     fi
     sudo systemctl enable --now NetworkManager bluetooth
     sudo systemctl reload NetworkManager 2>/dev/null || true
@@ -551,9 +653,9 @@ services() {
         if [ "$dm" = "greetd.service" ]; then
             # ours from an earlier run? refresh it so the login screen gets updates too
             if grep -q "kk-session" /etc/greetd/config.toml 2>/dev/null; then
-                sudo install -Dm644 "$REPO/system/greetd/config.toml" /etc/greetd/config.toml
+                sys_install 644 "$REPO/system/greetd/config.toml" /etc/greetd/config.toml
                 if pacman -Qq terminus-font >/dev/null 2>&1 && ! grep -q '^FONT=' /etc/vconsole.conf 2>/dev/null; then
-                    echo 'FONT=ter-v32n' | sudo tee -a /etc/vconsole.conf >/dev/null
+                    sys_keep /etc/vconsole.conf; echo 'FONT=ter-v32n' | sudo tee -a /etc/vconsole.conf >/dev/null
                 fi
                 note "login screen updated"
             else
@@ -561,10 +663,12 @@ services() {
             fi
         elif ask "use greetd + tuigreet as the login screen$([ -n "$dm" ] && [ "$dm" != "display-manager.service" ] && echo " (replaces $dm)")" y; then
             [ -f /etc/greetd/config.toml ] && sudo cp /etc/greetd/config.toml "/etc/greetd/config.toml.kk-backup-$STAMP"
-            sudo install -Dm644 "$REPO/system/greetd/config.toml" /etc/greetd/config.toml
+            # the login screen it replaces, so uninstall.sh can bring it back
+            [ -n "$dm" ] && [ "$dm" != "display-manager.service" ] && echo "$dm" > "$BASE/display-manager-replaced"
+            sys_install 644 "$REPO/system/greetd/config.toml" /etc/greetd/config.toml
             # a sharp, larger console font for the login screen (terminus, 16x32)
             if pacman -Qq terminus-font >/dev/null 2>&1 && ! grep -q '^FONT=' /etc/vconsole.conf 2>/dev/null; then
-                echo 'FONT=ter-v32n' | sudo tee -a /etc/vconsole.conf >/dev/null
+                sys_keep /etc/vconsole.conf; echo 'FONT=ter-v32n' | sudo tee -a /etc/vconsole.conf >/dev/null
             fi
             [ -n "$dm" ] && [ "$dm" != "display-manager.service" ] && sudo systemctl disable "$dm" || true
             sudo systemctl enable greetd.service
@@ -576,6 +680,7 @@ services() {
         if grep -q '^\[initial_session\]' /etc/greetd/config.toml; then
             note "starts in the lock screen (auto-login is on)"
         elif ask "start straight into the kajukatli lock screen at boot (logs you in, then locks immediately; your password unlocks)" y; then
+            sys_keep /etc/greetd/config.toml
             printf '\n[initial_session]\ncommand = "kk-session --locked"\nuser = "%s"\n' "$USER" | sudo tee -a /etc/greetd/config.toml >/dev/null
             note "boots into the lock screen. to undo: remove [initial_session] from /etc/greetd/config.toml"
         fi
@@ -597,6 +702,11 @@ terminal() {
 ' "$line" >> "$HOME/.zshrc"
     if [ "$(basename "${SHELL:-}")" != zsh ] && ask "make zsh your shell (autosuggestions, highlighting, menu completion)" y; then
         sudo chsh -s "$(command -v zsh)" "$USER" && note "zsh from your next login"
+    fi
+    # "command not found" says which package has it: the file list, kept fresh weekly
+    if command -v pkgfile >/dev/null; then
+        sudo systemctl enable --now pkgfile-update.timer >/dev/null 2>&1 || true
+        sudo pkgfile --update >/dev/null 2>&1 &
     fi
     ok "terminal"
 }
@@ -622,6 +732,14 @@ defaults() {
     gsettings set org.gnome.desktop.interface cursor-theme 'Bibata-Modern-Classic' 2>/dev/null || true
     gsettings set org.gnome.desktop.interface font-name 'Bricolage Grotesque 10' 2>/dev/null || true
     gsettings set org.gnome.desktop.interface monospace-font-name 'DM Mono 10' 2>/dev/null || true
+    # the file manager: folders first, a tidy grid, a terminal from the right-click menu, and
+    # "delete permanently" next to "move to trash"
+    gsettings set org.gtk.gtk4.Settings.FileChooser sort-directories-first true 2>/dev/null || true
+    gsettings set org.gnome.nautilus.preferences default-folder-viewer 'icon-view' 2>/dev/null || true
+    gsettings set org.gnome.nautilus.preferences show-delete-permanently true 2>/dev/null || true
+    gsettings set org.gnome.nautilus.preferences show-create-link true 2>/dev/null || true
+    gsettings set org.gnome.nautilus.icon-view default-zoom-level 'medium' 2>/dev/null || true
+    gsettings set com.github.stunkymonkey.nautilus-open-any-terminal terminal kitty 2>/dev/null || true
     # colours until the first wallpaper decides them
     [ -f "$CACHE/theme.json" ] || "$BIN/kk-theme" '#e9a86b' || true
     ok "defaults"
@@ -633,22 +751,22 @@ defaults() {
 savings() {
     ask "apply the battery, memory and disk savings (recommended on a laptop)" y || return 0
     say "savings"
-    sudo install -Dm644 "$REPO/system/sysctl/90-kajukatli-power.conf" /etc/sysctl.d/90-kajukatli-power.conf
-    sudo install -Dm644 "$REPO/system/modprobe/kajukatli-power.conf" /etc/modprobe.d/kajukatli-power.conf
-    sudo install -Dm644 "$REPO/system/udev/63-kajukatli-pci-pm.rules" /etc/udev/rules.d/63-kajukatli-pci-pm.rules
-    sudo install -Dm644 "$REPO/system/networkmanager/30-kajukatli-wifi-powersave.conf" /etc/NetworkManager/conf.d/30-kajukatli-wifi-powersave.conf
-    sudo install -Dm644 "$REPO/system/journald/kajukatli.conf" /etc/systemd/journald.conf.d/kajukatli.conf
+    sys_install 644 "$REPO/system/sysctl/90-kajukatli-power.conf" /etc/sysctl.d/90-kajukatli-power.conf
+    sys_install 644 "$REPO/system/modprobe/kajukatli-power.conf" /etc/modprobe.d/kajukatli-power.conf
+    sys_install 644 "$REPO/system/udev/63-kajukatli-pci-pm.rules" /etc/udev/rules.d/63-kajukatli-pci-pm.rules
+    sys_install 644 "$REPO/system/networkmanager/30-kajukatli-wifi-powersave.conf" /etc/NetworkManager/conf.d/30-kajukatli-wifi-powersave.conf
+    sys_install 644 "$REPO/system/journald/kajukatli.conf" /etc/systemd/journald.conf.d/kajukatli.conf
     sudo sysctl --system >/dev/null 2>&1 || true
     sudo systemctl restart systemd-journald 2>/dev/null || true
     sudo journalctl --vacuum-size=200M >/dev/null 2>&1 || true
     # zram: only if there's no swap set up already (keeps hibernation setups alone)
     if [ ! -f /etc/systemd/zram-generator.conf ] && ! swapon --show=NAME --noheadings 2>/dev/null | grep -v zram >/dev/null; then
-        sudo install -Dm644 "$REPO/system/zram/zram-generator.conf" /etc/systemd/zram-generator.conf
+        sys_install 644 "$REPO/system/zram/zram-generator.conf" /etc/systemd/zram-generator.conf
         sudo systemctl daemon-reload && sudo systemctl start systemd-zram-setup@zram0.service 2>/dev/null || true
     fi
     # the package cache: keep only the newest version of each package, weekly
     if command -v paccache >/dev/null; then
-        echo "PACCACHE_ARGS='-k1'" | sudo tee /etc/conf.d/pacman-contrib >/dev/null
+        sys_keep /etc/conf.d/pacman-contrib; echo "PACCACHE_ARGS='-k1'" | sudo tee /etc/conf.d/pacman-contrib >/dev/null
         sudo systemctl enable --now paccache.timer >/dev/null 2>&1 || true
         sudo paccache -rk1 >/dev/null 2>&1 || true
         sudo paccache -ruk0 >/dev/null 2>&1 || true
@@ -667,6 +785,7 @@ grub_theme() {
     sudo pacman -S --needed --noconfirm freetype2 >/dev/null 2>&1 || true
     local tmp="$CACHE/grub-theme"
     python3 "$REPO/bin/kk-grub" "$tmp" >/dev/null || { warn "couldn't build the grub theme"; return 0; }
+    sys_keep /boot/grub/themes/kajukatli; sys_keep /etc/default/grub
     sudo rm -rf /boot/grub/themes/kajukatli
     sudo install -d /boot/grub/themes
     sudo cp -r "$tmp" /boot/grub/themes/kajukatli
@@ -700,6 +819,7 @@ case "$ONLY" in
 esac
 
 preflight
+baseline_record
 choose_extras
 packages
 if [ "$DRY_RUN" = 1 ]; then

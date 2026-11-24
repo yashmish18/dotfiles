@@ -16,7 +16,13 @@ A desktop shell for Arch Linux and Hyprland that builds its colours and clock fr
 - **Live visuals**: Cava waves, bars, or mirrors; lyrics, calendars, system stats, weather, and media controls.
 - **Seven looks** that configure the whole desktop in one click.
 - **Automatic power saving** on battery, including disabling blur, shadows, live wallpapers, and cursor parallax.
-- A **guided installer** that separates essential packages from optional extras and asks before changing system files.
+- A **guided installer** that separates essential packages from optional extras and asks before changing system files. It also keeps a copy of everything it changes, so `--rollback` and `./uninstall.sh --all` can put it back.
+- A **control center** where one tap switches Wi-Fi or Bluetooth. Bluetooth devices stay saved and reconnect by themselves, each device has its own controls, and the battery page shows health, watts, cycles and the last 24 hours.
+- **Your phone** on the desktop through KDE Connect: battery, ring it, send files and the clipboard, browse its storage, read texts.
+- A **task manager** (`Ctrl + Shift + Esc`) with processes, memory, storage clean-up, the recycle bin and drives (mount, eject, format).
+- **Software** (`Super + Shift + I`): the official repos, the AUR and Flathub in one search, plus installed apps, updates and one-click developer setups.
+- **Every running app one tap away**, including the ones without a window, with quit and force quit.
+- **Graphics control** on hybrid laptops: integrated, both, or NVIDIA only; switch the NVIDIA card off completely; heavy apps (games, Blender) start on it.
 
 ## Looks
 
@@ -50,8 +56,10 @@ Choose a minimal profile, create a regular user with `sudo`, enable NetworkManag
 
 ```sh
 sudo pacman -S --needed git
-git clone https://github.com/yashmish18/dotfiles.git ~/dotfiles
+# only the dotfiles: the newest version, without history or the preview screenshots
+git clone --depth 1 --filter=blob:none --sparse https://github.com/yashmish18/dotfiles.git ~/dotfiles
 cd ~/dotfiles
+git sparse-checkout set --no-cone '/*' '!/assets/'
 ./install.sh
 ```
 
@@ -67,8 +75,12 @@ The installer creates a backup before linking configuration and offers these ext
 | 6 | CJK fonts | Chinese, Japanese, and Korean text |
 | 7 | KDE helpers | Archive manager and Qt thumbnails |
 | 8 | Greeter | greetd and tuigreet login screen |
-| 9 | Wallpaper pack | Public-domain paintings |
+| 9 | Wallpaper pack | Public-domain paintings (off by default; ~45 MB) |
 | 10 | Wallpaper AI | Subject cut-out and optional 3D depth |
+| 11 | Audio effects | EasyEffects: equaliser, surround, loudness |
+| 12 | Developer | Containers, distrobox, mise |
+| 13 | Phone | KDE Connect for the phone panel |
+| 14 | Security toolkit | nmap, Wireshark, Burp, Metasploit, Ghidra, hashcat… (off by default; `kk-cybersec`) |
 
 Useful installer flags:
 
@@ -106,7 +118,12 @@ Press `Super + /` to show the live keybinding overlay.
 | `Super + N` | Notifications |
 | `Super + V` | Clipboard history |
 | `Super + W` | Wallpaper picker |
-| `Super + Tab` | Workspace overview |
+| `Super + Tab` | Workspace overview. Press again to step, let go of `Super` to go there |
+| `Super + Shift + Tab` | Workspace overview, stepping back |
+| `Ctrl + Shift + Esc` | Task manager, memory, storage, recycle bin, drives |
+| `Super + Shift + A` | Every running app |
+| `Super + Shift + M` | Your phone |
+| `Super + Alt + Shift + ←/→` | Window to the screen on the left/right |
 | `Super + L` | Lock |
 | `Super + Escape` | Lock, sleep, log out, restart, or shut down |
 | `Super + Q` | Close window |
@@ -225,8 +242,8 @@ dotfiles/
 
 ```sh
 cd ~/dotfiles
-./install.sh --update
-./install.sh --links --shaders
+./install.sh --update      # newest dotfiles only, after a snapshot of your settings; relinks
+./install.sh --rollback    # something broke? back to the version before, settings included
 ```
 
 Explicit maintenance modes:
@@ -236,7 +253,9 @@ Explicit maintenance modes:
 ./install.sh --snapshot            # snapshot configuration and personal account state
 ./install.sh --restore             # restore the latest snapshot
 ./install.sh --update              # update git without pulling dirty checkouts
+./install.sh --rollback            # undo the last --update
 ./uninstall.sh --dry-run           # preview links and backup restoration
+./uninstall.sh --all --dry-run     # preview the complete removal
 ```
 
 Run `./install.sh --ai` after changing wallpaper detection models or dependencies.
@@ -244,10 +263,11 @@ Run `./install.sh --ai` after changing wallpaper detection models or dependencie
 ## Uninstall
 
 ```sh
-./uninstall.sh
+./uninstall.sh          # Kajukatli out of your home; your earlier config files come back
+./uninstall.sh --all    # everything: back to the Arch you had before
 ```
 
-This removes Kajukatli links and restores backed-up configuration files. It reports which packages and system settings remain for manual removal.
+`--all` also restores every system file from the copy the installer kept, brings back your old login screen and login shell, removes the grub theme, and removes the packages Kajukatli added. Packages you installed yourself stay. Your pictures, documents and wallpapers are never touched. Add `--dry-run` to see it all first.
 
 ## Credits
 

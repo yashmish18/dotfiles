@@ -153,6 +153,7 @@ LazyLoader {
                             { key: "sound", label: "Sound", icon: "volume" },
                             { key: "power", label: "Power", icon: "bolt" },
                             { key: "notifications", label: "Notifications", icon: "bell" },
+                            { key: "behaviour", label: "Behaviour", icon: "grid" },
                             { key: "sep" },
                             { key: "about", label: "About", icon: "spark" }
                         ]
@@ -227,10 +228,43 @@ LazyLoader {
                         case "power": return powerP;
                         case "notifications": return notifP;
                         case "about": return aboutP;
+                        case "behaviour": return behaviourP;
                         }
                         return looksP;
                     }
                     onLoaded: scroller.contentY = 0
+                }
+            }
+        }
+
+        // ============================================================ behaviour
+        Component {
+            id: behaviourP
+            ColumnLayout {
+                spacing: 18
+                Head { title: "Behaviour"; about: "How the desktop reacts. Each of these works the moment you change it." }
+                Group {
+                    title: "Control center"
+                    Setting { label: "Tap Wi-Fi and Bluetooth to switch them"; detail: "On: a tap turns it on or off, the arrow shows the list. Off: a tap shows the list."
+                        Switch { on: Config.s.tileTapToggles; onToggled: Config.s.tileTapToggles = !Config.s.tileTapToggles } }
+                    Setting { label: "Reconnect Bluetooth devices"; detail: "Turning Bluetooth back on brings back what was connected before."
+                        Switch { on: Config.s.btAutoReconnect; onToggled: Config.s.btAutoReconnect = !Config.s.btAutoReconnect } }
+                }
+                Group {
+                    title: "Workspaces"
+                    Setting { label: "No gaps"; detail: "Close workspace 3 of 1 2 3 4 and 4 becomes 3. Named workspaces keep their number."
+                        Switch { on: Config.s.compactWorkspaces; onToggled: Config.s.compactWorkspaces = !Config.s.compactWorkspaces } }
+                    Setting { label: "Go to sign-in pages"; detail: "When a login page (or a link from another app) opens in a browser on another workspace, go there."
+                        Switch { on: Config.s.followLogins; onToggled: Config.s.followLogins = !Config.s.followLogins } }
+                }
+                Group {
+                    title: "Apps"
+                    Setting { label: "One tap on a tray icon opens its menu"; detail: "Everything the app offers, in one tap. Right-click opens the app itself."
+                        Switch { on: Config.s.trayTapMenu; onToggled: Config.s.trayTapMenu = !Config.s.trayTapMenu } }
+                    Setting { label: "No apps in the background"; detail: "An app is asked to quit a few seconds after its last window closes, unless it's allowed: " + (Config.s.backgroundAllowed || []).join(", ")
+                        Switch { on: Config.s.noBackgroundApps; onToggled: Config.s.noBackgroundApps = !Config.s.noBackgroundApps } }
+                    Setting { label: "Allowed in the background"; detail: "Comma separated app ids (the running-apps panel can add them too)."
+                        Field { implicitWidth: 260; size: Theme.md; text: (Config.s.backgroundAllowed || []).join(", "); onAccepted: Config.s.backgroundAllowed = text.split(",").map(x => x.trim()).filter(x => x !== "") } }
                 }
             }
         }
@@ -308,8 +342,8 @@ LazyLoader {
             ColumnLayout {
                 id: bp
                 spacing: 18
-                readonly property var all: ["workspaces", "clock", "notifs", "control", "tray", "media", "visualizer", "weather", "logo", "volume", "brightness", "network", "bluetooth", "battery", "cpu", "mem", "temp", "power"]
-                readonly property var labels: ({ workspaces: "Workspaces", clock: "Clock", notifs: "Notifications", control: "Control pill", tray: "Tray", media: "Now playing", visualizer: "Music bars", weather: "Weather", logo: "Logo", volume: "Volume", brightness: "Brightness", network: "Network", bluetooth: "Bluetooth", battery: "Battery", cpu: "CPU", mem: "Memory", temp: "Temperature", power: "Power" })
+                readonly property var all: ["workspaces", "clock", "notifs", "control", "apps", "phone", "tray", "media", "visualizer", "weather", "logo", "volume", "brightness", "network", "bluetooth", "battery", "cpu", "mem", "temp", "power"]
+                readonly property var labels: ({ workspaces: "Workspaces", clock: "Clock", notifs: "Notifications", control: "Control pill", apps: "Running apps", phone: "Phone", tray: "Tray", media: "Now playing", visualizer: "Music bars", weather: "Weather", logo: "Logo", volume: "Volume", brightness: "Brightness", network: "Network", bluetooth: "Bluetooth", battery: "Battery", cpu: "CPU", mem: "Memory", temp: "Temperature", power: "Power" })
                 property string target: "right"
                 function mods() { const m = Config.s.barModules || {}; return { left: (m.left || []).slice(), center: (m.center || []).slice(), right: (m.right || []).slice() }; }
                 function setMods(m) { Config.s.barModules = m; }
@@ -574,38 +608,60 @@ LazyLoader {
                     }
                 }
                 Group {
+                    id: gpuGroup
                     title: "Graphics"
-                    visible: gpu.info.hybrid === true
-                    // which gpus hyprland may drive screens with (kk-gpu); applies at the next login
-                    QtObject {
-                        id: gpu
-                        property var info: ({})
-                        property string chosen: ""
-                        readonly property string ports: (info.dgpuPorts || []).join(", ")
-                    }
-                    Process {
-                        id: gpuRead
-                        running: true
-                        command: [Config.bin + "kk-gpu", "status"]
-                        stdout: StdioCollector { onStreamFinished: { try { gpu.info = JSON.parse(text.trim()); } catch (e) {} } }
-                    }
-                    Process { id: gpuSet; onExited: gpuRead.running = true }
+                    visible: Gpu.hybrid
+                    // which card draws the desktop, the nvidia card on or off, which apps use it
+                    readonly property string ports: (Gpu.info.dgpuPorts || []).join(", ")
+                    Component.onCompleted: Gpu.refresh()
                     Setting {
-                        label: "Screens use"
-                        detail: gpu.ports !== ""
-                            ? "Ports wired to the NVIDIA card: " + gpu.ports + ". With the integrated card only, they stay dark; with both, they work and the NVIDIA card wakes more often."
-                            : "Every external port is on the integrated card, so it alone is enough."
+                        label: "Desktop runs on"
+                        detail: (gpuGroup.ports !== "" ? "Ports wired to the NVIDIA card: " + gpuGroup.ports + ". " : "")
+                            + "Integrated only: best battery" + (gpuGroup.ports !== "" ? ", those ports stay dark" : "")
+                            + ". Both: every port works. NVIDIA: everything on the fast card, the most power. Applies at the next login."
                         Choice {
-                            options: [{ value: "igpu", label: "integrated only" }, { value: "both", label: "integrated + nvidia" }]
-                            value: gpu.chosen !== "" ? gpu.chosen : (gpu.info.mode || "igpu")
-                            onPicked: v => { gpu.chosen = v; gpuSet.command = [Config.bin + "kk-gpu", "set", v]; gpuSet.running = true; }
+                            options: [{ value: "igpu", label: "integrated only" }, { value: "both", label: "integrated + nvidia" }, { value: "nvidia", label: "nvidia only" }]
+                            value: Gpu.mode === "all" ? "both" : Gpu.mode
+                            enabled: Gpu.powered
+                            onPicked: v => Gpu.setMode(v)
                         }
                     }
                     Setting {
-                        visible: gpu.info.running !== undefined && gpu.info.running !== "" && gpu.info.running !== gpu.info.mode
+                        label: "NVIDIA card"
+                        detail: !Gpu.powered ? "Off: no power at all, until you switch it on or reboot."
+                              : Gpu.name + " · " + (Gpu.runtime === "suspended" ? "asleep" : "awake")
+                              + (Gpu.running === "igpu" ? ". It can be switched off completely." : ". The desktop uses it, so it stays on.")
+                        Switch {
+                            on: Gpu.powered
+                            enabled: !Gpu.powered || Gpu.running === "igpu"
+                            onToggled: Gpu.setPower(!Gpu.powered)
+                        }
+                    }
+                    Setting {
+                        visible: Gpu.message !== ""
+                        label: Gpu.message
+                    }
+                    Setting {
+                        visible: Gpu.running !== "" && Gpu.running !== (Gpu.mode === "all" ? "all" : Gpu.mode)
                         label: "Takes effect at the next login"
-                        detail: "Saved, but this session still uses " + (gpu.info.running === "both" ? "both cards." : "the integrated card only.")
+                        detail: "Saved, but this session still uses " + (Gpu.running === "nvidia" ? "the NVIDIA card." : Gpu.running === "both" ? "both cards." : "the integrated card only.")
                         Btn { text: "Log out now"; icon: "logout"; onClicked: Quickshell.execDetached(["sh", "-c", "command -v hyprshutdown >/dev/null && exec hyprshutdown; exec hyprctl dispatch 'hl.dsp.exit()'"]) }
+                    }
+                    Setting {
+                        label: "Heavy apps on NVIDIA"
+                        detail: "These start on the NVIDIA card from the launcher (right-click any app for a one-off). Comma separated: " + (Config.s.gpuApps || []).join(", ")
+                        Field {
+                            implicitWidth: 260
+                            size: Theme.md
+                            placeholder: "blender, steam, …"
+                            text: (Config.s.gpuApps || []).join(", ")
+                            onAccepted: Config.s.gpuApps = text.split(",").map(x => x.trim()).filter(x => x !== "")
+                        }
+                    }
+                    Setting {
+                        label: "Notice heavy apps"
+                        detail: "When one opens on the integrated card anyway, offer to restart it on NVIDIA."
+                        Switch { on: Config.s.gpuHint; onToggled: Config.s.gpuHint = !Config.s.gpuHint }
                     }
                 }
                 Group {

@@ -81,7 +81,12 @@ ShellRoot {
         case "notes": Ui.toggleOverlay("notes"); break;
         case "timer": Pomo.toggle(); break;
         case "wallpapers": Ui.toggleOverlay("wallpapers"); break;
-        case "overview": Ui.toggleOverlay("overview"); break;
+        case "overview": Ui.overview(1); break;
+        case "overview_back": Ui.overview(-1); break;
+        case "overview_toggle": Ui.toggleOverlay("overview"); break;
+        case "system": Ui.toggleOverlay("system"); break;
+        case "running": Ui.toggle("running"); break;
+        case "phone": Ui.toggle("phone"); break;
         case "cheatsheet": Ui.toggleOverlay("cheatsheet"); break;
         case "bar": Ui.barVisible = !Ui.barVisible; break;
         case "ws_next": Hypr.step(1); break;
@@ -89,6 +94,7 @@ ShellRoot {
         case "ws_new": Hypr.newWorkspace(false); break;
         case "ws_new_move": Hypr.newWorkspace(true); break;
         case "ws_rename": Ui.open("rename"); break;
+        case "reapply": Power.applyPower(); break;   // after kk-display reloaded hyprland's config
         case "brightness_up": Bright.up(); break;
         case "brightness_down": Bright.down(); break;
         case "close": Ui.closeAll(); break;
@@ -103,7 +109,7 @@ ShellRoot {
 
     Variants {
         model: ["launcher", "control", "settings", "notifications", "clipboard", "session", "wallpapers",
-                "overview", "cheatsheet", "emoji", "projection", "packages", "bar", "ws_next", "ws_prev", "ws_new", "ws_new_move", "ws_rename",
+                "overview", "overview_back", "overview_toggle", "system", "running", "phone", "cheatsheet", "emoji", "projection", "packages", "bar", "ws_next", "ws_prev", "ws_new", "ws_new_move", "ws_rename",
                 "brightness_up", "brightness_down", "close", "edit", "look_next", "capture", "focus", "timer", "notes"]
         GlobalShortcut {
             required property var modelData

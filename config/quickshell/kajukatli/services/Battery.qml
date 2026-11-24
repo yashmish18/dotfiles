@@ -31,6 +31,44 @@ Singleton {
     }
     property var history: Store.s.batteryLog || []   // [{ t: ms, p: percent, c: charging }]
 
+    // everything the battery says about itself (the control center's battery page).
+    // read while something shows it, along with the watts.
+    property var info: ({})
+    readonly property real energyNow: info.energy_now ? info.energy_now / 1e6
+                                     : info.charge_now && info.voltage_min_design ? info.charge_now * info.voltage_min_design / 1e12 : -1
+    readonly property real energyFull: info.energy_full ? info.energy_full / 1e6
+                                      : info.charge_full && info.voltage_min_design ? info.charge_full * info.voltage_min_design / 1e12 : -1
+    readonly property real energyDesign: info.energy_full_design ? info.energy_full_design / 1e6
+                                        : info.charge_full_design && info.voltage_min_design ? info.charge_full_design * info.voltage_min_design / 1e12 : -1
+    readonly property real volts: info.voltage_now ? info.voltage_now / 1e6 : -1
+    readonly property real tempC: info.temp ? info.temp / 10 : -1
+    Timer {
+        interval: 8000
+        repeat: true
+        triggeredOnStart: true
+        running: root.consumers > 0 && Power.hasBattery
+        onTriggered: { if (!detailProc.running) detailProc.running = true; root.refresh(); }
+    }
+    Process {
+        id: detailProc
+        command: ["sh", "-c", 'b=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -n1); [ -n "$b" ] || exit 0; '
+            + 'for f in status technology manufacturer model_name voltage_now voltage_min_design energy_now energy_full energy_full_design '
+            + 'charge_now charge_full charge_full_design capacity capacity_level cycle_count temp; do '
+            + '[ -r "$b/$f" ] && printf "%s=%s\\n" "$f" "$(cat "$b/$f" 2>/dev/null)"; done']
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const o = {};
+                for (const line of text.split("\n")) {
+                    const i = line.indexOf("=");
+                    if (i <= 0) continue;
+                    const k = line.slice(0, i), v = line.slice(i + 1).trim();
+                    o[k] = /^-?\d+$/.test(v) ? parseInt(v) : v;
+                }
+                root.info = o;
+            }
+        }
+    }
+
     readonly property string probeCmd: 'b=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -n1); [ -n "$b" ] || exit 0; '
         + 'cat "$b/charge_control_end_threshold" 2>/dev/null || echo none; '
         + 'f=$(cat "$b/energy_full" 2>/dev/null || cat "$b/charge_full" 2>/dev/null); '

@@ -63,7 +63,7 @@ Item {
         }
     }
 
-    function launch(app) {
+    function launch(app, onGpu) {
         if (!app) return;
         Ui.panel = "";
         const l = Object.assign({}, Store.s.launches || {});
@@ -72,7 +72,7 @@ Item {
         if (app.runInTerminal)
             Quickshell.execDetached({ command: ["kitty", "--"].concat(app.command), workingDirectory: app.workingDirectory || Config.home });
         else
-            Quickshell.execDetached({ command: app.command, workingDirectory: app.workingDirectory || Config.home });
+            Quickshell.execDetached({ command: Gpu.wrap(app.command, app, onGpu === true), workingDirectory: app.workingDirectory || Config.home });
     }
 
     function accept() {
@@ -173,8 +173,9 @@ Item {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onEntered: root.index = item.index
-                    onClicked: root.launch(item.modelData)
+                    onClicked: e => root.launch(item.modelData, e.button === Qt.RightButton)
                 }
             }
         }

@@ -1,0 +1,30 @@
+#!/bin/sh
+# kk-emoji-type <text>
+#   puts <text> where you were typing: waits until the emoji picker has let go of the
+#   keyboard and your window has it back, then pastes it there. it stays on the clipboard.
+#   pasting (not typing it out) is what works everywhere: chromium and electron apps ignore
+#   the made-up keys wtype would otherwise send for an emoji.
+set -u
+text="${1:-}"
+[ -n "$text" ] || exit 0
+printf %s "$text" | wl-copy
+
+# the picker's surface gone (at most a second)
+i=0
+while [ "$i" -lt 20 ]; do
+    hyprctl layers -j 2>/dev/null | grep -q '"kajukatli-emoji"' || break
+    sleep 0.05
+    i=$((i + 1))
+done
+sleep 0.08
+
+command -v wtype >/dev/null || exit 0
+cls="$(hyprctl activewindow -j 2>/dev/null | jq -r '.class // ""' 2>/dev/null)"
+[ -n "$cls" ] || exit 0
+case "$cls" in
+    # terminals paste with ctrl + shift + v (ctrl + v is a control character there)
+    kitty|foot|footclient|Alacritty|alacritty|org.wezfurlong.wezterm|wezterm|com.mitchellh.ghostty|ghostty|konsole|org.kde.konsole|xterm|*term*|*Term*)
+        wtype -M ctrl -M shift -k v -m shift -m ctrl ;;
+    *)
+        wtype -M ctrl -k v -m ctrl ;;
+esac

@@ -32,6 +32,8 @@ Singleton {
             property real rotatedAt: 0        // when the wallpaper last changed by itself
             property var recentEmojis: []     // the emoji picker's first tab
             property var wallMeta: ({})       // the current wallpaper's bundle: back instantly after a restart
+            property var btRemember: []       // bluetooth devices that were connected when it was switched off
+            property var btKnown: ({})        // every bluetooth device ever connected: { address: name }
         }
     }
 }

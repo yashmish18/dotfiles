@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Widgets
 import Quickshell.Services.SystemTray
 import qs.services
 import qs.components
@@ -10,6 +11,8 @@ import qs.modules.desktop
 //   logo workspaces notifs cpu mem temp clock weather media visualizer
 //   volume brightness network bluetooth battery tray power
 //   control   one pill: wi-fi · sound · battery, opens the control center
+//   apps      every running app (windows, tray, background): one tap to see and control them
+//   phone     your phone over kde connect: battery, notifications, files
 //
 // every module works lying down (pill, bar, islands) and standing up (rail).
 Loader {
@@ -48,6 +51,8 @@ Loader {
         case "tray": return trayC;
         case "power": return powerC;
         case "control": return controlC;
+        case "apps": return appsC;
+        case "phone": return phoneC;
         }
         return null;
     }
@@ -158,13 +163,13 @@ Loader {
             id: ws
             readonly property var real: Hypr.workspacesOn(root.monitor)
             readonly property int curId: parent.cur
+            // only the workspaces that exist on this screen (and the one you're on): no empty
+            // placeholders for gaps, nothing from the other screen
             readonly property var list: {
-                const by = {};
-                let top = Math.max(1, curId);
-                for (const w of real) { by[w.id] = w; top = Math.max(top, w.id); }
-                const out = [];
-                for (let id = 1; id <= Math.min(top, 20); id++)
-                    out.push(by[id] || { id: id, name: String(id), urgent: false, placeholder: true, toplevels: { values: [] } });
+                const out = real.slice(0, 20);
+                if (curId > 0 && !out.some(w => w.id === curId))
+                    out.push({ id: curId, name: String(curId), urgent: false, placeholder: true, toplevels: { values: [] } });
+                out.sort((a, b) => a.id - b.id);
                 return out;
             }
             readonly property string look: Config.s.workspaceStyle
@@ -275,7 +280,7 @@ Loader {
             icon: "cpu"
             label: Math.round(Sys.cpu * 100) + "%"
             iconColor: Sys.cpu > 0.85 ? Theme.error : Theme.surfaceTextDim
-            onClicked: Quickshell.execDetached(["kitty", "-e", "btop"])
+            onClicked: m => m.button === Qt.RightButton ? Quickshell.execDetached(["kitty", "-e", "btop"]) : Ui.toggleOverlay("system")
         }
     }
     Component {
@@ -284,7 +289,7 @@ Loader {
             Uses { service: Sys }
             icon: "memory"
             label: Math.round(Sys.mem * 100) + "%"
-            onClicked: Quickshell.execDetached(["kitty", "-e", "btop"])
+            onClicked: m => m.button === Qt.RightButton ? Quickshell.execDetached(["kitty", "-e", "btop"]) : Ui.toggleOverlay("system")
         }
     }
     Component {
@@ -338,7 +343,7 @@ Loader {
                 anchors.centerIn: parent
                 Txt {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: Qt.formatTime(sc.date, Config.s.clock24h ? "HH" : "hh")
+                    text: Config.s.clock24h ? Qt.formatTime(sc.date, "HH") : String(sc.date.getHours() % 12 || 12).padStart(2, "0")
                     font.family: Theme.mono; font.pixelSize: Theme.md; font.weight: Font.Medium
                 }
                 Txt {
@@ -388,6 +393,22 @@ Loader {
                 visible: !root.vertical
                 anchors.centerIn: parent
                 spacing: 6
+                // the cover, small and round-cornered, before the buttons
+                ClippingRectangle {
+                    visible: Media.art !== ""
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 18; height: 18
+                    radius: 5
+                    color: Theme.surfaceHigh
+                    Image {
+                        anchors.fill: parent
+                        source: Media.art
+                        sourceSize: Qt.size(48, 48)
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                    }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.openPanel("media") }
+                }
                 Repeater {
                     model: ["prev", "toggle", "next"]
                     Item {
@@ -420,6 +441,15 @@ Loader {
                     color: Theme.surfaceText
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.openPanel("media") }
                 }
+            }
+            // standing up: the cover, with play / pause over it
+            ClippingRectangle {
+                visible: root.vertical && Media.art !== ""
+                anchors.centerIn: parent
+                width: 22; height: 22
+                radius: 6
+                color: Theme.surfaceHigh
+                Image { anchors.fill: parent; source: Media.art; sourceSize: Qt.size(48, 48); fillMode: Image.PreserveAspectCrop; asynchronous: true; opacity: 0.75 }
             }
             Icon {
                 visible: root.vertical
@@ -496,7 +526,7 @@ Loader {
             shown: Bt.available
             icon: !Bt.enabled ? "bluetooth-off" : Bt.connectedDevices.length > 0 ? "bluetooth-on" : "bluetooth"
             iconColor: Bt.connectedDevices.length > 0 ? Theme.primary : Theme.surfaceTextDim
-            onClicked: m => m.button === Qt.RightButton ? Bt.openManager() : root.openPanel("control")
+            onClicked: m => { if (m.button === Qt.RightButton) Bt.toggle(); else { Ui.controlPage = "bluetooth"; root.openPanel("control"); } }
         }
     }
 
@@ -510,7 +540,7 @@ Loader {
             label: Power.percent + "%"
             iconColor: Power.low ? Theme.error : Power.charging ? Theme.success : Theme.surfaceTextDim
             color: Power.low ? Theme.error : Theme.surfaceText
-            onClicked: root.openPanel("control")
+            onClicked: { Ui.controlPage = "battery"; root.openPanel("control"); }
         }
     }
 
@@ -577,6 +607,33 @@ Loader {
                 onClicked: e => e.button === Qt.RightButton ? Ui.toggle("settings") : root.openPanel("control")
                 onWheel: w => Audio.setVolume(Math.max(0, Math.min(1, Audio.volume + (w.angleDelta.y > 0 ? 0.05 : -0.05))))
             }
+        }
+    }
+
+    // ------------------------------------------------------------ apps: everything running
+    Component {
+        id: appsC
+        Chip {
+            Uses { service: Apps }
+            icon: "grid"
+            label: Apps.hiddenCount > 0 ? String(Apps.hiddenCount) : ""
+            iconColor: Apps.hiddenCount > 0 ? Theme.primary : Theme.surfaceTextDim
+            lit: Ui.panel === "running"
+            onClicked: root.openPanel("running")
+        }
+    }
+
+    // ------------------------------------------------------------ phone (kde connect)
+    Component {
+        id: phoneC
+        Chip {
+            shown: Phone.available && Phone.devices.length > 0
+            icon: "phone"
+            level: -1
+            label: Phone.current && Phone.current.battery >= 0 ? Phone.current.battery + "%" : ""
+            iconColor: Phone.current && Phone.current.reachable ? Theme.primary : Theme.outline
+            lit: Ui.panel === "phone"
+            onClicked: root.openPanel("phone")
         }
     }
 

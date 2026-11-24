@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# kk-storage report            one line of json: every disk, what fills your home, what can go
+# kk-storage drives            the drives (lsblk json): internal, usb sticks, sd cards
+# kk-storage clean <what>      trash | thumbnails | cache | walls | pacman | journal | orphans | aur | all-safe
+# kk-storage trash list        what's in the recycle bin (json lines)
+# kk-storage trash restore|delete <trash uri>      kk-storage trash empty
+# kk-storage mount|unmount|eject <device>          kk-storage format <device>  (opens GNOME Disks)
+# the shell's task manager (ctrl + shift + esc) → storage uses all of this.
+set -uo pipefail
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}"
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/kajukatli"
+
+size() { du -sb "$1" 2>/dev/null | cut -f1 || echo 0; }
+sizeq() { local s; s="$(size "$1")"; echo "${s:-0}"; }
+jstr() { printf '%s' "$1" | jq -Rs .; }
+
+# the wallpaper bundles the current wallpaper uses: never cleaned
+current_wall_dir() {
+    local cur
+    cur="$(jq -r '.wallMeta.dir // empty' "$STATE/state.json" 2>/dev/null)"
+    printf '%s' "$cur"
+}
+
+case "${1:-report}" in
+    report)
+        disks="$(df -B1 -x tmpfs -x devtmpfs -x efivarfs -x squashfs -x overlay --output=source,fstype,size,used,avail,target 2>/dev/null | tail -n +2 |
+            awk '!seen[$1]++ {printf "{\"dev\":\"%s\",\"fs\":\"%s\",\"size\":%s,\"used\":%s,\"free\":%s,\"mount\":\"%s\"}\n",$1,$2,$3,$4,$5,$6}' | jq -sc .)"
+        homes="["
+        first=1
+        for d in Downloads Documents Pictures Videos Music Desktop Projects; do
+            p="$HOME/$d"; [ -d "$p" ] || continue
+            [ $first = 1 ] || homes="$homes,"; first=0
+            homes="$homes{\"name\":\"$d\",\"path\":$(jstr "$p"),\"size\":$(sizeq "$p")}"
+        done
+        homes="$homes]"
+        pac=$(sizeq /var/cache/pacman/pkg)
+        journal=$(journalctl --disk-usage 2>/dev/null | grep -oE '[0-9.]+[KMGT]?B?' | head -n1)
+        jbytes=$(numfmt --from=iec "${journal%B}" 2>/dev/null || echo 0)
+        trash=$(sizeq "$DATA/Trash")
+        thumbs=$(sizeq "$CACHE/thumbnails")
+        walls=$(sizeq "$CACHE/kajukatli/walls")
+        usercache=$(sizeq "$CACHE")
+        aur=$(( $(sizeq "$CACHE/paru") + $(sizeq "$CACHE/yay") ))
+        orphans=$(pacman -Qdtq 2>/dev/null | wc -l)
+        printf '{"disks":%s,"home":%s,"clean":{"trash":%s,"thumbnails":%s,"walls":%s,"cache":%s,"pacman":%s,"journal":%s,"aur":%s,"orphans":%s}}\n' \
+            "${disks:-[]}" "$homes" "$trash" "$thumbs" "$walls" "$usercache" "$pac" "${jbytes:-0}" "$aur" "$orphans"
+        ;;
+    drives)
+        lsblk -J -b -o NAME,PATH,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINT,RM,HOTPLUG,MODEL,TRAN 2>/dev/null
+        ;;
+    clean)
+        case "${2:-}" in
+            trash) gio trash --empty 2>/dev/null || rm -rf "$DATA/Trash/files/"* "$DATA/Trash/info/"* ;;
+            thumbnails) rm -rf "$CACHE/thumbnails/"* ;;
+            # the parts of ~/.cache every app rebuilds by itself
+            cache) rm -rf "$CACHE/thumbnails/"* "$CACHE/pip" "$CACHE/fontconfig" "$CACHE/mesa_shader_cache" \
+                       "$CACHE/mesa_shader_cache_db" "$CACHE/nvidia/GLCache" "$CACHE/go-build" "$CACHE/yarn" 2>/dev/null; true ;;
+            # wallpaper bundles not used in 30 days (they come back when that wallpaper is picked
+            # again), never the one on screen now
+            walls)
+                keep="$(current_wall_dir)"
+                find "$CACHE/kajukatli/walls" -mindepth 1 -maxdepth 1 -type d -mtime +30 2>/dev/null | while IFS= read -r d; do
+                    [ "$d" = "$keep" ] || rm -rf "$d"
+                done
+                rm -f "$CACHE/kajukatli/index.json" ;;
+            pacman) pkexec sh -c 'paccache -rk1; paccache -ruk0' ;;
+            journal) pkexec journalctl --vacuum-size=100M ;;
+            orphans)
+                o="$(pacman -Qdtq 2>/dev/null)"
+                [ -n "$o" ] || exit 0
+                # shellcheck disable=SC2086
+                pkexec pacman -Rns --noconfirm $o ;;
+            aur) rm -rf "$CACHE/paru/clone" "$CACHE/yay" 2>/dev/null; true ;;
+            all-safe) "$0" clean thumbnails; "$0" clean cache; "$0" clean aur; "$0" clean walls ;;
+            *) echo "clean what? trash thumbnails cache walls pacman journal orphans aur all-safe" >&2; exit 2 ;;
+        esac
+        ;;
+    trash)
+        case "${2:-list}" in
+            list)
+                # one json object per item: its trash uri, where it came from, when, how big
+                for info in "$DATA"/Trash/info/*.trashinfo; do
+                    [ -f "$info" ] || continue
+                    name="$(basename "$info" .trashinfo)"
+                    orig="$(sed -n 's/^Path=//p' "$info" | head -n1)"
+                    orig="$(printf '%b' "${orig//%/\\x}")"
+                    when="$(sed -n 's/^DeletionDate=//p' "$info" | head -n1)"
+                    f="$DATA/Trash/files/$name"
+                    printf '{"uri":%s,"name":%s,"orig":%s,"when":%s,"size":%s,"dir":%s}\n' \
+                        "$(jstr "trash:///$name")" "$(jstr "$name")" "$(jstr "$orig")" "$(jstr "$when")" "$(sizeq "$f")" "$([ -d "$f" ] && echo true || echo false)"
+                done ;;
+            restore)
+                uri="${3:-}"; name="${uri#trash:///}"
+                gio trash --restore "$uri" 2>/dev/null && exit 0
+                # older glib: by hand
+                orig="$(sed -n 's/^Path=//p' "$DATA/Trash/info/$name.trashinfo" | head -n1)"
+                orig="$(printf '%b' "${orig//%/\\x}")"
+                [ -n "$orig" ] && [ ! -e "$orig" ] || { echo "something is already at $orig" >&2; exit 1; }
+                mkdir -p "$(dirname "$orig")" && mv "$DATA/Trash/files/$name" "$orig" && rm -f "$DATA/Trash/info/$name.trashinfo" ;;
+            delete)
+                name="${3#trash:///}"
+                [ -n "$name" ] && [ "$name" != "." ] && [ "$name" != ".." ] || exit 2
+                rm -rf "$DATA/Trash/files/$name" "$DATA/Trash/info/$name.trashinfo" ;;
+            empty) "$0" clean trash ;;
+        esac
+        ;;
+    mount)   udisksctl mount -b "${2:?device}" ;;
+    unmount) udisksctl unmount -b "${2:?device}" ;;
+    eject)   udisksctl unmount -b "${2:?device}" 2>/dev/null; udisksctl power-off -b "${2:?device}" ;;
+    format)
+        if command -v gnome-disks >/dev/null; then exec gnome-disks --block-device "${2:?device}" --format-device
+        else echo "install gnome-disk-utility for formatting (it's in the apps extra)" >&2; exit 1; fi ;;
+    *) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+esac

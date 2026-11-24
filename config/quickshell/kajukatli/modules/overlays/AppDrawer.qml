@@ -75,13 +75,14 @@ Item {
         }
     }
 
-    function launch(app) {
+    // onGpu: right-click starts it on the nvidia card; heavy apps (settings → display) always do
+    function launch(app, onGpu) {
         if (!app) return;
         const l = Object.assign({}, Store.s.launches || {});
         l[app.id] = (l[app.id] || 0) + 1;
         Store.s.launches = l;
         Ui.overlay = "";
-        const cmd = app.runInTerminal ? ["kitty", "--"].concat(app.command) : app.command;
+        const cmd = app.runInTerminal ? ["kitty", "--"].concat(app.command) : Gpu.wrap(app.command, app, onGpu === true);
         Quickshell.execDetached({ command: cmd, workingDirectory: app.workingDirectory || Config.home });
     }
     function accept() {
@@ -259,8 +260,9 @@ Item {
                 anchors.margins: 4
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onEntered: root.index = cellItem.index
-                onClicked: root.launch(cellItem.modelData)
+                onClicked: e => root.launch(cellItem.modelData, e.button === Qt.RightButton)
             }
         }
     }

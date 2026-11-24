@@ -9,6 +9,8 @@ hl.on("hyprland.start", function()
     hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/kk-startlock")
 
     hl.exec_cmd("hypridle")
+    -- kde connect's daemon, when the phone extra is installed (the shell's phone panel talks to it)
+    hl.exec_cmd("sh -c '[ -x /usr/lib/kdeconnectd ] && exec /usr/lib/kdeconnectd'")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
 end)

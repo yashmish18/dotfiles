@@ -1,16 +1,55 @@
 #!/usr/bin/env bash
-# kk-display status|extend|left|mirror|internal|external
-#   status    every screen, its mode and place
-#   extend    the external screen to the right of the laptop (left: to its left)
+# kk-display status|json|extend|mirror|internal|external|left|send ±1
+#   status    every screen, its mode and place          json   the same, for the shell
+#   extend    the external screen to the right of the laptop, a separate desktop of its own
 #   mirror    the external screen shows the laptop's
 #   internal  only the laptop screen          external   only the external one
+#   left      extend, with the external screen on the left
+#   send ±1   the focused window to the screen on the right (+1) or left (-1)
+# any mode can follow any other: leaving "mirror" or a mode that switched a screen off starts
+# from hyprland's own monitor config again first, so nothing from the old mode lingers.
 # hyprland's lua config takes monitor changes as `hyprctl eval 'hl.monitor({...})'`; the old
 # `hyprctl keyword monitor` is used only if eval isn't there (a hyprlang setup).
 set -uo pipefail
 mode="${1:-status}"
 all="$(hyprctl monitors all -j 2>/dev/null)" || { echo "kk-display: hyprland isn't answering" >&2; exit 1; }
-if [ "$mode" = status ]; then
-    printf '%s' "$all" | jq -r '.[] | "\(.name)\t\(if .disabled then "off" else "\(.width)x\(.height)@\(.refreshRate|floor)" end)\tat \(.x)x\(.y)\tscale \(.scale)"'
+case "$mode" in
+    status)
+        printf '%s' "$all" | jq -r '.[] | "\(.name)\t\(if .disabled then "off" else "\(.width)x\(.height)@\(.refreshRate|floor)" end)\tat \(.x)x\(.y)\tscale \(.scale)\(if (.mirrorOf // "none") != "none" then "\tmirrors \(.mirrorOf)" else "" end)"'
+        exit 0 ;;
+    json)
+        # the current arrangement in one word, plus every screen
+        printf '%s' "$all" | jq -c '
+            ([.[] | select(.name|test("^(eDP|LVDS|DSI)"))][0].name // .[0].name) as $i
+            | ([.[] | select(.name != $i)][0]) as $e
+            | ([.[] | select(.name == $i)][0]) as $in
+            | { internal: $i, external: ($e.name // ""),
+                mode: (if $e == null then "internal"
+                       elif ($e.mirrorOf // "none") != "none" or ($in.mirrorOf // "none") != "none" then "mirror"
+                       elif $e.disabled then "internal"
+                       elif $in.disabled then "external"
+                       elif $e.x < $in.x then "left"
+                       else "extend" end),
+                screens: [.[] | {name, description, disabled, width, height, x, y, mirrorOf: (.mirrorOf // "none")}] }'
+        exit 0 ;;
+esac
+
+lua_ok=0
+if out="$(hyprctl eval 'return 1' 2>&1)"; then
+    case "$out" in *nknown*|*nvalid*) ;; *) lua_ok=1 ;; esac
+fi
+
+if [ "$mode" = send ]; then
+    dir="${2:-+1}"
+    mons="$(hyprctl monitors -j)"
+    target="$(printf '%s' "$mons" | jq -r --arg d "$dir" '
+        sort_by(.x) as $m | ($m | map(.focused) | index(true)) as $i
+        | if $i == null then empty else
+            ($i + (if $d == "-1" then -1 else 1 end)) as $j
+            | if $j < 0 or $j >= ($m|length) then empty else $m[$j].activeWorkspace.id end end')"
+    [ -n "$target" ] || exit 0
+    if [ "$lua_ok" = 1 ]; then hyprctl dispatch "hl.dsp.window.move({ workspace = \"$target\", follow = true })" >/dev/null
+    else hyprctl dispatch movetoworkspace "$target" >/dev/null; fi
     exit 0
 fi
 
@@ -18,10 +57,6 @@ internal="$(printf '%s' "$all" | jq -r '[.[] | select(.name|test("^(eDP|LVDS|DSI
 [ -n "$internal" ] || internal="$(printf '%s' "$all" | jq -r '.[0].name // empty')"
 external="$(printf '%s' "$all" | jq -r --arg i "$internal" '[.[] | select(.name != $i)][0].name // empty')"
 
-lua_ok=0
-if out="$(hyprctl eval 'return 1' 2>&1)"; then
-    case "$out" in *nknown*|*nvalid*) ;; *) lua_ok=1 ;; esac
-fi
 # mon NAME "field = value, ..."   (lua fields; translated for hyprlang when needed)
 mon() {
     local name="$1" fields="$2"
@@ -32,22 +67,50 @@ mon() {
             *disabled*) hyprctl keyword monitor "$name,disable" >/dev/null ;;
             *mirror*) hyprctl keyword monitor "$name,preferred,auto,1,mirror,$internal" >/dev/null ;;
             *auto-left*) hyprctl keyword monitor "$name,preferred,auto-left,1" >/dev/null ;;
+            *0x0*) hyprctl keyword monitor "$name,preferred,0x0,1" >/dev/null ;;
             *) hyprctl keyword monitor "$name,preferred,auto-right,1" >/dev/null ;;
         esac
     fi
 }
 need_external() { [ -n "$external" ] || { notify-send -a Display "No external screen" "Is the cable in? Run kk-hdmi to check the port." 2>/dev/null; echo "no external screen" >&2; exit 1; }; }
 
+# coming from mirror, or from a mode that switched a screen off: back to the config's own
+# monitor rules first (a mirror or a disable is otherwise sticky), then the shell puts its
+# live settings (battery saver, scale, refresh) back on top
+reset_if_needed() {
+    local sticky
+    sticky="$(printf '%s' "$all" | jq '[.[] | select(.disabled or ((.mirrorOf // "none") != "none"))] | length')"
+    if [ "${sticky:-0}" -gt 0 ]; then
+        if [ "$lua_ok" = 1 ]; then
+            hyprctl reload >/dev/null
+        else
+            [ -n "$external" ] && hyprctl keyword monitor "$external,preferred,auto-right,1" >/dev/null
+            hyprctl keyword monitor "$internal,preferred,0x0,1" >/dev/null
+        fi
+        sleep 0.6
+        reapply=1
+    fi
+}
+reapply=0
+
 case "$mode" in
-    extend)   need_external; mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
+    extend)   need_external; reset_if_needed
+              mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
               mon "$external" 'mode = "preferred", position = "auto-right", scale = "1"' ;;
-    left)     need_external; mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
+    left)     need_external; reset_if_needed
+              mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
               mon "$external" 'mode = "preferred", position = "auto-left", scale = "1"' ;;
-    mirror)   need_external; mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
+    mirror)   need_external; reset_if_needed
+              mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
               mon "$external" "mode = \"preferred\", position = \"auto\", scale = \"1\", mirror = \"$internal\"" ;;
-    internal) mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
+    internal) reset_if_needed
+              mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
               [ -z "$external" ] || mon "$external" 'disabled = true' ;;
-    external) need_external; mon "$external" 'mode = "preferred", position = "0x0", scale = "1"'
+    external) need_external; reset_if_needed
+              mon "$external" 'mode = "preferred", position = "0x0", scale = "1"'
               mon "$internal" 'disabled = true' ;;
-    *) echo "usage: kk-display status|extend|left|mirror|internal|external" >&2; exit 2 ;;
+    *) echo "usage: kk-display status|json|extend|mirror|internal|external|left|send ±1" >&2; exit 2 ;;
 esac
+
+[ "$reapply" = 1 ] && qs -c kajukatli ipc call shell run reapply >/dev/null 2>&1 || true
+exit 0

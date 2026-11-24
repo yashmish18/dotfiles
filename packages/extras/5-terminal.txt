@@ -11,6 +11,7 @@ zsh
 zsh-autosuggestions
 zsh-syntax-highlighting
 zsh-completions
+pkgfile
 bash-completion
 git-delta
 lazygit

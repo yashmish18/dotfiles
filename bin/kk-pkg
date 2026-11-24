@@ -1,26 +1,155 @@
-#!/usr/bin/env sh
-set -eu
-query="${2:-}"
-case "${1:-search}" in
+#!/usr/bin/env bash
+# kk-pkg: one place for software, from the official repos, the aur and flathub.
+#   kk-pkg search <words>        json lines: { name, source, version, desc, installed }
+#   kk-pkg installed             json lines: what you installed yourself (not dependencies)
+#   kk-pkg updates               json lines: what has a newer version
+#   kk-pkg info <name> [source]  everything about one package, as text
+#   kk-pkg install <name> [source] · remove <name> [source] · upgrade
+#   kk-pkg bundles               json lines: ready-made developer setups
+#   kk-pkg bundle <key>          install one of those
+#   kk-pkg dev                   check the developer basics: git identity, ssh key, gh login
+# source: repo | aur | flatpak (guessed when left out). install / remove / upgrade ask for your
+# password in the terminal they run in, and say plainly what they're about to do.
+set -uo pipefail
+export LC_ALL=C
+aur_helper() { for h in paru yay; do command -v "$h" >/dev/null && { echo "$h"; return; }; done; }
+j() { printf '%s' "$1" | jq -Rs .; }
+line() { # line name source version desc installed
+    printf '{"name":%s,"source":"%s","version":%s,"desc":%s,"installed":%s}\n' "$(j "$1")" "$2" "$(j "$3")" "$(j "$4")" "$5"
+}
+
+# pacman -Ss style output (two lines per package) → json lines
+parse_ss() { # parse_ss source
+    local src="$1" head desc name ver inst
+    while IFS= read -r head; do
+        IFS= read -r desc || desc=""
+        name="${head%% *}"; name="${name#*/}"
+        ver="$(printf '%s' "$head" | awk '{print $2}')"
+        inst=false; case "$head" in *"[installed"*) inst=true ;; esac
+        line "$name" "$src" "$ver" "$(printf '%s' "$desc" | sed 's/^ *//')" "$inst"
+    done
+}
+
+bundles='python|Python|python python-pip python-pipx uv python-virtualenv ipython
+node|JavaScript & Node|nodejs npm pnpm yarn typescript
+rust|Rust|rustup
+go|Go|go gopls delve
+c|C & C++|base-devel gcc clang cmake ninja meson gdb lldb valgrind
+java|Java & Kotlin|jdk-openjdk maven gradle kotlin
+containers|Containers (podman)|podman podman-compose distrobox buildah
+docker|Docker|docker docker-compose docker-buildx
+editors|Editors|code neovim helix
+git|Git tools|git git-lfs github-cli lazygit git-delta
+databases|Databases|postgresql sqlite redis dbeaver
+web|Web & APIs|httpie jq yq websocat
+shell|Shell scripting|shellcheck shfmt bash-language-server
+security|Security toolkit|(see kk-cybersec)'
+
+case "${1:-}" in
     search)
-        [ -n "$query" ] || exit 0
-        if command -v paru >/dev/null 2>&1; then paru -Ss "$query" --color never
-        else pacman -Ss "$query"
+        q="${2:-}"; [ -n "$q" ] || exit 0
+        pacman -Ss -- "$q" 2>/dev/null | parse_ss repo
+        h="$(aur_helper)"
+        if [ -n "$h" ]; then
+            # aur only (the repos are above): paru -Ssa / yay -Ssa --aur
+            if [ "$h" = paru ]; then paru -Ssa --color never -- "$q" 2>/dev/null; else yay -Ss --aur --color never -- "$q" 2>/dev/null; fi \
+                | grep -v '^:: ' | head -n 120 | parse_ss aur
+        fi
+        if command -v flatpak >/dev/null; then
+            flatpak search --columns=application,name,version,description -- "$q" 2>/dev/null | head -n 40 |
+            while IFS=$'\t' read -r app name ver desc; do
+                [ -n "$app" ] || continue
+                inst=false; flatpak info "$app" >/dev/null 2>&1 && inst=true
+                line "$app" flatpak "$ver" "$name: $desc" "$inst"
+            done
         fi
         ;;
     installed)
-        pacman -Qq
+        aurset="$(pacman -Qqm 2>/dev/null)"
+        pacman -Qqe 2>/dev/null | xargs -r pacman -Qi 2>/dev/null | awk -F' *: ' '
+            /^Name/ {n=$2} /^Version/ {v=$2} /^Description/ {d=$2} /^Installed Size/ {s=$2}
+            /^$/ && n!="" {print n "\t" v "\t" d "\t" s; n=""}' |
+        while IFS=$'\t' read -r n v d s; do
+            src=repo; printf '%s\n' "$aurset" | grep -qxF "$n" && src=aur
+            printf '{"name":%s,"source":"%s","version":%s,"desc":%s,"size":%s,"installed":true}\n' "$(j "$n")" "$src" "$(j "$v")" "$(j "$d")" "$(j "$s")"
+        done
+        if command -v flatpak >/dev/null; then
+            flatpak list --app --columns=application,name,version 2>/dev/null | while IFS=$'\t' read -r app name ver; do
+                [ -n "$app" ] && line "$app" flatpak "$ver" "$name" true
+            done
+        fi
+        ;;
+    updates)
+        if command -v checkupdates >/dev/null; then
+            checkupdates 2>/dev/null | while read -r n old _ new; do line "$n" repo "$new" "from $old" true; done
+        fi
+        h="$(aur_helper)"
+        [ -n "$h" ] && "$h" -Qua 2>/dev/null | while read -r n old _ new; do line "$n" aur "$new" "from $old" true; done
+        if command -v flatpak >/dev/null; then
+            flatpak remote-ls --updates --columns=application,version 2>/dev/null | while IFS=$'\t' read -r app ver; do
+                [ -n "$app" ] && line "$app" flatpak "$ver" "update available" true
+            done
+        fi
+        ;;
+    info)
+        n="${2:?package}"; src="${3:-}"
+        if [ "$src" = flatpak ]; then flatpak remote-info flathub "$n" 2>/dev/null || flatpak info "$n"; exit 0; fi
+        pacman -Qi "$n" 2>/dev/null || pacman -Si "$n" 2>/dev/null || { h="$(aur_helper)"; [ -n "$h" ] && "$h" -Si "$n" 2>/dev/null; }
         ;;
     install)
-        [ -n "$query" ] || exit 2
-        if command -v paru >/dev/null 2>&1 && ! pacman -Si "$query" >/dev/null 2>&1; then
-            exec paru -S --needed "$query"
-        fi
-        exec sudo pacman -S --needed "$query"
+        n="${2:?package}"; src="${3:-}"
+        [ -n "$src" ] || { if pacman -Si "$n" >/dev/null 2>&1; then src=repo; elif [[ "$n" == *.*.* ]]; then src=flatpak; else src=aur; fi; }
+        echo ":: installing $n ($src)"
+        case "$src" in
+            repo) sudo pacman -S --needed "$n" ;;
+            aur) h="$(aur_helper)"; [ -n "$h" ] || { echo "no aur helper (paru or yay): ./install.sh sets one up"; exit 1; }; "$h" -S --needed "$n" ;;
+            flatpak) flatpak install -y flathub "$n" ;;
+        esac
         ;;
     remove)
-        [ -n "$query" ] || exit 2
-        exec sudo pacman -Rns "$query"
+        n="${2:?package}"; src="${3:-}"
+        echo ":: removing $n, and whatever it pulled in that nothing else needs"
+        if [ "$src" = flatpak ]; then flatpak uninstall -y "$n"; else sudo pacman -Rns "$n"; fi
         ;;
-    *) echo "usage: kk-pkg search|installed|install|remove [package]"; exit 2 ;;
+    upgrade)
+        echo ":: updating everything"
+        sudo pacman -Syu
+        h="$(aur_helper)"; [ -n "$h" ] && "$h" -Sua
+        command -v flatpak >/dev/null && flatpak update -y
+        true
+        ;;
+    bundles)
+        printf '%s\n' "$bundles" | while IFS='|' read -r key title pkgs; do
+            have=0; total=0
+            for p in $pkgs; do case "$p" in \(*) continue ;; esac; total=$((total + 1)); pacman -Qq "$p" >/dev/null 2>&1 && have=$((have + 1)); done
+            printf '{"key":"%s","title":%s,"packages":%s,"have":%s,"total":%s}\n' "$key" "$(j "$title")" "$(j "$pkgs")" "$have" "$total"
+        done
+        ;;
+    bundle)
+        key="${2:?bundle}"
+        if [ "$key" = security ]; then exec "$(dirname "$(readlink -f "$0")")/kk-cybersec" install; fi
+        pkgs="$(printf '%s\n' "$bundles" | awk -F'|' -v k="$key" '$1==k {print $3}')"
+        [ -n "$pkgs" ] || { echo "no bundle called $key"; exit 2; }
+        repo=(); aur=()
+        for p in $pkgs; do if pacman -Si "$p" >/dev/null 2>&1; then repo+=("$p"); else aur+=("$p"); fi; done
+        echo ":: $key: ${repo[*]} ${aur[*]}"
+        [ "${#repo[@]}" -gt 0 ] && sudo pacman -S --needed "${repo[@]}"
+        h="$(aur_helper)"; [ "${#aur[@]}" -gt 0 ] && [ -n "$h" ] && "$h" -S --needed "${aur[@]}"
+        case "$key" in
+            rust) command -v rustup >/dev/null && rustup default stable ;;
+            docker) sudo systemctl enable --now docker.socket && sudo usermod -aG docker "$USER" && echo "added you to 'docker' (log in again)" ;;
+            databases) echo "postgres needs a first setup: sudo -iu postgres initdb -D /var/lib/postgres/data" ;;
+        esac
+        ;;
+    dev)
+        ok() { printf '  ✓ %s\n' "$*"; }; no() { printf '  ✗ %s\n' "$*"; }
+        n="$(git config --global user.name)"; e="$(git config --global user.email)"
+        [ -n "$n" ] && [ -n "$e" ] && ok "git knows you: $n" || no "git doesn't know who you are: kk-git-identity"
+        ls "$HOME"/.ssh/id_*.pub >/dev/null 2>&1 && ok "an ssh key: $(ls "$HOME"/.ssh/id_*.pub | head -n1)" || no "no ssh key: ssh-keygen -t ed25519"
+        command -v gh >/dev/null && { gh auth status >/dev/null 2>&1 && ok "logged in to github" || no "not logged in to github: gh auth login"; } || no "github cli missing: kk-pkg bundle git"
+        command -v code >/dev/null || command -v nvim >/dev/null && ok "an editor" || no "no code editor: kk-pkg bundle editors"
+        command -v mise >/dev/null && ok "mise (tool versions per project)" || true
+        ;;
+    # the old way (before json): plain names
+    *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

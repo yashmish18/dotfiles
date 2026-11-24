@@ -35,12 +35,64 @@ Item {
 
     function go(ws) { Hypr.focusWorkspace(ws.id); Ui.overlay = ""; }
     function fresh() { Hypr.newWorkspace(false); Ui.overlay = ""; }
+    function accept() { sel < list.length ? go(list[sel]) : fresh(); }
+    // ← → (or ↑ ↓) move the highlight, enter goes there. super + tab again while it's open
+    // steps along too, and letting go of super goes to the highlighted one (like alt + tab).
+    property bool cycling: false
+    function stepSel(d) { sel = (sel + d + count) % count; }
     Keys.onLeftPressed: sel = Math.max(0, sel - 1)
     Keys.onRightPressed: sel = Math.min(list.length, sel + 1)
-    Keys.onReturnPressed: sel < list.length ? go(list[sel]) : fresh()
+    Keys.onUpPressed: sel = Math.max(0, sel - 1)
+    Keys.onDownPressed: sel = Math.min(list.length, sel + 1)
+    Keys.onReturnPressed: accept()
+    Keys.onEnterPressed: accept()
+    Keys.onSpacePressed: accept()
     Keys.onPressed: e => {
         if (e.text === "n") { fresh(); e.accepted = true; }
-        else if (e.key === Qt.Key_Tab) { sel = (sel + 1) % count; e.accepted = true; }
+        else if (e.key === Qt.Key_Tab) { stepSel(1); e.accepted = true; }
+        else if (e.key === Qt.Key_Backtab) { stepSel(-1); e.accepted = true; }
+        else if (e.key === Qt.Key_Home) { sel = 0; e.accepted = true; }
+        else if (e.key === Qt.Key_End) { sel = list.length; e.accepted = true; }
+    }
+    Keys.onReleased: e => {
+        if (root.cycling && (e.key === Qt.Key_Super_L || e.key === Qt.Key_Super_R || e.key === Qt.Key_Meta)) {
+            e.accepted = true;
+            root.accept();
+        }
+    }
+    Connections {
+        target: Ui
+        function onOverviewCycle(d) { root.cycling = true; root.stepSel(d); }
+    }
+
+    // keep the highlighted workspace in view
+    onSelChanged: Qt.callLater(showSel)
+    function showSel() {
+        const left = row.x + sel * (cardW + gap) - 30, right = left + cardW + 60;
+        const maxX = Math.max(0, strip.contentWidth - strip.width);
+        if (left < strip.contentX) strip.contentX = Math.max(0, left);
+        else if (right > strip.contentX + strip.width) strip.contentX = Math.min(maxX, right - strip.width);
+    }
+
+    // dragging a window to the strip's edge scrolls it, so a workspace far off to the side can
+    // still be reached. the window being dragged is moved back by the same amount so it stays
+    // under the pointer.
+    property Item dragItem: null
+    property real dragX: -1
+    Timer {
+        interval: 16
+        repeat: true
+        running: root.dragging > 0 && root.dragItem !== null
+        onTriggered: {
+            const edge = 110, maxX = Math.max(0, strip.contentWidth - strip.width);
+            let d = 0;
+            if (root.dragX >= 0 && root.dragX < edge) d = -Math.ceil((edge - root.dragX) / 6);
+            else if (root.dragX > strip.width - edge) d = Math.ceil((root.dragX - (strip.width - edge)) / 6);
+            if (d === 0) return;
+            const was = strip.contentX;
+            strip.contentX = Math.max(0, Math.min(maxX, was + d));
+            if (root.dragItem) root.dragItem.x += strip.contentX - was;
+        }
     }
 
     // ------------------------------------------------------------ header
@@ -65,6 +117,65 @@ Item {
             color: Theme.alpha("#ffffff", 0.55)
         }
         Item { Layout.fillWidth: true }
+    }
+
+    // ------------------------------------------------------------ other screens
+    // drop a window on one to send it to that screen (onto the workspace it's showing)
+    readonly property var otherMonitors: Hyprland.monitors.values.filter(m => m !== root.monitor && m.name !== (root.monitor ? root.monitor.name : ""))
+    Row {
+        id: screensRow
+        visible: root.otherMonitors.length > 0
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: 14
+        z: 5
+        Txt {
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.dragging > 0 ? "Drop on a screen:" : "Other screens"
+            font.family: Theme.mono
+            font.pixelSize: Theme.sm
+            color: Theme.alpha("#ffffff", 0.6)
+        }
+        Repeater {
+            model: root.otherMonitors
+            delegate: Rectangle {
+                id: scr
+                required property var modelData
+                width: 210
+                height: 64
+                radius: 16
+                color: scrDrop.containsDrag ? Theme.alpha(Theme.primary, 0.3) : Theme.alpha("#ffffff", root.dragging > 0 ? 0.1 : 0.05)
+                border.width: scrDrop.containsDrag ? 2 : 1
+                border.color: scrDrop.containsDrag ? Theme.primary : Theme.alpha("#ffffff", 0.2)
+                Behavior on color { ColorAnimation { duration: Theme.fast } }
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 10
+                    Icon { anchors.verticalCenter: parent.verticalCenter; name: "monitor"; size: 22; color: "#ffffff" }
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        Txt { text: scr.modelData.name; font.weight: Font.DemiBold; color: "#ffffff" }
+                        Txt {
+                            text: scr.modelData.activeWorkspace ? "showing workspace " + scr.modelData.activeWorkspace.id : ""
+                            font.family: Theme.mono; font.pixelSize: Theme.xs + 1
+                            color: Theme.alpha("#ffffff", 0.55)
+                        }
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    // a click: go to that screen
+                    onClicked: { if (scr.modelData.activeWorkspace) Hypr.focusWorkspace(scr.modelData.activeWorkspace.id); Ui.overlay = ""; }
+                }
+                DropArea {
+                    id: scrDrop
+                    anchors.fill: parent
+                    keys: ["kk-window"]
+                    onDropped: d => { if (d.source && d.source.address) Hypr.moveWindowToMonitor(d.source.address, scr.modelData.name); }
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------ the row of workspaces
@@ -219,13 +330,16 @@ Item {
                                     cursorShape: drag.active ? Qt.ClosedHandCursor : Qt.PointingHandCursor
                                     drag.target: win
                                     property point start
-                                    onPressed: start = Qt.point(win.x, win.y)
+                                    onPressed: { start = Qt.point(win.x, win.y); root.dragItem = win; }
+                                    onPositionChanged: m => { if (drag.active) root.dragX = mapToItem(strip, m.x, m.y).x; }
                                     onReleased: {
                                         if (drag.active) {
                                             win.Drag.drop();
                                             win.x = start.x;
                                             win.y = start.y;
                                         }
+                                        root.dragItem = null;
+                                        root.dragX = -1;
                                     }
                                     onClicked: e => {
                                         if (e.button === Qt.MiddleButton) Hypr.closeWindow(win.address);

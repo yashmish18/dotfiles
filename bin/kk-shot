@@ -1,5 +1,6 @@
 #!/bin/sh
-# kk-shot region|window|screen [delay seconds] [--edit]
+# kk-shot region|window|screen [delay seconds] [--edit] [--output=NAME]
+#   screen: the screen under the pointer, or --output=HDMI-A-1 for a particular one
 # a screenshot → the clipboard and ~/Pictures/screenshots, with a notification:
 #   open    the picture, in your image viewer
 #   folder  the folder, with the file picked out (in the file manager)
@@ -11,9 +12,11 @@ file="$dir/$(date +%Y-%m-%d_%H-%M-%S).png"
 mode="${1:-region}"
 delay=0
 edit=0
+want=""
 for a in "$@"; do
     case "$a" in
         --edit) edit=1 ;;
+        --output=*) want="${a#--output=}" ;;
         [0-9]|[0-9][0-9]) delay="$a" ;;
     esac
 done
@@ -37,7 +40,13 @@ case "$mode" in
         grim -g "$geom" "$file" ;;
     screen)
         [ "$delay" -gt 0 ] && sleep "$delay"
-        out="$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')"
+        # the screen the pointer is on (with extended screens that's the one you mean; the
+        # focused one can still be the other screen), the focused one if that can't be told
+        out="$(jq -rn --argjson m "$(hyprctl monitors -j)" --argjson c "$(hyprctl cursorpos -j 2>/dev/null || echo null)" '
+            if $c == null then empty else
+              [$m[] | select(($c.x >= .x) and ($c.x < .x + (.width / .scale)) and ($c.y >= .y) and ($c.y < .y + (.height / .scale)))][0].name // empty end' 2>/dev/null)"
+        [ -n "$out" ] || out="$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')"
+        [ -n "$want" ] && out="$want"
         grim -o "$out" "$file" ;;
     *) echo "usage: kk-shot region|window|screen [delay] [--edit]" >&2; exit 2 ;;
 esac

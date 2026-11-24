@@ -276,6 +276,8 @@ Variants {
                     case "session": return sessionC;
                     case "rename": return renameC;
                     case "capture": return captureC;
+                    case "running": return runningC;
+                    case "phone": return phoneC;
                     }
                     return null;
                 }
@@ -291,6 +293,8 @@ Variants {
             Component { id: sessionC; SessionPanel {} }
             Component { id: renameC; RenamePanel {} }
             Component { id: captureC; CapturePanel {} }
+            Component { id: runningC; RunningPanel {} }
+            Component { id: phoneC; PhonePanel {} }
         }
     }
 }

@@ -34,8 +34,11 @@ Singleton {
     Connections {
         target: Config.s
         function onWeatherLocationChanged() { root.ready = false; if (root.consumers > 0) root.refresh(); }
-        function onTempUnitChanged() { if (root.consumers > 0) root.refresh(); }
+        // a new unit shows straight away: the last reading is re-read in it, nothing is fetched
+        function onTempUnitChanged() { if (root.last !== "") root.parse(root.last); }
+        function onNetworkWeatherChanged() { if (!Config.s.networkWeather) root.ready = false; else if (root.consumers > 0) root.refresh(); }
     }
+    property string last: ""      // the last answer from wttr.in, kept for re-reading
 
     Timer {
         interval: 20 * 60 * 1000
@@ -47,7 +50,10 @@ Singleton {
     Process {
         id: proc
         stdout: StdioCollector {
-            onStreamFinished: {
+            onStreamFinished: { if (text.trim() !== "" && root.parse(text)) root.last = text; }
+        }
+    }
+    function parse(text: string): bool {
                 try {
                     const j = JSON.parse(text);
                     const c = j.current_condition[0];
@@ -73,10 +79,10 @@ Singleton {
                     const area = j.nearest_area && j.nearest_area[0];
                     root.place = area && area.areaName && area.areaName[0] ? area.areaName[0].value : "";
                     root.ready = true;
+                    return true;
                 } catch (e) {
                     // offline or wttr.in is having a moment; keep the last reading
+                    return false;
                 }
-            }
-        }
     }
 }

@@ -1,0 +1,5 @@
+# your phone on the desktop (kde connect): battery, notifications, files, clipboard, texts · ~40 mb
+# default: on
+kdeconnect
+sshfs
+zenity

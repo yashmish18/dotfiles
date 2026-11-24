@@ -8,6 +8,11 @@ gpu_env="${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli/gpu.env"
 if [ -r "$gpu_env" ]; then
     AQ_DRM_DEVICES="$(sed -n 's/^AQ_DRM_DEVICES=//p' "$gpu_env" | head -n1)"
     [ -n "$AQ_DRM_DEVICES" ] && export AQ_DRM_DEVICES || unset AQ_DRM_DEVICES
+    # "nvidia only" also names the driver for video decode, gl and buffers
+    for k in LIBVA_DRIVER_NAME __GLX_VENDOR_LIBRARY_NAME GBM_BACKEND NVD_BACKEND; do
+        v="$(sed -n "s/^$k=//p" "$gpu_env" | head -n1)"
+        [ -n "$v" ] && export "$k=$v"
+    done
 fi
 # --locked (the login manager's auto-login): open straight into the lock screen.
 # kk-startlock is the safety net: if the shell hasn't locked within seconds, hyprlock does.

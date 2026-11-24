@@ -1,2 +1,2 @@
-# 21 public-domain artworks: hokusai, mucha, utamaro, sharaku, friedrich, klimt… · ~45 mb
-# default: on
+# 21 public-domain artworks: hokusai, mucha, utamaro, sharaku, friedrich, klimt… · ~45 mb (off by default: your own pictures go in ~/Pictures/wallpapers)
+# default: off

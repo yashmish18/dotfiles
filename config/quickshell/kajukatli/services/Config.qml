@@ -21,7 +21,16 @@ Singleton {
     // a settings file from an older version keeps the old defaults it saved. bring those
     // forward once (only things whose meaning changed, never your own choices)
     function migrate() {
-        if (adapter.configVersion >= 5) return;
+        if (adapter.configVersion >= 6) return;
+        // 6: every running app is one tap away (apps), and the phone when kde connect is set up
+        if (adapter.configVersion === 5) {
+            const m = Object.assign({ left: [], center: [], right: [] }, adapter.barModules || {});
+            const all = [].concat(m.left || [], m.center || [], m.right || []);
+            const add = ["apps", "phone"].filter(x => all.indexOf(x) === -1);
+            if (add.length) adapter.barModules = { left: m.left || [], center: m.center || [], right: add.concat(m.right || []) };
+            adapter.configVersion = 6;
+            return;
+        }
         // 5: the clock decides for itself, per wallpaper: face, spot and colour
         adapter.clockStyle = "auto";
         adapter.clockColor = "auto";
@@ -34,7 +43,8 @@ Singleton {
         const l = Object.assign({}, adapter.layout || {});
         l.clock = Object.assign({}, l.clock || {}, { auto: true });
         adapter.layout = l;
-        adapter.configVersion = 5;
+        adapter.barModules = Object.assign({}, adapter.barModules || {}, { right: ["apps", "phone"].concat(((adapter.barModules || {}).right || []).filter(x => x !== "apps" && x !== "phone")) });
+        adapter.configVersion = 6;
     }
 
     // where a desktop widget sits, as a fraction of the room it has to move in (0..1 each way)
@@ -93,7 +103,7 @@ Singleton {
         JsonAdapter {
             id: adapter
 
-            property int configVersion: 5           // settings written by older versions get updated once
+            property int configVersion: 6           // settings written by older versions get updated once
 
             // ---------------------------------------------------- look
             property string look: "studio"          // the preset last applied (see Looks.qml)
@@ -109,7 +119,7 @@ Singleton {
             property var barModules: ({
                 left: ["workspaces"],
                 center: ["clock", "notifs"],
-                right: ["tray", "control"]
+                right: ["apps", "phone", "tray", "control"]
             })
 
             // ---------------------------------------------------- desktop
@@ -192,6 +202,17 @@ Singleton {
             property string nightLightTo: "06:30"
             property bool lockPoetry: true
             property int notificationTimeout: 5000
+
+            // ---------------------------------------------------- behaviour
+            property bool tileTapToggles: true      // control center: a tap on wi-fi / bluetooth switches it; the arrow opens the list
+            property bool btAutoReconnect: true     // bluetooth on again: reconnect the devices that were connected before
+            property bool compactWorkspaces: true   // close workspace 3 of 1·2·3·4 and 4 becomes 3: no gaps, nothing empty on the left
+            property bool followLogins: true        // a sign-in page opens in a browser on another workspace: go there
+            property bool trayTapMenu: true         // one tap on a tray icon opens everything that app offers
+            property bool noBackgroundApps: false   // an app whose last window closes is asked to quit (unless allowed below)
+            property var backgroundAllowed: ["blueman-applet", "nm-applet", "kdeconnectd", "kdeconnect-indicator", "easyeffects", "syncthing"]
+            property var gpuApps: ["blender", "steam", "lutris", "heroic", "godot", "unity", "unityhub", "davinci-resolve", "resolve", "obs", "kdenlive", "krita", "minecraft-launcher", "prismlauncher", "bottles", "gamescope", "rpcs3", "pcsx2", "dolphin-emu", "yuzu", "ryujinx"]
+            property bool gpuHint: true             // a heavy app (a game, blender…) started on the integrated gpu: offer to restart it on nvidia
         }
     }
 }

@@ -16,8 +16,14 @@ if [ "$_kk_init" = zsh ]; then
     HISTFILE="$HOME/.zsh_history"; HISTSIZE=20000; SAVEHIST=20000
     setopt share_history hist_ignore_dups hist_ignore_space auto_cd interactive_comments
     bindkey -e
-    bindkey '^[[A' history-beginning-search-backward   # ↑ / ↓ search history by what you typed
-    bindkey '^[[B' history-beginning-search-forward
+    # ↑ / ↓: history, narrowed to what you've typed so far, with the cursor at the end of the line
+    autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
+    zle -N up-line-or-beginning-search; zle -N down-line-or-beginning-search
+    bindkey '^[[A' up-line-or-beginning-search;   bindkey '^[OA' up-line-or-beginning-search
+    bindkey '^[[B' down-line-or-beginning-search; bindkey '^[OB' down-line-or-beginning-search
+    # autocorrect: a mistyped command (gti → git) is offered fixed before it runs
+    setopt correct
+    SPROMPT='  did you mean %F{16}%r%f? [y]es [n]o [e]dit [a]bort '
     bindkey '^[[1;5C' forward-word; bindkey '^[[1;5D' backward-word
     for _kk_p in /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh                  /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh; do
         [ -r "$_kk_p" ] && . "$_kk_p"
@@ -33,10 +39,20 @@ else
     bind 'set colored-stats on' 2>/dev/null
     bind 'TAB:menu-complete' 2>/dev/null
     bind '"\e[Z":menu-complete-backward' 2>/dev/null
-    bind '"\e[A":history-search-backward' 2>/dev/null
-    bind '"\e[B":history-search-forward' 2>/dev/null
+    # ↑ / ↓: history with the cursor at the end of the line. page up / down search by what
+    # you've typed so far (bash can't do both on one key and keep the cursor at the end)
+    bind '"\e[A":previous-history' 2>/dev/null
+    bind '"\e[B":next-history' 2>/dev/null
+    bind '"\e[5~":history-search-backward' 2>/dev/null
+    bind '"\e[6~":history-search-forward' 2>/dev/null
+    bind 'set history-preserve-point off' 2>/dev/null
     HISTSIZE=20000; HISTFILESIZE=20000; HISTCONTROL=ignoreboth; shopt -s histappend autocd 2>/dev/null
+    # autocorrect: small typos in folder names are fixed for cd and completion
+    shopt -s cdspell dirspell 2>/dev/null
 fi
+
+# a command that isn't installed: say which package has it (pkgfile, in the terminal extra)
+[ -r "/usr/share/doc/pkgfile/command-not-found.$_kk_init" ] && . "/usr/share/doc/pkgfile/command-not-found.$_kk_init"
 
 command -v starship >/dev/null && eval "$(starship init $_kk_init)"
 command -v zoxide   >/dev/null && eval "$(zoxide init $_kk_init)"

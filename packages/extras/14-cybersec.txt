@@ -1,0 +1,33 @@
+# security toolkit: network scanning, traffic capture, web testing, password auditing, reversing · ~900 mb
+# default: off
+# (for systems you own or may test. the full blackarch set: kk-cybersec --blackarch)
+nmap
+wireshark-qt
+tcpdump
+netcat
+socat
+mtr
+whois
+bind
+traceroute
+aircrack-ng
+hashcat
+john
+hydra
+sqlmap
+nikto
+gobuster
+ffuf
+metasploit
+radare2
+ghidra
+binwalk
+gdb
+strace
+ltrace
+burpsuite
+openvpn
+wireguard-tools
+proxychains-ng
+tor
+macchanger

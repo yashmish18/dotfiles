@@ -31,8 +31,11 @@ Item {
 
     SystemClock { id: clock; precision: root.needsSeconds ? SystemClock.Seconds : SystemClock.Minutes }
     readonly property date now: clock.date
-    readonly property string hh: Qt.formatTime(now, h24 ? "HH" : "hh")
-    readonly property string hShort: Qt.formatTime(now, h24 ? "HH" : "h")
+    // (Qt only counts hours to 12 when the same format also shows am/pm, so "hh" on its own
+    // would stay 24-hour: work the 12-hour hour out by hand)
+    readonly property int hour12: now.getHours() % 12 === 0 ? 12 : now.getHours() % 12
+    readonly property string hh: h24 ? Qt.formatTime(now, "HH") : (hour12 < 10 ? "0" : "") + hour12
+    readonly property string hShort: h24 ? Qt.formatTime(now, "HH") : String(hour12)
     readonly property string mm: Qt.formatTime(now, "mm")
     readonly property string ss: Qt.formatTime(now, "ss")
     readonly property string ap: Qt.formatTime(now, "AP")

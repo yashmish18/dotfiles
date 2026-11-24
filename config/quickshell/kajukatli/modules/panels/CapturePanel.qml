@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import qs.services
 import qs.components
 
@@ -15,6 +16,8 @@ Item {
     property int delay: 0
     property bool editAfter: false
     property int index: 0
+    property string output: ""      // which screen "Screen" captures ("": the one under the pointer)
+    readonly property var screens: Hyprland.monitors.values.map(m => m.name)
 
     readonly property var shots: [
         { key: "region", label: "Region", icon: "screenshot" },
@@ -38,6 +41,7 @@ Item {
             const args = [k];
             if (delay > 0) args.push(String(delay));
             if (editAfter) args.push("--edit");
+            if (k === "screen" && output !== "") args.push("--output=" + output);
             Quickshell.execDetached(["sh", "-c", pre + Config.bin + "kk-shot " + args.join(" ")]);
         }
     }
@@ -58,6 +62,26 @@ Item {
         id: col
         width: parent.width
         spacing: 14
+
+        // more than one screen: say which one "Screen" means
+        RowLayout {
+            visible: root.screens.length > 1
+            Layout.fillWidth: true
+            spacing: 6
+            Txt { text: "Screen:"; font.pixelSize: Theme.sm; color: Theme.surfaceTextDim }
+            Btn { text: "under the pointer"; active: root.output === ""; onClicked: root.output = "" }
+            Repeater {
+                model: root.screens
+                delegate: Btn {
+                    required property string modelData
+                    text: modelData
+                    mono: true
+                    active: root.output === modelData
+                    onClicked: root.output = modelData
+                }
+            }
+            Item { Layout.fillWidth: true }
+        }
 
         // recording right now: one big way out
         Btn {

@@ -2,3 +2,8 @@
 *.qsb
 __pycache__/
 *.pyc
+
+# photos and screenshots dropped into the repo folder (keep them out of commits)
+/*.jpg
+/*.jpeg
+/*.png

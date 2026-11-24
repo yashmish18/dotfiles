@@ -6,7 +6,8 @@ import Quickshell.Hyprland
 import qs.services
 import qs.components
 
-// the emoji picker: super + period. a small card in the bottom-left corner.
+// the emoji picker: super + period. a small card floating in the bottom-left corner of the
+// window you're typing in.
 // type to search, arrows to move, enter (or a click) types it into the window you were in,
 // and copies it too. tabs along the top narrow it down; the first one is what you used last.
 LazyLoader {
@@ -22,11 +23,36 @@ LazyLoader {
         WlrLayershell.namespace: "kajukatli-emoji"
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
         exclusionMode: ExclusionMode.Ignore
-        anchors { left: true; bottom: true }
-        margins { left: 14; bottom: 14 }
+        anchors { left: true; top: true }
+        margins { left: spotX; top: spotY }
         implicitWidth: 348
         implicitHeight: 392
         color: "transparent"
+
+        // where it floats: inside the bottom-left corner of the window you're typing in, or
+        // the screen's corner above the bar when nothing has focus. worked out once when it
+        // opens, so it never jumps while you look.
+        property int spotX: 14
+        property int spotY: 14
+        function findSpot() {
+            const sw = screen ? screen.width : 1920, sh = screen ? screen.height : 1080;
+            const sx = screen ? screen.x : 0, sy = screen ? screen.y : 0;
+            const w = implicitWidth, h = implicitHeight, pad = 14;
+            const barBottom = Ui.barVisible && Config.s.barStyle !== "none" && Config.s.barStyle !== "rail" && Config.s.barPosition === "bottom" ? Theme.barHeight + 10 : 0;
+            const barTop = Ui.topInset;
+            let x = pad, y = sh - h - pad - barBottom;
+            const t = Hyprland.activeToplevel;
+            const ipc = t && t.lastIpcObject ? t.lastIpcObject : null;
+            if (ipc && ipc.at && ipc.size && !ipc.fullscreen) {
+                x = ipc.at[0] - sx + pad;
+                y = ipc.at[1] - sy + ipc.size[1] - h - pad;
+                // a window too short for the card: hang it from the window's top edge instead
+                if (ipc.size[1] < h + 2 * pad) y = ipc.at[1] - sy + pad;
+            }
+            spotX = Math.round(Math.max(pad, Math.min(sw - w - pad, x)));
+            spotY = Math.round(Math.max(pad + barTop, Math.min(sh - h - pad - barBottom, y)));
+        }
+        Component.onCompleted: findSpot()
 
         // a click anywhere else closes it
         HyprlandFocusGrab {
@@ -84,7 +110,7 @@ LazyLoader {
             Store.s.recentEmojis = [e].concat((Store.s.recentEmojis || []).filter(x => x !== e)).slice(0, 24);
             Ui.emojiOpen = false;
             // into the window you were typing in (once it has the keyboard back), and the clipboard
-            Quickshell.execDetached(["sh", "-c", 'printf %s "$1" | wl-copy; sleep 0.15; command -v wtype >/dev/null && exec wtype -- "$1"', "sh", e]);
+            Quickshell.execDetached([Config.bin + "kk-emoji-type", e]);
         }
         function move(d) {
             if (!shown.length) return;

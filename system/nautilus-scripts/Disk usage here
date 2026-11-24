@@ -1,0 +1,5 @@
+#!/bin/sh
+# nautilus → scripts: what's taking the space in this folder (baobab)
+p="$(printf '%s\n' "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS" | head -n1)"
+[ -d "$p" ] || p="$(pwd)"
+exec baobab "$p"

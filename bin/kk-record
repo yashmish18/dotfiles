@@ -25,7 +25,12 @@ fi
 mkdir -p "$dir"
 file="$dir/$(date +%Y-%m-%d_%H-%M-%S).mp4"
 case "$mode" in
-    screen) target="-o $(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')" ;;
+    # the screen under the pointer (with extended screens, the one you mean), else the focused one
+    screen) out="$(jq -rn --argjson m "$(hyprctl monitors -j)" --argjson c "$(hyprctl cursorpos -j 2>/dev/null || echo null)" '
+                if $c == null then empty else
+                  [$m[] | select(($c.x >= .x) and ($c.x < .x + (.width / .scale)) and ($c.y >= .y) and ($c.y < .y + (.height / .scale)))][0].name // empty end' 2>/dev/null)"
+            [ -n "$out" ] || out="$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')"
+            target="-o $out" ;;
     *) geom="$(slurp -d -b '#00000066' -c '#ff5a5acc' -w 1 2>/dev/null)" || exit 0
        target="" ;;
 esac

@@ -1,4 +1,4 @@
-# everyday apps: files, browser, player, photos, camera + photobooth, mixer, bluetooth + wi-fi editors · ~450 mb
+# everyday apps: files (with disks, formatting, archives, previews), browser, player, photos, camera + photobooth, mixer, bluetooth + wi-fi editors · ~480 mb
 # default: on
 nautilus
 firefox
@@ -14,3 +14,13 @@ gst-plugin-pipewire
 gst-plugins-good
 tesseract
 tesseract-data-eng
+# the file manager, complete: drives, phones and cameras, archives, previews, formatting disks
+gvfs
+gvfs-mtp
+gvfs-gphoto2
+udisks2
+gnome-disk-utility
+baobab
+file-roller
+sushi
+nautilus-open-any-terminal

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# kk-cybersec                 what's installed from the security toolkit, and what isn't
+# kk-cybersec install         the toolkit (packages/extras/14-cybersec.txt)
+# kk-cybersec --blackarch     add the blackarch repository (2800+ tools) after you check its
+#                             installer's checksum against blackarch.org/downloads.html
+# kk-cybersec groups          blackarch's categories (blackarch-scanner, blackarch-webapp…)
+# kk-cybersec group <name>    install one category, e.g.  kk-cybersec group blackarch-recon
+# only point these at systems you own or have written permission to test.
+set -euo pipefail
+here="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+list="$here/packages/extras/14-cybersec.txt"
+pkgs() { sed -e 's/#.*//' -e 's/[[:space:]]//g' "$list" | grep -v '^$'; }
+
+case "${1:-status}" in
+    status)
+        have=0; miss=()
+        while read -r p; do if pacman -Qq "$p" >/dev/null 2>&1; then have=$((have + 1)); else miss+=("$p"); fi; done < <(pkgs)
+        echo "installed: $have of $(pkgs | wc -l)"
+        [ "${#miss[@]}" -gt 0 ] && echo "missing:   ${miss[*]}"
+        pacman -Sl blackarch >/dev/null 2>&1 && echo "blackarch repository: on" || echo "blackarch repository: off (kk-cybersec --blackarch)"
+        ;;
+    install)
+        mapfile -t want < <(pkgs)
+        repo=(); aur=()
+        for p in "${want[@]}"; do
+            pacman -Qq "$p" >/dev/null 2>&1 && continue
+            if pacman -Si "$p" >/dev/null 2>&1; then repo+=("$p"); else aur+=("$p"); fi
+        done
+        [ "${#repo[@]}" -gt 0 ] && sudo pacman -S --needed "${repo[@]}"
+        if [ "${#aur[@]}" -gt 0 ]; then
+            if command -v paru >/dev/null; then paru -S --needed "${aur[@]}"
+            elif command -v yay >/dev/null; then yay -S --needed "${aur[@]}"
+            else echo "from the aur (needs paru or yay): ${aur[*]}"; fi
+        fi
+        # wireshark captures without root for members of the wireshark group
+        getent group wireshark >/dev/null && sudo usermod -aG wireshark "$USER" && echo "added you to 'wireshark' (log in again to capture without sudo)"
+        ;;
+    --blackarch)
+        tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+        curl -fsSL -o "$tmp/strap.sh" https://blackarch.org/strap.sh
+        echo "sha1 of the installer:  $(sha1sum "$tmp/strap.sh" | cut -d' ' -f1)"
+        echo "compare it with the one on https://blackarch.org/downloads.html#install-repo"
+        read -r -p "do they match? [y/N] " ok </dev/tty
+        [[ "$ok" =~ ^[Yy] ]] || { echo "not added."; exit 1; }
+        chmod +x "$tmp/strap.sh"
+        sudo "$tmp/strap.sh"
+        sudo pacman -Syu
+        echo "added. kk-cybersec groups lists its categories."
+        ;;
+    groups) pacman -Sg 2>/dev/null | awk '{print $1}' | grep '^blackarch-' | sort -u ;;
+    group)
+        [ -n "${2:-}" ] || { echo "usage: kk-cybersec group <blackarch-category>" >&2; exit 2; }
+        sudo pacman -S --needed "$2" ;;
+    *) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+esac

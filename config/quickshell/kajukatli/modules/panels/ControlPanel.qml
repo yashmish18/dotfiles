@@ -26,7 +26,9 @@ Item {
         page = "bluetooth";
         Bt.setScanning(true);
     }
-    Component.onCompleted: { if (page === "wifi") Net.rescan(); Ui.controlPage = ""; }
+    // take the page asked for, then let go of the request (assigning breaks the binding first,
+    // so clearing Ui.controlPage doesn't bounce us back to the front page)
+    Component.onCompleted: { const p = page; page = p; if (p === "wifi") Net.rescan(); if (p === "bluetooth") Bt.setScanning(true); Ui.controlPage = ""; }
     Behavior on implicitHeight { NumberAnimation { duration: Theme.normal; easing.type: Easing.OutCubic } }
 
     // a row in a list: icon, name, a little status, and the whole thing clickable
@@ -37,6 +39,7 @@ Item {
         property string title: ""
         property string detail: ""
         property bool on: false
+        property int rightPad: 0          // room for a button sitting on the row's right end
         signal clicked(var mouse)
         Layout.fillWidth: true
         implicitHeight: 48
@@ -65,7 +68,7 @@ Item {
         Txt {
             id: rDetail
             anchors.right: parent.right
-            anchors.rightMargin: 12
+            anchors.rightMargin: 12 + r.rightPad
             anchors.verticalCenter: parent.verticalCenter
             text: r.detail
             font.pixelSize: Theme.sm
@@ -92,7 +95,7 @@ Item {
     StackLayout {
         id: stack
         width: parent.width
-        currentIndex: ["main", "wifi", "bluetooth", "sound"].indexOf(root.page)
+        currentIndex: ["main", "wifi", "bluetooth", "sound", "battery"].indexOf(root.page)
 
         // ============================================================ front page
         ColumnLayout {
@@ -106,8 +109,16 @@ Item {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 0
+                    // tap the percentage: the battery's own page (health, watts, cycles, the last day)
                     Txt {
                         text: Power.hasBattery ? Power.percent + "%" : "Plugged in"
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: -4
+                            enabled: Power.hasBattery
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.page = "battery"
+                        }
                         font.pixelSize: 22
                         font.weight: Font.Bold
                         color: Power.low ? Theme.error : Theme.surfaceText
@@ -120,8 +131,15 @@ Item {
                             : (Power.timeLeft ? Power.timeLeft + " left" : "on battery")
                         font.pixelSize: Theme.sm
                         color: Theme.surfaceTextDim
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: Power.hasBattery
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.page = "battery"
+                        }
                     }
                 }
+                Btn { icon: "cpu"; onClicked: Ui.toggleOverlay("system") }
                 Btn { icon: "screenshot"; onClicked: Ui.open("capture") }
                 Btn { icon: "record"; active: Ui.recording; danger: Ui.recording; onClicked: Ui.recording ? (Ui.panel = "", Quickshell.execDetached([Config.bin + "kk-record"])) : Ui.open("capture") }
                 Btn { icon: "sliders"; onClicked: Ui.open("settings") }
@@ -176,9 +194,9 @@ Item {
                     detail: Net.ethernet ? "connected" : Net.ssid !== "" ? Net.ssid : Net.wifiEnabled ? "not connected" : "off"
                     on: Net.wifiEnabled || Net.ethernet
                     more: true
-                    // a click shows the networks (and turns wi-fi on if it was off); it never
-                    // switches wi-fi off by surprise. the switch is on the page itself.
-                    onToggled: root.openWifi()
+                    // a tap switches wi-fi on or off; the arrow (or a right-click) shows the networks.
+                    // settings → behaviour can make the tap open the list instead.
+                    onToggled: Config.s.tileTapToggles ? Net.setWifi(!Net.wifiEnabled) : root.openWifi()
                     onOpened: root.openWifi()
                 }
                 Toggle {
@@ -189,7 +207,7 @@ Item {
                     on: Bt.enabled
                     more: true
                     enabled: Bt.available
-                    onToggled: root.openBt()
+                    onToggled: Config.s.tileTapToggles ? Bt.toggle() : root.openBt()
                     onOpened: root.openBt()
                 }
                 Toggle {
@@ -365,18 +383,92 @@ Item {
                 spacing: 2
                 boundsBehavior: Flickable.StopAtBounds
                 model: Bt.enabled ? Bt.devices : []
-                delegate: Row2 {
-                    id: devRow
+                property string expanded: ""        // the device whose controls are open
+                delegate: ColumnLayout {
+                    id: devItem
                     required property var modelData
+                    readonly property var d: modelData
+                    readonly property string trouble: Bt.trouble[d.address] || ""
+                    readonly property bool open: devs.expanded === d.address
                     width: devs.width
-                    icon: modelData.connected ? "bluetooth-on" : "bluetooth"
-                    title: modelData.name || modelData.address
-                    on: modelData.connected
-                    detail: modelData.pairing ? "pairing…"
-                          : modelData.state === BluetoothDeviceState.Connecting ? "connecting…"
-                          : modelData.connected ? ((modelData.batteryAvailable ? Math.round(modelData.battery * 100) + "% · " : "") + "connected")
-                          : modelData.paired ? "paired" : "new"
-                    onClicked: m => m.button === Qt.RightButton ? devRow.modelData.forget() : Bt.toggleDevice(devRow.modelData)
+                    spacing: 4
+                    Row2 {
+                        icon: devItem.d.connected ? "bluetooth-on" : "bluetooth"
+                        title: devItem.d.name || devItem.d.address
+                        on: devItem.d.connected
+                        rightPad: devItem.d.paired ? 30 : 0
+                        detail: devItem.d.pairing ? "pairing…"
+                              : devItem.trouble === "connecting" || devItem.d.state === BluetoothDeviceState.Connecting ? "connecting…"
+                              : devItem.trouble === "retrying" ? "trying again…"
+                              : devItem.trouble === "failed" ? "won't connect"
+                              : devItem.d.connected ? ((devItem.d.batteryAvailable ? Math.round(devItem.d.battery * 100) + "% · " : "") + "connected")
+                              : devItem.d.paired ? "saved" : "new"
+                        // tap: connect / disconnect · right-click (or the arrow): its controls
+                        onClicked: m => m.button === Qt.RightButton ? (devs.expanded = devItem.open ? "" : devItem.d.address) : Bt.toggleDevice(devItem.d)
+                        Btn {
+                            anchors.right: parent.right
+                            anchors.rightMargin: 4
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: devItem.d.paired
+                            flat: true
+                            icon: devItem.open ? "up" : "down"
+                            onClicked: devs.expanded = devItem.open ? "" : devItem.d.address
+                        }
+                    }
+                    // everything about one device
+                    Rectangle {
+                        visible: devItem.open
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 8
+                        Layout.rightMargin: 8
+                        Layout.bottomMargin: 6
+                        implicitHeight: ctl.implicitHeight + 20
+                        radius: Theme.radiusSmall + 4
+                        color: Theme.surfaceHigh
+                        ColumnLayout {
+                            id: ctl
+                            x: 10; y: 10
+                            width: parent.width - 20
+                            spacing: 8
+                            Txt {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                font.pixelSize: Theme.xs + 1
+                                font.family: Theme.mono
+                                color: Theme.surfaceTextDim
+                                text: devItem.d.address
+                                    + (devItem.d.batteryAvailable ? "  ·  battery " + Math.round(devItem.d.battery * 100) + "%" : "")
+                                    + (devItem.d.bonded ? "  ·  bonded" : "")
+                            }
+                            Txt {
+                                visible: devItem.trouble === "failed"
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                font.pixelSize: Theme.sm
+                                color: Theme.error
+                                text: "It answers but won't connect: it was probably paired with another device since. Put it in pairing mode and pair it again."
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Txt { Layout.fillWidth: true; text: "Connect automatically"; font.pixelSize: Theme.sm }
+                                Switch { on: devItem.d.trusted; onToggled: Bt.setTrusted(devItem.d, !devItem.d.trusted) }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Txt { Layout.fillWidth: true; text: "Block"; font.pixelSize: Theme.sm }
+                                Switch { on: devItem.d.blocked; onToggled: Bt.setBlocked(devItem.d, !devItem.d.blocked) }
+                            }
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 6
+                                Btn { text: devItem.d.connected ? "Disconnect" : "Connect"; onClicked: Bt.toggleDevice(devItem.d) }
+                                Btn { text: "Pair again"; visible: devItem.d.paired; onClicked: { devs.expanded = ""; Bt.repair(devItem.d); } }
+                                Btn { text: "Send file"; visible: devItem.d.connected; onClicked: { Ui.panel = ""; Bt.sendFile(devItem.d); } }
+                                Btn { text: "Sound"; visible: devItem.d.connected; onClicked: root.page = "sound" }
+                                Btn { text: "Forget"; danger: true; onClicked: { devs.expanded = ""; devItem.d.forget(); } }
+                            }
+                        }
+                    }
                 }
             }
             Txt {
@@ -387,7 +479,7 @@ Item {
                 color: Theme.surfaceTextDim
             }
             Txt {
-                text: "click to connect · right-click to forget"
+                text: "tap to connect · the arrow for its controls"
                 font.pixelSize: Theme.xs + 1
                 color: Theme.outline
             }
@@ -435,6 +527,127 @@ Item {
                 text: "Nothing is playing."
                 color: Theme.surfaceTextDim
             }
+        }
+
+        // ============================================================ battery
+        ColumnLayout {
+            spacing: 10
+            Layout.alignment: Qt.AlignTop
+            Uses { service: Battery; active: root.page === "battery" }
+
+            PageHead {
+                title: "Battery"
+                subtitle: Power.percent + "% · " + (Power.full ? "full" : Power.charging ? "charging" : "on battery")
+                    + (Power.timeLeft ? " · " + Power.timeLeft + (Power.charging ? " to full" : " left") : "")
+                onBack: root.page = "main"
+                Btn { icon: "sliders"; onClicked: Ui.settings("power") }
+            }
+
+            // the big numbers
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 3
+                columnSpacing: 8
+                rowSpacing: 8
+                Repeater {
+                    model: [
+                        { k: "Power", v: Battery.watts > 0 ? Battery.watts.toFixed(1) + " W" : "—", d: Power.charging ? "going in" : "drawn" },
+                        { k: "Health", v: Battery.health < 0 ? "—" : Math.round(Battery.health * 100) + "%", d: "of when new" },
+                        { k: "Cycles", v: Battery.cycles >= 0 ? String(Battery.cycles) : "—", d: "charge cycles" },
+                        { k: "Holds", v: Battery.energyFull > 0 ? Battery.energyFull.toFixed(1) + " Wh" : "—", d: Battery.energyDesign > 0 ? "of " + Battery.energyDesign.toFixed(1) + " Wh" : "" },
+                        { k: "Now", v: Battery.energyNow > 0 ? Battery.energyNow.toFixed(1) + " Wh" : "—", d: "stored" },
+                        { k: "Voltage", v: Battery.volts > 0 ? Battery.volts.toFixed(2) + " V" : "—", d: Battery.tempC > 0 ? Battery.tempC.toFixed(0) + " °C" : "" }
+                    ]
+                    delegate: Rectangle {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        implicitHeight: 62
+                        radius: Theme.radiusSmall + 4
+                        color: Theme.surfaceHigh
+                        Column {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 1
+                            Txt { text: modelData.k.toUpperCase(); font.pixelSize: Theme.xs; font.letterSpacing: 1; color: Theme.outline }
+                            Txt { text: modelData.v; font.pixelSize: Theme.lg; font.weight: Font.Bold; font.family: Theme.mono }
+                            Txt { text: modelData.d; visible: text !== ""; font.pixelSize: Theme.xs; color: Theme.surfaceTextDim }
+                        }
+                    }
+                }
+            }
+
+            // the last day of charge
+            Caption { text: "LAST 24 HOURS"; visible: Battery.history.length > 1 }
+            Canvas {
+                id: graph
+                visible: Battery.history.length > 1
+                Layout.fillWidth: true
+                Layout.preferredHeight: 70
+                property var pts: Battery.history
+                onPtsChanged: requestPaint()
+                onWidthChanged: requestPaint()
+                onPaint: {
+                    const c = getContext("2d");
+                    c.reset();
+                    if (pts.length < 2) return;
+                    const t0 = Date.now() - 24 * 3600 * 1000, W = width, H = height;
+                    const X = t => (t - t0) / (24 * 3600 * 1000) * W, Y = p => H - 4 - (p / 100) * (H - 8);
+                    c.beginPath();
+                    c.moveTo(X(pts[0].t), H);
+                    for (const q of pts) c.lineTo(X(q.t), Y(q.p));
+                    c.lineTo(X(pts[pts.length - 1].t), H);
+                    c.closePath();
+                    c.fillStyle = Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.18);
+                    c.fill();
+                    c.beginPath();
+                    for (let i = 0; i < pts.length; i++) i === 0 ? c.moveTo(X(pts[i].t), Y(pts[i].p)) : c.lineTo(X(pts[i].t), Y(pts[i].p));
+                    c.strokeStyle = Theme.primary;
+                    c.lineWidth = 2;
+                    c.stroke();
+                }
+            }
+
+            // what it is
+            Txt {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                font.pixelSize: Theme.xs + 1
+                font.family: Theme.mono
+                color: Theme.surfaceTextDim
+                text: [Battery.info.manufacturer, Battery.info.model_name, Battery.info.technology].filter(x => x).join(" · ")
+                    + (Battery.info.capacity_level ? "  ·  level: " + String(Battery.info.capacity_level).toLowerCase() : "")
+            }
+
+            // stop charging early: keeps the battery young
+            RowLayout {
+                Layout.fillWidth: true
+                visible: Battery.limitSupported
+                Txt { Layout.fillWidth: true; text: "Stop charging at"; font.pixelSize: Theme.sm }
+                Repeater {
+                    model: [60, 80, 100]
+                    delegate: Btn {
+                        required property int modelData
+                        text: modelData === 100 ? "100%" : modelData + "%"
+                        active: Config.s.chargeLimit === modelData
+                        onClicked: Battery.setLimit(modelData)
+                    }
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Txt { Layout.fillWidth: true; text: "Power mode"; font.pixelSize: Theme.sm }
+                Repeater {
+                    model: Power.hasPerformance ? ["saver", "balanced", "performance"] : ["saver", "balanced"]
+                    delegate: Btn {
+                        required property string modelData
+                        text: modelData
+                        active: Power.profileName === modelData
+                        onClicked: Power.setProfile(modelData)
+                    }
+                }
+            }
+            Btn { text: "What's using power"; icon: "external"; onClicked: { Ui.panel = ""; Quickshell.execDetached(["kitty", "--hold", "-e", Config.bin + "kk-power-report"]); } }
         }
     }
 }

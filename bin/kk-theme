@@ -369,8 +369,28 @@ def gtk(r: dict) -> None:
 @define-color theme_selected_bg_color {r['primary']};
 @define-color theme_selected_fg_color {r['onPrimary']};
 """
+    # the file manager (nautilus) in the shell's shape: rounded pills and tiles, a tinted
+    # sidebar, a soft selection in the wallpaper's colour instead of a solid block
+    files = f"""
+/* nautilus */
+.nautilus-window headerbar {{ background: {r['surfaceContainerLow']}; box-shadow: none; border-bottom: none; }}
+.nautilus-window .sidebar-pane, .nautilus-window .navigation-sidebar {{ background: {r['surfaceContainer']}; }}
+.nautilus-window .navigation-sidebar row {{ border-radius: 12px; margin: 1px 6px; padding: 2px 4px; }}
+.nautilus-window .navigation-sidebar row:selected {{ background: alpha({r['primary']}, 0.22); color: {r['onSurface']}; }}
+.nautilus-window .navigation-sidebar row:selected image {{ color: {r['primary']}; }}
+.nautilus-window .path-bar, .nautilus-window .linked.path-bar-box, .nautilus-window .nautilus-path-bar {{ border-radius: 999px; background: {r['surfaceContainerHigh']}; }}
+.nautilus-window .path-bar button, .nautilus-window .nautilus-path-bar button {{ border-radius: 999px; }}
+.nautilus-window gridview > child {{ border-radius: 16px; padding: 6px; }}
+.nautilus-window gridview > child:hover {{ background: alpha({r['onSurface']}, 0.06); }}
+.nautilus-window gridview > child:selected {{ background: alpha({r['primary']}, 0.24); color: {r['onSurface']}; }}
+.nautilus-window columnview > listview > row {{ border-radius: 10px; margin: 0 6px; }}
+.nautilus-window columnview > listview > row:selected {{ background: alpha({r['primary']}, 0.22); color: {r['onSurface']}; }}
+.nautilus-window .floating-bar {{ border-radius: 999px; margin: 10px; background: {r['surfaceContainerHigh']}; }}
+.nautilus-window entry, .nautilus-window searchbar entry {{ border-radius: 999px; }}
+.nautilus-window popover contents {{ border-radius: 16px; }}
+"""
     write_owned(CONFIG / "gtk-3.0" / "gtk.css", css, "/*")
-    write_owned(CONFIG / "gtk-4.0" / "gtk.css", css, "/*")
+    write_owned(CONFIG / "gtk-4.0" / "gtk.css", css + files, "/*")
     scheme = "prefer-dark" if r["dark"] else "prefer-light"
     quiet(["gsettings", "set", "org.gnome.desktop.interface", "color-scheme", scheme])
     quiet(["gsettings", "set", "org.gnome.desktop.interface", "gtk-theme", "adw-gtk3-dark" if r["dark"] else "adw-gtk3"])
