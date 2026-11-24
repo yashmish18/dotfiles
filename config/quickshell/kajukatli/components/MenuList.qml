@@ -2,7 +2,7 @@ import QtQuick
 import qs.services
 
 // a small right-click menu card. items: [{ label, on, danger, sep, run: function }]
-// a row with `on` shows a tick; `sep: true` is a divider. `done` fires after any row ran.
+// a row with `stay: true` keeps the menu open (steppers); a row with `on` shows a tick; `sep: true` is a divider. `done` fires after any row ran.
 Rectangle {
     id: root
     property var items: []
@@ -64,7 +64,7 @@ Rectangle {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: { if (row.modelData.run) row.modelData.run(); root.done(); }
+                        onClicked: { if (row.modelData.run) row.modelData.run(); if (!row.modelData.stay) root.done(); }
                     }
                 }
             }

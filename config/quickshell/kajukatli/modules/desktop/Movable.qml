@@ -4,7 +4,7 @@ import qs.components
 
 // one desktop widget, placed where you left it. handle it directly:
 //   drag            move it anywhere
-//   ctrl + scroll   make it bigger or smaller
+//   corner handle   drag to make it bigger or smaller (ctrl + scroll works too)
 //   double-click    put it back where it started, at its normal size
 //   right-click     its menu: bigger, smaller, put back, hide, settings
 // the position is a fraction of the room it has to move in, so it lands in the same place
@@ -15,6 +15,7 @@ Item {
     property var fallback: ({ x: 0.5, y: 0.5 })
     property bool editable: true      // false for the copy drawn behind the subject
     property bool shown: true
+    property bool gripOnly: false     // only the top strip drags it (a widget you type in)
     property bool ghost: false        // invisible but still grabbable (its look is drawn elsewhere)
     // "auto" placement: a function (w, h, areaW, areaH) → { x, y } as fractions, or null
     property var autoPlace: null
@@ -29,7 +30,8 @@ Item {
         }
         return saved;
     }
-    readonly property real k0: Math.max(0.3, Math.min(saved.s !== undefined ? saved.s : 1, fit))
+    property real live: -1            // the size while you drag the corner handle (saved on release)
+    readonly property real k0: live > 0 ? Math.min(live, fit) : Math.max(0.3, Math.min(saved.s !== undefined ? saved.s : 1, fit))
     readonly property real iw: item ? item.implicitWidth : 0
     readonly property real ih: item ? item.implicitHeight : 0
     // your size, but never bigger than the screen allows
@@ -72,8 +74,17 @@ Item {
         id: hover
         enabled: root.editable
     }
+    // the part of the widget that moves it: all of it, or just the top strip
+    Item {
+        id: dragZone
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: root.gripOnly && !Ui.editing ? Math.min(parent.height, 22) : parent.height
+    }
     DragHandler {
         id: drag
+        parent: dragZone
         enabled: root.editable && root.shown
         target: root
         xAxis.minimum: 0
@@ -110,6 +121,48 @@ Item {
             Ui.widgetMenuY = q.y;
             Ui.widgetMenuOwner = root.parent;
             Ui.widgetMenu = root.name;
+        }
+    }
+
+    // the corner handle: drag it to resize. it shows while the pointer is over the widget (or
+    // in arrange mode), and is drawn inside the widget so it can always be reached
+    Item {
+        id: grip
+        width: 22
+        height: 22
+        x: root.width - width
+        y: root.height - height
+        z: 50
+        visible: root.editable && root.shown && (hover.hovered || Ui.editing || resize.active)
+        Rectangle {
+            anchors.centerIn: parent
+            width: 12
+            height: 12
+            radius: 6
+            color: resize.active ? Theme.primary : Theme.alpha(Theme.primary, 0.7)
+            border.width: 2
+            border.color: Theme.alpha("#ffffff", 0.85)
+        }
+        HoverHandler { cursorShape: Qt.SizeFDiagCursor }
+        DragHandler {
+            id: resize
+            target: null
+            cursorShape: Qt.SizeFDiagCursor
+            property real startK: 1
+            property real startW: 100
+            onActiveChanged: {
+                Ui.dragging = active;
+                if (active) {
+                    startK = root.k;
+                    startW = Math.max(40, root.width);
+                } else if (root.live > 0) {
+                    Config.setScale(root.name, root.live);
+                    root.live = -1;
+                }
+            }
+            onActiveTranslationChanged: {
+                if (active) root.live = Math.max(0.3, Math.min(2.5, startK * (startW + activeTranslation.x) / startW));
+            }
         }
     }
 }

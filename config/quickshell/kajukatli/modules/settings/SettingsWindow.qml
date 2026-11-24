@@ -478,34 +478,13 @@ LazyLoader {
                         Switch { on: Config.s.clock24h; onToggled: Config.s.clock24h = !Config.s.clock24h } }
                     Setting { label: "Put everything back"; detail: "Places and sizes, as the look had them. One widget: double-click it."
                         Btn { text: "Reset"; icon: "restart"; onClicked: Config.resetLayout() } }
-                    Setting { label: "Moving widgets"; detail: "Drag any widget on the desktop. Ctrl + scroll on it to resize."
+                    Setting { label: "Moving widgets"; detail: "Drag any widget on the desktop; drag its corner dot to resize; right-click it for more."
                         Btn { text: "Arrange"; icon: "move"; primary: true; onClicked: { Ui.settingsOpen = false; Ui.editing = true; } } }
                 }
                 Group {
-                    title: "Music visualiser"
-                    Setting { label: "Style"
+                    title: "Music bars"
+                    Setting { label: "Show"; detail: "Right-click the bars on the desktop to change anything else: style, width, colour, number of bars, gaps, sparks, size."
                         Choice { options: [{ value: "off", label: "off" }, { value: "wave", label: "wave" }, { value: "bars", label: "bars" }, { value: "mirror", label: "mirror" }, { value: "both", label: "wave + bars" }]; value: Config.s.visualizer; onPicked: v => Config.s.visualizer = v } }
-                    Setting { label: "Where"; visible: Config.s.visualizer !== "off"
-                        detail: "Full width runs edge to edge (full-width bars too); a box is small and you drag it anywhere."
-                        Choice { options: [{ value: "auto", label: "auto" }, { value: "full", label: "full width" }, { value: "widget", label: "a box" }]; value: Config.s.visualizerSpan; onPicked: v => Config.s.visualizerSpan = v } }
-                    Setting { label: "Edge"; visible: Config.s.visualizer !== "off" && Config.s.visualizerSpan !== "widget"
-                        Choice { options: ["bottom", "top", "middle"]; value: Config.s.visualizerEdge; onPicked: v => Config.s.visualizerEdge = v } }
-                    Setting { label: "Height"; visible: Config.s.visualizer !== "off" && Config.s.visualizerSpan !== "widget"; detail: Math.round(Config.s.visualizerHeight * 100) + "% of the screen"
-                        Knob { from: 0.05; to: 0.6; step: 0.01; value: Config.s.visualizerHeight; onMoved: v => Config.s.visualizerHeight = Math.round(v * 100) / 100 } }
-                    Setting { label: "Colour"; visible: Config.s.visualizer !== "off"
-                        Choice { options: [{ value: "wallpaper", label: "wallpaper" }, { value: "accent", label: "accent" }, { value: "album", label: "the album's" }, { value: "rainbow", label: "rainbow" }]; value: Config.s.visualizerColor; onPicked: v => Config.s.visualizerColor = v } }
-                    Setting { label: "Bars"; visible: Config.s.visualizer !== "off"; detail: Config.s.visualizerBars + " bars"
-                        Knob { from: 16; to: 128; step: 4; value: Config.s.visualizerBars; onMoved: v => Config.s.visualizerBars = Math.round(v) } }
-                    Setting { label: "Gap"; visible: Config.s.visualizer !== "off"; detail: Config.s.visualizerGap + " px between bars"
-                        Knob { from: 0; to: 12; step: 1; value: Config.s.visualizerGap; onMoved: v => Config.s.visualizerGap = Math.round(v) } }
-                    Setting { label: "See-through"; visible: Config.s.visualizer !== "off"; detail: Math.round(Config.s.visualizerOpacity * 100) + "% solid"
-                        Knob { from: 0.1; to: 1; step: 0.05; value: Config.s.visualizerOpacity; onMoved: v => Config.s.visualizerOpacity = Math.round(v * 100) / 100 } }
-                    Setting { label: "Smoothness"; visible: Config.s.visualizer !== "off"; detail: Config.s.visualizerSmooth < 40 ? "snappy" : Config.s.visualizerSmooth > 120 ? "liquid" : "smooth"
-                        Knob { from: 0; to: 250; step: 10; value: Config.s.visualizerSmooth; onMoved: v => Config.s.visualizerSmooth = Math.round(v) } }
-                    Setting { label: "Rounded bars"; visible: Config.s.visualizer !== "off"
-                        Switch { on: Config.s.visualizerRound; onToggled: Config.s.visualizerRound = !Config.s.visualizerRound } }
-                    Setting { label: "Behind the subject"; visible: Config.s.visualizer !== "off"
-                        Switch { on: Config.s.visualizerBehind; onToggled: Config.s.visualizerBehind = !Config.s.visualizerBehind } }
                 }
                 Group {
                     title: "Music fun"

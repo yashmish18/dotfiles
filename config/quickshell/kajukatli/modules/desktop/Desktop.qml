@@ -39,7 +39,8 @@ Variants {
                 Region { item: layer.statsItem },
                 Region { item: layer.weatherItem },
                 Region { item: layer.batteryItem },
-                Region { item: layer.analogItem }
+                Region { item: layer.analogItem },
+                Region { item: layer.waveItem.visible ? layer.waveItem : null }
             ]
         }
 
