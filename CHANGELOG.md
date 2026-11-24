@@ -11,7 +11,7 @@
 - Fastfetch is a traditional layout with a hand-drawn ascii cat; no wallpaper figure, no current-wallpaper line.
 - Storage: "App caches" no longer deletes the gpu shader, font and qml caches the running shell has open (that crashed the shell on Clean). Clean-ups that need your password step the overlay aside so the prompt is visible, and show a spinner while they work.
 - Lighter shell: live wallpapers decode at 24 fps with small buffers and freeze while a window is fullscreen; the visualiser tops out at 96 bars / 30 fps; system stats sample every 5 s on battery; the wallpaper workspace is capped at 768 MB.
-- Emoji picker: pick several in one go. Turn on "keep open" (or hold Shift while clicking or pressing Enter) and picks collect in a tray; Insert (or Enter on an empty search) puts them all in, Backspace takes the last one back out.
+- Emoji picker: stays open. Every click (or Enter) pastes that emoji into the window you were in; Esc or a click elsewhere closes it.
 - Switching wallpaper no longer blanks the screen for a moment: a live wallpaper is stopped only after the still picture is back on screen.
 - Projection: "External only" no longer flips back to extend a second later (the shell mistook the screens its own reload re-added for a new cable); unplugging the external screen turns the laptop's back on; overlays, toasts and the volume pop-up always land on a screen that is really on, so the menu opens in external-only mode too.
 - Visualiser: if cava is running but hears nothing while music plays (a new wallpaper or its video took the audio device), it restarts; a wallpaper change always restarts the feed.

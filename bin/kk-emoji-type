@@ -5,18 +5,26 @@
 #   pasting (not typing it out) is what works everywhere: chromium and electron apps ignore
 #   the made-up keys wtype would otherwise send for an emoji.
 set -u
+# --stay: the picker is still open (it let go of the keyboard just now): give your window a
+# moment to get it back, then paste
+stay=0
+[ "${1:-}" = --stay ] && { stay=1; shift; }
 text="${1:-}"
 [ -n "$text" ] || exit 0
 printf %s "$text" | wl-copy
 
-# the picker's surface gone (at most a second)
-i=0
-while [ "$i" -lt 20 ]; do
-    hyprctl layers -j 2>/dev/null | grep -q '"kajukatli-emoji"' || break
-    sleep 0.05
-    i=$((i + 1))
-done
-sleep 0.08
+if [ "$stay" = 1 ]; then
+    sleep 0.18
+else
+    # the picker's surface gone (at most a second)
+    i=0
+    while [ "$i" -lt 20 ]; do
+        hyprctl layers -j 2>/dev/null | grep -q '"kajukatli-emoji"' || break
+        sleep 0.05
+        i=$((i + 1))
+    done
+    sleep 0.08
+fi
 
 command -v wtype >/dev/null || exit 0
 cls="$(hyprctl activewindow -j 2>/dev/null | jq -r '.class // ""' 2>/dev/null)"

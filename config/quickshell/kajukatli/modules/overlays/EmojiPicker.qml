@@ -18,7 +18,7 @@ LazyLoader {
         screen: Hypr.activeScreen
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "kajukatli-emoji"
-        WlrLayershell.keyboardFocus: Ui.emojiOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: Ui.emojiOpen && !pasting ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore
         anchors { left: true; top: true }
         margins { left: Math.max(0, spotX); top: Math.max(0, spotY) }
@@ -66,8 +66,8 @@ LazyLoader {
         // a click anywhere else closes it
         HyprlandFocusGrab {
             windows: [win]
-            active: true
-            onCleared: Ui.emojiOpen = false
+            active: !win.pasting
+            onCleared: { if (!win.pasting) Ui.emojiOpen = false; }
         }
 
         property var all: []            // [[emoji, name]]
@@ -114,32 +114,20 @@ LazyLoader {
             return out;
         }
 
-        // several at once: with "keep open" on (or shift held), a pick joins the tray instead
-        // of leaving; insert puts the whole tray where you were typing
-        property bool multi: false
-        property string basket: ""
-        function pick(e: var, keep: var) {
+        // a pick goes straight into the window you were typing in and the picker stays open:
+        // click as many as you like, Esc (or a click elsewhere) closes it. the picker lets go of
+        // the keyboard for a moment so the paste lands in your window, then takes it back.
+        property bool pasting: false
+        function pick(e: var) {
             if (!e) return;
             Store.s.recentEmojis = [e].concat((Store.s.recentEmojis || []).filter(x => x !== e)).slice(0, 24);
-            if (keep || multi || basket !== "") {
-                basket += e;
-                return;
-            }
-            Ui.emojiOpen = false;
-            // into the window you were typing in (once it has the keyboard back), and the clipboard
-            Quickshell.execDetached([Config.bin + "kk-emoji-type", e]);
+            pasting = true;
+            paste.command = [Config.bin + "kk-emoji-type", "--stay", e];
+            paste.running = true;
         }
-        function insertBasket() {
-            if (basket === "") return;
-            const text = basket;
-            basket = "";
-            Ui.emojiOpen = false;
-            Quickshell.execDetached([Config.bin + "kk-emoji-type", text]);
-        }
-        function unpick() {
-            const a = Array.from(basket);
-            a.pop();
-            basket = a.join("");
+        Process {
+            id: paste
+            onExited: { win.pasting = false; search.forceActiveFocus(); }
         }
         readonly property var highlighted: shown.length ? shown[Math.min(index, shown.length - 1)][0] : ""
         function move(d: var) {
@@ -202,11 +190,8 @@ LazyLoader {
                     Component.onCompleted: forceActiveFocus()
                     onTextChanged: { win.index = 0; grid.positionViewAtBeginning(); }
                     Keys.onEscapePressed: Ui.emojiOpen = false
-                    // enter: pick the highlighted one (shift: and keep going). with a tray and
-                    // nothing typed, enter inserts the tray. backspace on nothing takes one back out.
-                    Keys.onReturnPressed: ev => { if (win.basket !== "" && text === "") win.insertBasket(); else win.pick(win.highlighted, ev.modifiers & Qt.ShiftModifier); }
-                    Keys.onEnterPressed: ev => { if (win.basket !== "" && text === "") win.insertBasket(); else win.pick(win.highlighted, ev.modifiers & Qt.ShiftModifier); }
-                    Keys.onPressed: ev => { if (ev.key === Qt.Key_Backspace && text === "" && win.basket !== "") { win.unpick(); ev.accepted = true; } }
+                    Keys.onReturnPressed: win.pick(win.highlighted)
+                    Keys.onEnterPressed: win.pick(win.highlighted)
                     Keys.onLeftPressed: win.move(-1)
                     Keys.onRightPressed: win.move(1)
                     Keys.onUpPressed: win.move(-grid.cols)
@@ -263,7 +248,7 @@ LazyLoader {
                 readonly property int cols: 8
                 anchors.top: tabRow.bottom
                 anchors.topMargin: 6
-                anchors.bottom: win.basket !== "" ? tray.top : foot.top
+                anchors.bottom: foot.top
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.leftMargin: 10
@@ -295,7 +280,7 @@ LazyLoader {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onEntered: { win.index = cell.index; }
-                        onClicked: m => win.pick(cell.modelData[0], m.modifiers & Qt.ShiftModifier)
+                        onClicked: win.pick(cell.modelData[0])
                     }
                 }
             }
@@ -307,81 +292,13 @@ LazyLoader {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.margins: 14
-                anchors.rightMargin: 110
-                height: win.basket !== "" ? 0 : 18
-                visible: win.basket === ""
+                height: 18
                 elide: Text.ElideRight
                 readonly property var cur: win.shown.length ? win.shown[Math.min(win.index, win.shown.length - 1)] : null
                 text: cur ? (cur[1] !== "" ? cur[0] + "  " + cur[1] : cur[0] + "  recently used") : (win.all.length ? "nothing by that name" : "")
                 font.family: Theme.mono
                 font.pixelSize: Theme.xs + 1
                 color: Theme.surfaceTextDim
-            }
-
-            // keep open: picks collect in the tray below instead of closing the picker
-            Rectangle {
-                id: keepToggle
-                visible: win.basket === ""
-                anchors.right: parent.right
-                anchors.rightMargin: 12
-                anchors.verticalCenter: foot.verticalCenter
-                height: 22
-                width: keepLabel.implicitWidth + 18
-                radius: 11
-                color: win.multi ? Theme.alpha(Theme.primary, 0.25) : keepArea.containsMouse ? Theme.surfaceHigh : "transparent"
-                border.width: 1
-                border.color: win.multi ? Theme.primary : Theme.alpha(Theme.surfaceText, 0.15)
-                Txt { id: keepLabel; anchors.centerIn: parent; text: win.multi ? "keep open ✓" : "keep open"; font.pixelSize: Theme.xs + 1; color: win.multi ? Theme.primary : Theme.surfaceTextDim }
-                MouseArea { id: keepArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { win.multi = !win.multi; search.forceActiveFocus(); } }
-            }
-
-            // the tray: what you've picked so far, and one button to put it all in
-            Rectangle {
-                id: tray
-                visible: win.basket !== ""
-                anchors.bottom: parent.bottom
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.margins: 10
-                height: 40
-                radius: 12
-                color: Theme.alpha(Theme.primary, 0.14)
-                border.width: 1
-                border.color: Theme.alpha(Theme.primary, 0.4)
-                Text {
-                    anchors.left: parent.left
-                    anchors.leftMargin: 12
-                    anchors.right: insertBtn.left
-                    anchors.rightMargin: 8
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: win.basket
-                    font.pixelSize: 20
-                    elide: Text.ElideLeft
-                }
-                Rectangle {
-                    id: insertBtn
-                    anchors.right: undoBtn.left
-                    anchors.rightMargin: 6
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: 28
-                    width: insertLabel.implicitWidth + 20
-                    radius: 14
-                    color: Theme.primary
-                    Txt { id: insertLabel; anchors.centerIn: parent; text: "Insert ↵"; font.pixelSize: Theme.sm; font.weight: Font.DemiBold; color: Theme.primaryText }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: win.insertBasket() }
-                }
-                Rectangle {
-                    id: undoBtn
-                    anchors.right: parent.right
-                    anchors.rightMargin: 8
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: 28
-                    width: 28
-                    radius: 14
-                    color: undoArea.containsMouse ? Theme.surfaceHigh : "transparent"
-                    Txt { anchors.centerIn: parent; text: "⌫"; font.pixelSize: Theme.md; color: Theme.surfaceTextDim }
-                    MouseArea { id: undoArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { win.unpick(); search.forceActiveFocus(); } }
-                }
             }
         }
     }
