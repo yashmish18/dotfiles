@@ -131,11 +131,7 @@ Item {
     function autoClock(w: var, h: var, W: var, H: var): var {
         const m = Wall.current;
         if (!m || !m.width || !m.height || W <= w || H <= h) return null;
-        // without the cut-out (no wallpaper ai, or the clock kept in front) the numbers can't
-        // tuck behind anyone: find the calmest open part of the picture instead
-        const depth = Config.s.clockDepth && Wall.depthReady;
-        if (!(m.clock_auto && m.clock_auto.mode === "free") && (!depth || !m.subject_box || m.subject_box.length < 4))
-            return calmSpot(m, w, h, W, H);
+        if (!(m.clock_auto && m.clock_auto.mode === "free") && (!m.subject_box || m.subject_box.length < 4)) return null;
         const c = coverOf(m);
         const toX = u => ((u - 0.5) / c.x + 0.5) * layer.width - area.x;
         const toY = v => ((v - 0.5) / c.y + 0.5) * layer.height - area.y;

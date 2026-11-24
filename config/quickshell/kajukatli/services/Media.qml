@@ -32,9 +32,14 @@ Singleton {
     property real position: 0
     readonly property real progress: length > 0 ? Math.min(1, position / length) : 0
 
-    function toggle() { if (player && player.canTogglePlaying) player.togglePlaying(); }
-    function next() { if (player && player.canGoNext) player.next(); }
-    function prev() { if (player && player.canGoPrevious) player.previous(); }
+    function toggle() {
+        if (!player) return;
+        if (player.canTogglePlaying) player.togglePlaying();
+        else if (player.isPlaying) player.pause();
+        else player.play();
+    }
+    function next() { if (player) player.next(); }
+    function prev() { if (player) player.previous(); }
     function seek(frac: real) {
         if (player && player.canSeek && length > 0) player.position = frac * length;
     }
