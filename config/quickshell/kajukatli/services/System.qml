@@ -13,40 +13,44 @@ Singleton {
 
     function lua(v: var): string { return typeof v === "string" ? '"' + v.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"' : String(v); }
 
-    function applyInput() {
+    // at login only what you changed in settings is sent: a value still at its default (the
+    // same one input.lua sets) must not overwrite what you put in user.lua
+    function applyInput(onlyChanged: var) {
         const s = Config.s;
-        Hypr.hyprEval("hl.config({ input = {"
-            + " kb_layout = " + lua(s.kbLayout)
-            + ", repeat_rate = " + s.repeatRate
-            + ", repeat_delay = " + s.repeatDelay
-            + ", sensitivity = " + s.pointerSpeed.toFixed(2)
-            + ", touchpad = { natural_scroll = " + s.naturalScroll
-            + ", tap_to_click = " + s.tapToClick
-            + ", disable_while_typing = " + s.disableWhileTyping
-            + ", clickfinger_behavior = " + s.clickFinger
-            + ", scroll_factor = " + s.scrollFactor.toFixed(2)
-            + " } } })");
+        const set = (key, value, dflt) => onlyChanged === true && value === dflt ? [] : [key + " = " + (typeof value === "string" ? lua(value) : value)];
+        const pad = [].concat(set("natural_scroll", s.naturalScroll, true), set("tap_to_click", s.tapToClick, true),
+            set("disable_while_typing", s.disableWhileTyping, true), set("clickfinger_behavior", s.clickFinger, true),
+            set("scroll_factor", Number(s.scrollFactor.toFixed(2)), 0.6));
+        const all = [].concat(set("kb_layout", s.kbLayout, "us"), set("repeat_rate", s.repeatRate, 35),
+            set("repeat_delay", s.repeatDelay, 280), set("sensitivity", Number(s.pointerSpeed.toFixed(2)), 0),
+            pad.length ? ["touchpad = { " + pad.join(", ") + " }"] : []);
+        if (all.length) Hypr.hyprEval("hl.config({ input = { " + all.join(", ") + " } })");
     }
 
     function scaleOf(name: string): real {
         const m = Config.s.monitorScales || {};
         return m[name] !== undefined ? m[name] : 1.0;
     }
-    function setScale(name: string, scale: real) {
-        const m = Object.assign({}, Config.s.monitorScales || {});
-        m[name] = scale;
-        Config.s.monitorScales = m;
-        applyMonitor(name);
-    }
+    // one place saves a screen's settings (setMonitor), so no control can shadow another
+    function setScale(name: string, scale: real) { setMonitor(name, { scale: scale }); }
     function monitorProfile(name: string): var {
         return (Config.s.monitorProfiles || {})[name] || ({});
     }
     function setMonitorProfile(name: string, key: string, value: var) {
-        const profiles = Object.assign({}, Config.s.monitorProfiles || {});
-        profiles[name] = Object.assign({}, profiles[name] || {}, { [key]: value });
-        Config.s.monitorProfiles = profiles;
-        applyMonitor(name);
+        // picking a refresh rate replaces a full mode saved from the arrange page ("" / 0: preferred)
+        setMonitor(name, key === "refresh" ? { refresh: value || null, mode: null } : { [key]: value });
     }
+    // forget everything saved for a screen: hyprland's automatic choice, and the saver works again
+    function resetMonitor(name: string) {
+        const profiles = Object.assign({}, Config.s.monitorProfiles || {});
+        const scales = Object.assign({}, Config.s.monitorScales || {});
+        delete profiles[name];
+        delete scales[name];
+        Config.s.monitorProfiles = profiles;
+        Config.s.monitorScales = scales;
+        Hypr.hyprEval("hl.monitor({ output = " + lua(name) + ", mode = \"preferred\", position = \"auto\", scale = \"1\" })");
+    }
+    property var slowed: ({})      // screens the battery saver took down, to bring back
     // the mode for a screen: its preferred one, or the same size at ~60 hz while the battery
     // saver is on (a 120/144/165 hz panel draws noticeably more power)
     function modeFor(name: string): string {
@@ -80,8 +84,14 @@ Singleton {
     //   vrr 0/1/2, bitdepth 8/10, mirror "eDP-1", disabled
     // a screen whose profile matches what it already shows is left alone: re-sending the same
     // monitor rule makes the screen go dark for a moment (a modeset), for nothing.
-    function applyMonitor(name: string) {
-        const p = monitorProfile(name);
+    // `once`: values for this call only (going back after "keep this?"); it also forces the apply
+    function applyMonitor(name: string, once: var) {
+        const p = Object.assign({}, once || {}, monitorProfile(name));
+        // nothing saved and nothing for the battery saver to do: the screen is hyprland's
+        // (and user.lua's) business. leave it alone
+        // shortcut: `slowed` is forgotten on a shell restart; `hyprctl reload` restores 60 hz then
+        const saved = Object.keys(monitorProfile(name)).length > 0 || (Config.s.monitorScales || {})[name] !== undefined;
+        if (!once && !saved && !Power.saving && !slowed[name]) return;
         const m = monitors.find(x => x.name === name);
         const ipc = m ? (m.lastIpcObject || {}) : {};
         if (p.disabled) {
@@ -90,9 +100,10 @@ Singleton {
         }
         let mode = p.mode || (p.refresh ? nameModeAt(name, p.refresh) : modeFor(name));
         const position = p.position || "auto";
-        const scale = p.scale !== undefined ? p.scale : scaleOf(name);
+        const scale = p.scale !== undefined ? p.scale : (Config.s.monitorScales || {})[name] !== undefined ? scaleOf(name) : (ipc.scale || 1.0);
+        slowed[name] = Power.saving && mode !== "preferred" && !p.mode && !p.refresh;
         // nothing would change? then don't touch it
-        if (ipc.width && !p.mirror) {
+        if (!once && ipc.width && !p.mirror) {
             const want = /^(\d+)x(\d+)@([\d.]+)/.exec(mode);
             // "preferred" is already showing unless the battery saver took the refresh down
             const atBest = !(ipc.availableModes || []).some(md => md.startsWith(ipc.width + "x" + ipc.height + "@") && parseFloat(md.split("@")[1]) > ipc.refreshRate + 1);
@@ -109,7 +120,7 @@ Singleton {
         let f = "output = " + lua(name) + ", mode = " + lua(mode) + ", position = " + lua(position) + ", scale = " + lua(String(scale));
         if (p.transform !== undefined) f += ", transform = " + p.transform;
         if (p.vrr !== undefined) f += ", vrr = " + p.vrr;
-        if (p.bitdepth === 10) f += ", bitdepth = 10";
+        if (p.bitdepth) f += ", bitdepth = " + p.bitdepth;
         if (p.mirror) f += ", mirror = " + lua(p.mirror);
         Hypr.hyprEval("hl.monitor({ " + f + " })");
     }
@@ -125,7 +136,9 @@ Singleton {
             sc[name] = values.scale;
             Config.s.monitorScales = sc;
         }
-        applyMonitor(name);
+        // always send it: the "nothing changed" check can't see bit depth, and "back to
+        // preferred" leaves nothing saved to compare with
+        applyMonitor(name, "bitdepth" in values ? { bitdepth: values.bitdepth === 10 ? 10 : 8 } : {});
     }
     // the quick projection modes (super + d) arrange the screens themselves: forget the saved
     // arrangement so it doesn't come back on the next battery change
@@ -146,7 +159,7 @@ Singleton {
         function onReducedMotionChanged() { root.applyMotion(); }
     }
     function applyAll() {
-        applyInput();
+        applyInput(true);
         applyMotion();
         for (const m of monitors) applyMonitor(m.name);
     }

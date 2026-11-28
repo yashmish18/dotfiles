@@ -110,6 +110,7 @@ Rectangle {
 
         Row {
             spacing: 8
+            Btn { text: "Edit layout"; flat: true; onClicked: { root.done(); Ui.editing = true; } }
             Btn { text: "More settings"; flat: true; onClicked: { root.done(); Ui.settings("desktop"); } }
             Btn { text: "Turn off"; danger: true; flat: true; onClicked: { root.done(); Config.s.visualizer = "off"; } }
         }

@@ -42,12 +42,14 @@ Singleton {
 
     // igpu | both | nvidia
     function setMode(m: string) {
+        if (setProc.running) return;
         setProc.command = [Config.bin + "kk-gpu", "set", m];
         setProc.running = true;
     }
     // the card on or off (asks for your password). off moves the apps on it to the integrated
     // graphics first: each is closed and started again there
     function setPower(on: bool) {
+        if (setProc.running) return;
         setProc.command = [Config.bin + "kk-gpu", on ? "on" : "off"];
         setProc.running = true;
     }
@@ -55,6 +57,7 @@ Singleton {
     // close everything of yours that is using the card (nothing reopens): so it can go off,
     // or a new mode applied at the next login with nothing holding on to it
     function freeCard() {
+        if (setProc.running) return;
         setProc.command = [Config.bin + "kk-gpu", "free"];
         setProc.running = true;
     }
@@ -73,7 +76,8 @@ Singleton {
             const s = String(k).toLowerCase();
             if (s === "") continue;
             if (/^steam_app_/.test(s)) return true;
-            for (const g of list) if (g !== "" && (s === g || s.indexOf(g) !== -1)) return true;
+            // whole names only ("obs" must not catch obsidian): "blender-4.2", "net.lutris.lutris"
+            for (const g of list) if (g !== "" && (s === g || s.startsWith(g + "-") || s.split(".").indexOf(g) !== -1)) return true;
         }
         return false;
     }

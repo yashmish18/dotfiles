@@ -166,8 +166,9 @@ Item {
             Keys.onEscapePressed: Ui.overlay = ""
             Keys.onLeftPressed: root.move(-1)
             Keys.onRightPressed: root.move(1)
-            Keys.onUpPressed: root.move(-grid.cols)
-            Keys.onDownPressed: root.move(grid.cols)
+            readonly property int rowStep: root.mode === "emoji" ? Math.max(1, Math.floor(emojiGrid.width / 96)) : grid.cols
+            Keys.onUpPressed: root.move(-rowStep)
+            Keys.onDownPressed: root.move(rowStep)
             Keys.onTabPressed: root.move(1)
             Keys.onBacktabPressed: root.move(-1)
         }

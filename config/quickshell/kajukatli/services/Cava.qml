@@ -64,7 +64,9 @@ Singleton {
     function restart() {
         lastRestart = Date.now();
         lastSignal = Date.now();
-        proc.running = false;
+        // stop the old one and leave: its exit (below) calls back here once it's gone. starting
+        // the next one now made that exit look like a crash, and it restarted for ever
+        if (proc.running) { proc.running = false; return; }
         if (!wanted) return;
         writer.command = ["sh", "-c", 'mkdir -p "$(dirname "$1")" && printf "%s" "$2" > "$1"', "sh", conf, confText];
         writer.running = true;
@@ -77,7 +79,7 @@ Singleton {
 
     Process {
         id: proc
-        command: ["cava", "-p", root.conf]
+        command: ["setpriv", "--pdeathsig", "TERM", "--", "cava", "-p", root.conf]
         stdout: SplitParser {
             onRead: line => {
                 const parts = line.split(";");
@@ -107,7 +109,7 @@ Singleton {
                 }
             }
         }
-        // cava stopped by itself (the audio device changed: a sound mode, headphones, a new
+        // cava stopped by itself (the audio device changed: the equalizer, headphones, a new
         // wallpaper's video): start it again instead of leaving the bars frozen
         onExited: if (root.wanted) again.restart()
     }

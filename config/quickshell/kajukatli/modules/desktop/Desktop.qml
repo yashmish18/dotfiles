@@ -115,7 +115,7 @@ Variants {
                         Layout.alignment: Qt.AlignHCenter
                         spacing: 8
                         Btn { text: "Settings"; onClicked: { Ui.editing = false; Ui.open("settings"); } }
-                        Btn { text: "Reset"; onClicked: { const p = Looks.presets[Config.s.look]; Config.s.layout = p ? Object.assign({}, p.layout) : ({}); } }
+                        Btn { text: "Reset"; onClicked: Config.resetLayout() }
                         Btn { text: "Done"; active: true; onClicked: Ui.editing = false }
                     }
                 }

@@ -161,6 +161,10 @@ Rectangle {
             color: Theme.surfaceTextDim
         }
 
-        Btn { text: "Hide"; danger: true; flat: true; onClicked: { root.done(); root.hide(); } }
+        Row {
+            spacing: 8
+            Btn { text: "Edit layout"; flat: true; onClicked: { root.done(); Ui.editing = true; } }
+            Btn { text: "Hide"; danger: true; flat: true; onClicked: { root.done(); root.hide(); } }
+        }
     }
 }

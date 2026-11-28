@@ -19,9 +19,11 @@ Item {
     property bool ghost: false        // invisible but still grabbable (its look is drawn elsewhere)
     // "auto" placement: a function (w, h, areaW, areaH) → { x, y } as fractions, or null
     property var autoPlace: null
-    default property alias content: holder.data
+    // a Component, built only while the widget is shown (or fading out). built always, every
+    // hidden widget on every screen and both layers cost memory and kept its services running
+    default property alias content: loader.sourceComponent
 
-    readonly property Item item: holder.children.length > 0 ? holder.children[0] : null
+    readonly property Item item: loader.item
     readonly property var saved: Config.pos(name, fallback)
     readonly property var p: {
         if (saved.auto && autoPlace && parent) {
@@ -57,6 +59,10 @@ Item {
         scale: root.k
         transformOrigin: Item.TopLeft
         opacity: root.ghost ? 0 : 1
+        Loader {
+            id: loader
+            active: root.shown || root.opacity > 0
+        }
     }
 
     // ---------------------------------------------------------------- handling
@@ -83,7 +89,27 @@ Item {
         anchors.top: parent.top
         height: root.gripOnly && !Ui.editing ? Math.min(parent.height, 22) : 0
     }
+    // line up with the other widgets (edges and centres) and the middle of the screen
+    // shortcut: snaps on release, no guide lines while dragging
+    function snapped(pos: real, size: real, targets: var): real {
+        let best = pos, gap = 12;
+        for (const t of targets)
+            for (const at of [t, t - size / 2, t - size])
+                if (Math.abs(at - pos) < gap) { gap = Math.abs(at - pos); best = at; }
+        return best;
+    }
+    function snap() {
+        const xs = [parent.width / 2], ys = [parent.height / 2];
+        for (const o of parent.children) {
+            if (o === root || o.name === undefined || o.shown !== true || o.width <= 0) continue;
+            xs.push(o.x, o.x + o.width / 2, o.x + o.width);
+            ys.push(o.y, o.y + o.height / 2, o.y + o.height);
+        }
+        x = Math.max(0, Math.min(parent.width - width, snapped(x, width, xs)));
+        y = Math.max(0, Math.min(parent.height - height, snapped(y, height, ys)));
+    }
     function dropped() {
+        snap();
         const fx = root.parent.width - root.width > 0 ? root.x / (root.parent.width - root.width) : 0.5;
         const fy = root.parent.height - root.height > 0 ? root.y / (root.parent.height - root.height) : 0.5;
         Config.setPos(root.name, fx, fy);

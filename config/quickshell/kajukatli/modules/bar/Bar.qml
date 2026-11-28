@@ -69,8 +69,8 @@ Variants {
 
         HyprlandFocusGrab {
             windows: [bar]
-            active: bar.open && grabArmed.armed
-            onCleared: Ui.panel = ""
+            active: bar.open && grabArmed.armed && !Ui.picking
+            onCleared: if (!Ui.picking) Ui.panel = ""
         }
 
         // ---- right-click on the bar: change how it looks right here, no settings window
@@ -110,6 +110,7 @@ Variants {
                 { label: Config.s.barPosition === "top" ? "Move to the bottom" : "Move to the top", run: () => { Config.s.barPosition = Config.s.barPosition === "top" ? "bottom" : "top"; } },
                 { label: "Hide the bar (Super + Shift + B)", run: () => { Ui.barVisible = false; } },
                 { sep: true },
+                { label: "Edit desktop layout", run: () => { Ui.editing = true; } },
                 { label: "Choose what's in the bar…", run: () => Ui.settings("bar") }
             ]
         }

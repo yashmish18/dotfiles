@@ -95,11 +95,13 @@ Singleton {
         scanProc.running = true;
     }
     function setWifi(on: bool) {
+        if (wifiProc.running) return;
         wifiEnabled = on;
         wifiProc.command = ["nmcli", "radio", "wifi", on ? "on" : "off"];
         wifiProc.running = true;
     }
     function connectTo(name: string, password: string) {
+        if (connectProc.running) return;    // one at a time, so the result is shown for the right one
         error = "";
         busySsid = name;
         needsPassword = "";
@@ -153,7 +155,8 @@ Singleton {
     Process {
         id: monitor
         running: true
-        command: ["nmcli", "monitor"]
+        // pdeathsig: without it every shell restart left another one running
+        command: ["setpriv", "--pdeathsig", "TERM", "--", "nmcli", "monitor"]
         stdout: SplitParser {
             onRead: debounce.restart()
         }
@@ -232,7 +235,7 @@ Singleton {
 
     Process {
         id: scanProc
-        command: ["sh", "-c", "nmcli radio wifi on >/dev/null 2>&1 || exit 1; nmcli device wifi rescan >/dev/null 2>&1 || true; sleep 1; nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY device wifi list"]
+        command: ["sh", "-c", "[ \"$(nmcli radio wifi)\" = enabled ] || exit 0; nmcli device wifi rescan >/dev/null 2>&1 || true; sleep 1; nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY device wifi list"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const seen = {};

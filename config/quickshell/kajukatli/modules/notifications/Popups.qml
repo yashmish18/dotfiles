@@ -27,7 +27,9 @@ PanelWindow {
         spacing: 8
 
         Repeater {
-            model: Notifs.popups.filter(n => n)
+            // a ScriptModel keeps the cards that stay: with a plain array every new notification
+            // rebuilt them all and restarted their countdowns, so they piled up
+            model: ScriptModel { values: Notifs.popups.filter(n => n) }
 
             delegate: Item {
                 id: slot
@@ -61,7 +63,11 @@ PanelWindow {
                     readonly property int ms: slot.modelData && slot.modelData.expireTimeout > 0 ? slot.modelData.expireTimeout * 1000 : Config.s.notificationTimeout
                     interval: ms
                     running: !hover.hovered && slot.modelData && slot.modelData.urgency !== NotificationUrgency.Critical
-                    onTriggered: slot.close()
+                    onTriggered: {
+                        const n = slot.modelData;
+                        slot.close();
+                        if (n && n.transient) n.expire();    // not meant to be kept in the history
+                    }
                 }
                 TapHandler {
                     acceptedButtons: Qt.RightButton

@@ -65,6 +65,10 @@ internal="$(printf '%s' "$all" | jq -r '[.[] | select(.name|test("^(eDP|LVDS|DSI
 [ -n "$internal" ] || internal="$(printf '%s' "$all" | jq -r '.[0].name // empty')"
 external="$(printf '%s' "$all" | jq -r --arg i "$internal" '[.[] | select(.name != $i)][0].name // empty')"
 
+# the scale you chose in settings → display for this screen, else 100%
+scale_of() { jq -r --arg n "$1" '.monitorScales[$n] // 1' "${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli/settings.json" 2>/dev/null || echo 1; }
+int_scale="$(scale_of "$internal")"; ext_scale="$(scale_of "$external")"
+
 # mon NAME "field = value, ..."   (lua fields; translated for hyprlang when needed)
 mon() {
     local name="$1" fields="$2"
@@ -119,19 +123,19 @@ reapply=0
 
 case "$mode" in
     extend)   need_external; reset_if_needed
-              mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
-              mon "$external" 'mode = "preferred", position = "auto-right", scale = "1"' ;;
+              mon "$internal" "mode = \"preferred\", position = \"0x0\", scale = \"$int_scale\""
+              mon "$external" "mode = \"preferred\", position = \"auto-right\", scale = \"$ext_scale\"" ;;
     left)     need_external; reset_if_needed
-              mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
-              mon "$external" 'mode = "preferred", position = "auto-left", scale = "1"' ;;
+              mon "$internal" "mode = \"preferred\", position = \"0x0\", scale = \"$int_scale\""
+              mon "$external" "mode = \"preferred\", position = \"auto-left\", scale = \"$ext_scale\"" ;;
     mirror)   need_external; reset_if_needed
-              mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
-              mon "$external" "mode = \"preferred\", position = \"auto\", scale = \"1\", mirror = \"$internal\"" ;;
+              mon "$internal" "mode = \"preferred\", position = \"0x0\", scale = \"$int_scale\""
+              mon "$external" "mode = \"preferred\", position = \"auto\", scale = \"$ext_scale\", mirror = \"$internal\"" ;;
     internal) reset_if_needed
-              mon "$internal" 'mode = "preferred", position = "0x0", scale = "1"'
+              mon "$internal" "mode = \"preferred\", position = \"0x0\", scale = \"$int_scale\""
               [ -z "$external" ] || mon "$external" 'disabled = true' ;;
     external) need_external; reset_if_needed
-              mon "$external" 'mode = "preferred", position = "0x0", scale = "1"'
+              mon "$external" "mode = \"preferred\", position = \"0x0\", scale = \"$ext_scale\""
               mon "$internal" 'disabled = true' ;;
     *) echo "usage: kk-display status|json|extend|mirror|internal|external|left|send ±1" >&2; exit 2 ;;
 esac

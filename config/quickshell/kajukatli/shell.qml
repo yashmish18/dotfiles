@@ -42,6 +42,11 @@ ShellRoot {
     readonly property var systemService: System
     readonly property var batteryService: Battery
     readonly property var pomoService: Pomo
+    // singletons are only created when something first uses them: without these lines a saved
+    // equalizer stayed off after a restart until the control center had been opened
+    readonly property var eqService: Eq
+    readonly property var appsService: Apps
+    readonly property var btService: Bt
 
     // make sure the folders the shell writes to exist
     Process {
@@ -56,19 +61,6 @@ ShellRoot {
         repeat: true
         running: true
         onTriggered: Quickshell.execDetached([Config.bin + "kk-storage", "tidy"])
-    }
-
-    // battery saver: when unplugged, drop the expensive bits; restore them on ac
-    Connections {
-        target: Power
-        function onOnBatteryChanged() {
-            // shadows and blur are the expensive bits of the compositor
-            // blur stays on (terminal glass); Power.applyPower lightens it, only shadows go here
-            if (Power.onBattery)
-                Hypr.hyprEval('hl.config({ decoration = { shadow = { enabled = false }, blur = { enabled = true } } })');
-            else
-                Hypr.hyprEval('hl.config({ decoration = { shadow = { enabled = true }, blur = { enabled = true } } })');
-        }
     }
 
     // ------------------------------------------------------------- shortcuts
@@ -97,6 +89,7 @@ ShellRoot {
         case "overview_toggle": Ui.toggleOverlay("overview"); break;
         case "system": Ui.toggleOverlay("system"); break;
         case "displays": Ui.toggleOverlay("displays"); break;
+        case "equalizer": Ui.toggleOverlay("equalizer"); break;
         case "running": Ui.toggle("running"); break;
         case "phone": Ui.toggle("phone"); break;
         case "cheatsheet": Ui.toggleOverlay("cheatsheet"); break;
@@ -109,6 +102,9 @@ ShellRoot {
         case "reapply": Power.applyPower(); break;   // after kk-display reloaded hyprland's config
         case "brightness_up": Bright.up(); break;
         case "brightness_down": Bright.down(); break;
+        case "media_toggle": Media.toggle(); break;
+        case "media_next": Media.next(); break;
+        case "media_prev": Media.prev(); break;
         case "close": Ui.closeAll(); break;
         case "edit": Ui.panel = ""; Ui.editing = !Ui.editing; break;
         case "look_next": {
@@ -121,8 +117,8 @@ ShellRoot {
 
     Variants {
         model: ["launcher", "control", "settings", "notifications", "clipboard", "session", "wallpapers",
-                "overview", "overview_back", "overview_toggle", "system", "displays", "running", "phone", "cheatsheet", "emoji", "projection", "packages", "bar", "ws_next", "ws_prev", "ws_new", "ws_new_move", "ws_rename",
-                "brightness_up", "brightness_down", "close", "edit", "look_next", "capture", "focus", "timer", "notes"]
+                "overview", "overview_back", "overview_toggle", "system", "displays", "equalizer", "running", "phone", "cheatsheet", "emoji", "projection", "packages", "bar", "ws_next", "ws_prev", "ws_new", "ws_new_move", "ws_rename",
+                "brightness_up", "brightness_down", "media_toggle", "media_next", "media_prev", "close", "edit", "look_next", "capture", "focus", "timer", "notes"]
         GlobalShortcut {
             required property var modelData
             appid: "kajukatli"

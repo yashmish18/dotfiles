@@ -26,6 +26,7 @@ Singleton {
         if (!Config.s.networkWeather) { ready = false; return; }
         if (proc.running) return;
         const loc = encodeURIComponent(Config.s.weatherLocation.trim());
+        proc.asked = Config.s.weatherLocation;
         proc.command = ["curl", "-sfL", "--max-time", "12", "https://wttr.in/" + loc + "?format=j1"];
         proc.running = true;
     }
@@ -49,6 +50,9 @@ Singleton {
 
     Process {
         id: proc
+        property string asked: ""
+        // the location changed while this was fetching: fetch the new one
+        onExited: if (asked !== Config.s.weatherLocation) Qt.callLater(root.refresh)
         stdout: StdioCollector {
             onStreamFinished: { if (text.trim() !== "" && root.parse(text)) root.last = text; }
         }

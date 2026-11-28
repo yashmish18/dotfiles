@@ -50,6 +50,7 @@ Singleton {
     property string okText: ""
     Timer { id: clearMsg; interval: 4000; onTriggered: root.message = "" }
     function run(args: var, ok: string) {
+        if (act.running) return;
         okText = ok;
         act.command = [Config.bin + "kk-phone"].concat(args);
         act.running = true;

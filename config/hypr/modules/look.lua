@@ -52,6 +52,8 @@ hl.config({
         -- rules, and the screen blanked for a moment. colours go in live (hyprctl eval) instead;
         -- after editing the config yourself: super + shift + ctrl + r, or hyprctl reload
         disable_autoreload       = true,
+        -- a restarted shell may take over a lock its crashed predecessor left behind
+        allow_session_lock_restore = true,
     },
 
     cursor = {

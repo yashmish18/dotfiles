@@ -1,13 +1,15 @@
 #!/bin/sh
 # lock with the kajukatli lock screen. only if the shell really isn't running, fall back to
 # hyprlock: two lockers fighting over the screen is how a lock ends up taking no input.
+# only the desktop shell counts: the photobooth is a "qs" process too
+shell_up() { pgrep -f '(^|/)(qs|quickshell)( -n)? -c kajukatli$' >/dev/null 2>&1; }
 for _ in 1 2 3 4 5; do
     if qs -c kajukatli ipc call lock lock >/dev/null 2>&1; then
         exit 0
     fi
     # the shell is up but busy (waking from sleep): give it a moment rather than hyprlock
-    pgrep -x qs >/dev/null 2>&1 || pgrep -x quickshell >/dev/null 2>&1 || break
+    shell_up || break
     sleep 0.4
 done
-pgrep -x qs >/dev/null 2>&1 && exit 1
+shell_up && exit 1
 pidof hyprlock >/dev/null 2>&1 || exec hyprlock

@@ -865,6 +865,7 @@ def load_bundle(src: Path, force: bool) -> tuple[dict | None, Path, str]:
         try:
             meta = json.loads(meta_path.read_text())
             if meta.get("version") == BUNDLE_VERSION and Path(meta.get("display", "")).exists():
+                os.utime(out)      # "used today": the 30-day clean-up goes by this
                 return meta, out, key
         except (OSError, ValueError):
             pass

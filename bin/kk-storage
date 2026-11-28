@@ -155,17 +155,21 @@ case "${1:-report}" in
         if lsblk -nro MOUNTPOINT "$disk" 2>/dev/null | grep -qxE '/|/boot|/boot/efi|/efi|/home|\[SWAP\]'; then
             echo "that's the disk the system runs from: not formatting it" >&2; exit 1
         fi
+        # an argument list, never a command string: a label is data, root's shell never reads it
+        flag=-L
         case "$fs" in
-            exfat) cmd="mkfs.exfat ${label:+-L \"$label\"} \"$dev\"" ;;
-            fat32) cmd="mkfs.fat -F 32 ${label:+-n \"${label:0:11}\"} \"$dev\"" ;;
-            ext4)  cmd="mkfs.ext4 -F ${label:+-L \"$label\"} \"$dev\"" ;;
-            ntfs)  cmd="mkfs.ntfs -f ${label:+-L \"$label\"} \"$dev\"" ;;
-            btrfs) cmd="mkfs.btrfs -f ${label:+-L \"$label\"} \"$dev\"" ;;
+            exfat) cmd=(mkfs.exfat) ;;
+            fat32) cmd=(mkfs.fat -F 32); flag=-n; label="${label:0:11}" ;;
+            ext4)  cmd=(mkfs.ext4 -F) ;;
+            ntfs)  cmd=(mkfs.ntfs -f) ;;
+            btrfs) cmd=(mkfs.btrfs -f) ;;
             *) echo "format as exfat, fat32, ext4, ntfs or btrfs" >&2; exit 2 ;;
         esac
+        [ -n "$label" ] && cmd+=("$flag" "$label")
+        cmd+=("$dev")
         # unmount everything on it, clear the old signatures, then the new filesystem
         for p in $(lsblk -nro PATH "$dev"); do udisksctl unmount -b "$p" >/dev/null 2>&1 || true; done
-        pkexec sh -c "wipefs -a \"$dev\" >/dev/null && $cmd" || exit 1
+        pkexec sh -c 'wipefs -a "$1" >/dev/null && shift && "$@"' sh "$dev" "${cmd[@]}" || exit 1
         # ext4/btrfs: make it yours, not root's
         case "$fs" in ext4|btrfs)
             m="$(udisksctl mount -b "$dev" 2>/dev/null | sed -n 's/.* at \(.*\)$/\1/p')"
@@ -205,7 +209,8 @@ case "${1:-report}" in
         find "$CACHE/thumbnails" -type f -atime +30 -delete 2>/dev/null
         # what you chose to keep (settings → storage), read from settings.json
         set_="${XDG_CONFIG_HOME:-$HOME/.config}/kajukatli/settings.json"
-        pref() { jq -r --arg k "$1" --arg d "$2" '.[$k] // $d' "$set_" 2>/dev/null || echo "$2"; }
+        # not jq's //: it treats a saved "false" as missing and hands back the default
+        pref() { jq -r --arg k "$1" --arg d "$2" 'if .[$k] == null then $d else .[$k] end' "$set_" 2>/dev/null || echo "$2"; }
         keep_clip="$(pref clipboardKeep 30)"
         # clipboard history: wiped at login (unless you said not to), never more than your limit
         if command -v cliphist >/dev/null; then
@@ -219,7 +224,7 @@ case "${1:-report}" in
         d="$(pref screenshotsDays 0)"; [ "$d" -gt 0 ] 2>/dev/null && find "${XDG_PICTURES_DIR:-$HOME/Pictures}/screenshots" -type f -mtime +"$d" -delete 2>/dev/null
         d="$(pref recordingsDays 0)"; [ "$d" -gt 0 ] 2>/dev/null && find "${XDG_VIDEOS_DIR:-$HOME/Videos}/recordings" -type f -mtime +"$d" -delete 2>/dev/null
         # the recycle bin: what's been there longer than your limit
-        d="$(pref trashDays 30)"
+        d="$(pref trashDays 0)"
         if [ "$d" -gt 0 ] 2>/dev/null; then
             for info in "$DATA"/Trash/info/*.trashinfo; do
                 [ -f "$info" ] && [ -n "$(find "$info" -mtime +"$d" 2>/dev/null)" ] || continue

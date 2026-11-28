@@ -47,7 +47,8 @@ jq
 libnotify
 curl
 ffmpeg
-pciutils psmisc
+pciutils
+psmisc
 git
 openssh
 gnupg

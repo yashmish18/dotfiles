@@ -126,22 +126,25 @@ Singleton {
 
     // ------------------------------------------------------------ no background apps
     // remember which process each window belongs to, so a closed window can be traced back
+    property var closed: []                // windows closed since the last check
     property var owners: ({})              // address → { pid, cls }
     Connections {
         target: Hyprland
         function onRawEvent(ev) {
             if (!Config.s.noBackgroundApps) return;
             const n = ev.name || "";
-            if (n === "openwindow") ownerProc.running = true;
+            if (n === "openwindow") { if (ownerProc.running) ownerProc.again = true; else ownerProc.running = true; }
             else if (n === "closewindow") {
                 const addr = "0x" + (ev.data || "").trim().replace(/^0x/, "");
                 const o = root.owners[addr];
-                if (o) { reapProc.target = o; reapTimer.restart(); }
+                if (o) { root.closed.push(o); reapTimer.restart(); }
             }
         }
     }
     Process {
         id: ownerProc
+        property bool again: false
+        onExited: if (again) { again = false; Qt.callLater(() => ownerProc.running = true); }
         command: ["hyprctl", "clients", "-j"]
         stdout: StdioCollector {
             onStreamFinished: {
@@ -153,6 +156,16 @@ Singleton {
             }
         }
     }
+    function reap(t: var, list: var) {
+        if (!t || !(t.pid > 0)) return;
+        if (list.some(c => c.pid === t.pid)) return;           // it still has a window
+        // never the shell, the compositor or our own helpers, whatever the list says
+        if (t.pid === Quickshell.processId || /quickshell|^qs$|kajukatli|hyprland|xwayland/i.test(String(t.cls))) return;
+        const a = (Config.s.backgroundAllowed || []).map(x => String(x).toLowerCase());
+        const entry = entryFor(t.cls);
+        if (a.indexOf(String(t.cls).toLowerCase()) !== -1 || (entry && a.indexOf(String(entry.id).toLowerCase()) !== -1)) return;
+        Quickshell.execDetached(["kill", "-TERM", String(t.pid)]);
+    }
     Component.onCompleted: if (Config.s.noBackgroundApps) ownerProc.running = true
     Timer {
         id: reapTimer
@@ -161,23 +174,12 @@ Singleton {
     }
     Process {
         id: reapProc
-        property var target: null
         command: ["hyprctl", "clients", "-j"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const t = reapProc.target;
-                if (!t || !(t.pid > 0)) return;
                 let list = [];
                 try { list = JSON.parse(text); } catch (e) { return; }
-                if (list.some(c => c.pid === t.pid)) return;           // it still has a window
-                // never the shell itself: its own windows (the settings window, a floating panel)
-                // are Hyprland clients owned by this very process, and "closed its last window"
-                // would otherwise make the shell terminate itself the moment you close settings
-                if (t.pid === Quickshell.processId || /quickshell|^qs$|kajukatli|hyprland|xwayland/i.test(String(t.cls))) return;
-                const a = (Config.s.backgroundAllowed || []).map(x => String(x).toLowerCase());
-                const entry = root.entryFor(t.cls);
-                if (a.indexOf(String(t.cls).toLowerCase()) !== -1 || (entry && a.indexOf(String(entry.id).toLowerCase()) !== -1)) return;
-                Quickshell.execDetached(["kill", "-TERM", String(t.pid)]);
+                for (const t of root.closed.splice(0)) root.reap(t, list);
                 ownerProc.running = true;
             }
         }

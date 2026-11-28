@@ -8,6 +8,8 @@ Singleton {
     id: root
 
     property bool dnd: false
+    Component.onCompleted: dnd = Store.s.dnd
+    onDndChanged: Store.s.dnd = dnd
     property var popups: []           // shown as toasts right now (newest first)
     readonly property var history: server.trackedNotifications.values
     readonly property int count: history.length
@@ -33,6 +35,9 @@ Singleton {
 
         onNotification: n => {
             n.tracked = true;
+            // history keeps each notification and its picture in memory: keep the newest 50
+            const old = server.trackedNotifications.values;
+            for (const x of old.slice(0, Math.max(0, old.length - 50))) x.dismiss();
             if ((root.dnd || Ui.focusMode || Hypr.fullscreen) && n.urgency !== NotificationUrgency.Critical) return;
             if (Ui.panel === "notifications") return; // you're already looking at them
             root.popups = [n].concat(root.popups.filter(p => p)).slice(0, 4);

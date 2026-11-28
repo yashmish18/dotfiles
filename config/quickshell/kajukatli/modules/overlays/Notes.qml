@@ -17,6 +17,7 @@ Item {
         id: file
         path: root.path
         printErrors: false
+        blockWrites: true      // on close the last words are on disk before the sheet is gone
         onLoaded: { edit.text = text(); root.ready = true; edit.cursorPosition = edit.length; }
         onLoadFailed: root.ready = true
     }
@@ -24,13 +25,12 @@ Item {
     Timer {
         id: save
         interval: 600
-        onTriggered: {
-            saver.command = ["sh", "-c", 'mkdir -p "$(dirname "$1")" && printf "%s" "$2" > "$1.tmp" && mv "$1.tmp" "$1"', "sh", root.path, edit.text];
-            saver.running = true;
-        }
+        // written by quickshell itself (atomically). passed as a command argument, a note over
+        // 128 kb silently stopped saving
+        onTriggered: file.setText(edit.text)
     }
-    Process { id: saver }
-    Component.onDestruction: if (save.running) { save.stop(); Quickshell.execDetached(["sh", "-c", 'printf "%s" "$2" > "$1"', "sh", root.path, edit.text]); }
+    Process { running: true; command: ["mkdir", "-p", Config.home + "/Documents"] }
+    Component.onDestruction: if (save.running) { save.stop(); file.setText(edit.text); }
 
     Rectangle {
         id: sheet
@@ -53,7 +53,7 @@ Item {
             anchors.right: parent.right
             anchors.rightMargin: 34
             anchors.verticalCenter: head.verticalCenter
-            text: save.running || saver.running ? "saving" : "~/Documents/notes.md"
+            text: save.running ? "saving" : "~/Documents/notes.md"
             font.family: Theme.mono
             font.pixelSize: Theme.xs + 1
             color: Theme.outline

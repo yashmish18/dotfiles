@@ -95,6 +95,8 @@ Item {
         onTriggered: {
             const term = root.q.slice(1).trim();
             if (term.length < 2) { root.files = []; return; }
+            if (finder.running) return;     // onExited looks again if the text moved on
+            finder.asked = term;
             finder.command = ["sh", "-c",
                 'cd "$HOME" && if command -v fd >/dev/null; then fd -i -t f -t d --max-results 8 -- "$1"; '
                 + 'else find . -maxdepth 5 -not -path "*/.*" -iname "*$1*" 2>/dev/null | head -n 8 | sed "s|^\\./||"; fi',
@@ -105,8 +107,10 @@ Item {
     onQChanged: if (mode === "files") findLater.restart(); else files = []
     Process {
         id: finder
+        property string asked: ""
+        onExited: if (root.mode === "files" && root.q.slice(1).trim() !== asked) findLater.restart()
         stdout: StdioCollector {
-            onStreamFinished: root.files = text.split("\n").filter(x => x !== "").map(x => Config.home + "/" + x)
+            onStreamFinished: if (root.q.slice(1).trim() === finder.asked) root.files = text.split("\n").filter(x => x !== "").map(x => Config.home + "/" + x)
         }
     }
 
@@ -126,7 +130,7 @@ Item {
             onEscaped: Ui.panel = ""
             onDownPressed: root.index = Math.min(root.index + 1, Math.max(0, (root.mode === "files" ? root.files.length : root.results.length) - 1))
             onUpPressed: root.index = Math.max(0, root.index - 1)
-            onTabPressed: root.index = (root.index + 1) % Math.max(1, root.results.length)
+            onTabPressed: root.index = (root.index + 1) % Math.max(1, (root.mode === "files" ? root.files : root.results).length)
         }
 
         Repeater {

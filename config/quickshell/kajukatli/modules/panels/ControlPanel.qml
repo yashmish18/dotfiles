@@ -16,13 +16,12 @@ Item {
     Keys.onEscapePressed: page === "main" ? Ui.panel = "" : page = "main"
 
     property string page: Ui.controlPage !== "" ? Ui.controlPage : "main"
+    // opening a page never switches a radio on: that's the icon's job
     function openWifi() {
-        if (!Net.wifiEnabled) Net.setWifi(true);
         page = "wifi";
         Net.rescan();
     }
     function openBt() {
-        if (Bt.available && !Bt.enabled) Bt.setEnabled(true);
         page = "bluetooth";
         Bt.setScanning(true);
     }
@@ -254,16 +253,16 @@ Item {
                     onToggled: Gpu.setPower(!Gpu.powered)
                     onOpened: Ui.settings("display")
                 }
-                // sound mode: the icon switches it on (last mode) or off, the tile opens the sound page
+                // equalizer: the icon switches it, the tile opens it
                 Toggle {
                     Layout.fillWidth: true
-                    icon: "music"
-                    title: "Sound mode"
-                    detail: Sound.label
-                    on: Sound.active
+                    icon: "sliders"
+                    title: "Equalizer"
+                    detail: Eq.label
+                    on: Eq.on
                     more: true
-                    onToggled: Sound.toggle()
-                    onOpened: root.page = "sound"
+                    onToggled: Eq.toggle()
+                    onOpened: { Ui.panel = ""; Ui.overlay = "equalizer"; }
                 }
             }
 
@@ -285,7 +284,7 @@ Item {
                         color: Theme.surfaceHighest
                         Image {
                             anchors.fill: parent
-                            source: Media.art
+                            source: Media.cover
                             fillMode: Image.PreserveAspectCrop
                             sourceSize: Qt.size(96, 96)
                             asynchronous: true
@@ -367,9 +366,12 @@ Item {
                         password: true
                         size: Theme.md
                         placeholder: "Password"
+                        // the list is rebuilt on every network change: put the typing back
+                        Component.onCompleted: if (netRow.asking) { text = Ui.wifiDraft; focusNow(); }
+                        onTextChanged: if (visible) Ui.wifiDraft = text
                         onVisibleChanged: if (visible) focusNow()
-                        onAccepted: if (text !== "") Net.connectTo(netRow.modelData.ssid, text)
-                        onEscaped: Net.needsPassword = ""
+                        onAccepted: if (text !== "") { Net.connectTo(netRow.modelData.ssid, text); Ui.wifiDraft = ""; }
+                        onEscaped: { Ui.wifiDraft = ""; Net.needsPassword = ""; }
                     }
                 }
             }
@@ -519,32 +521,6 @@ Item {
                 subtitle: Audio.name(Audio.sink)
                 onBack: root.page = "main"
                 Btn { icon: "external"; onClicked: { Ui.panel = ""; Quickshell.execDetached(["pavucontrol"]); } }
-            }
-            Caption { text: "SOUND MODE" }
-            Flow {
-                Layout.fillWidth: true
-                spacing: 6
-                Btn { text: "Off"; active: !Sound.active; onClicked: Sound.set("off") }
-                Repeater {
-                    model: Sound.modes
-                    delegate: Btn {
-                        required property var modelData
-                        text: modelData.label
-                        active: Sound.mode === modelData.key
-                        enabled: modelData.key !== "atmos" || Sound.haveAtmos
-                        onClicked: Sound.set(modelData.key)
-                    }
-                }
-            }
-            Txt {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                font.pixelSize: Theme.xs + 1
-                color: Sound.error !== "" ? Theme.error : Theme.surfaceTextDim
-                text: Sound.error !== "" ? Sound.error
-                    : Sound.active ? (Sound.modes.find(m => m.key === Sound.mode) || { about: "" }).about
-                    : Sound.haveAtmos ? "Pick a mode: everything plays through it."
-                    : "Dolby has no Linux driver. Atmos works with your laptop's own Dolby impulse file: put it in the sound folder (Settings → Sound)."
             }
             Caption { text: "OUTPUT" }
             Repeater {

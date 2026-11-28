@@ -179,8 +179,9 @@ Singleton {
     // on the charger, one wallpaper at a time at idle priority: so every switch has its ink
     // map, cut-out and depth ready, instead of working them out while you watch
     property var backlog: []
+    property var tried: ({})
     function queueBacklog() {
-        backlog = library.filter(w => w.kind === "image" && !(w.meta && (w.meta.stage || 0) >= 2)).map(w => w.path);
+        backlog = library.filter(w => w.kind === "image" && !tried[w.path] && !(w.meta && (w.meta.stage || 0) >= 2)).map(w => w.path);
         backlogTimer.restart();
     }
     Timer {
@@ -192,6 +193,7 @@ Singleton {
             if (ai.running || fast.running || root.backlog.length === 0) return;
             const next = root.backlog[0];
             root.backlog = root.backlog.slice(1);
+            root.tried[next] = true;      // once per session: a failing one isn't retried for ever
             bg.command = ["nice", "-n", "19", "ionice", "-c", "3", Config.bin + "kk-prep", next];
             bg.running = true;
         }
@@ -231,8 +233,13 @@ Singleton {
 
     // ---------------------------------------------------------------- live wallpapers
     function startVideo() {
-        if (!isVideo || !videoAllowed || mpv.running) return;
-        mpv.command = ["mpvpaper", "-p", "-o", "no-audio loop hwdec=auto-safe panscan=1.0 vf=fps=24 cache=no demuxer-max-bytes=8MiB demuxer-max-back-bytes=0 framedrop=vo vd-lavc-threads=2 scale=bilinear cscale=bilinear dscale=bilinear", "ALL", current.video];
+        if (!isVideo || !videoAllowed) return;
+        if (mpv.running) {
+            // the old video is still on its way out, or is the wrong one: start again once it's gone
+            if (mpvStop.running || mpv.command[mpv.command.length - 1] !== current.video) { mpv.again = true; mpvStop.restart(); }
+            return;
+        }
+        mpv.command = ["setpriv", "--pdeathsig", "TERM", "--", "mpvpaper", "-p", "-o", "no-audio loop hwdec=auto-safe panscan=1.0 vf=fps=24 cache=no demuxer-max-bytes=8MiB demuxer-max-back-bytes=0 framedrop=vo vd-lavc-threads=2 scale=bilinear cscale=bilinear dscale=bilinear", "ALL", current.video];
         mpv.running = true;
     }
     function stopVideo() {
@@ -263,9 +270,10 @@ Singleton {
     function restore() {
         if (!Store.ready || root.current !== null) return;
         refreshLibrary();
-        if (Store.s.wallpaper !== "") set(Store.s.wallpaper);
+        if (Store.s.wallpaper !== "") { restoring = Store.s.wallpaper; set(restoring); }
         else random();
     }
+    property string restoring: ""      // the saved one, until it has opened or failed
 
     function lastJson(text: string): var {
         const lines = text.trim().split("\n");
@@ -296,7 +304,10 @@ Singleton {
                     const lines = fastErr.text.trim().split("\n");
                     root.error = (lines[lines.length - 1] || "kk-prep failed").replace(/^kk-prep:\s*/, "");
                     Quickshell.execDetached(["notify-send", "-a", "wallpaper", "couldn't open that one", root.error]);
+                    // the saved wallpaper is gone: any other, once, rather than a blank screen
+                    if (file === root.restoring) Qt.callLater(root.random);
                 }
+                if (file === root.restoring) root.restoring = "";
             }
             if (want !== file) Qt.callLater(() => fast.go(fast.want));   // the newest request wins
         }
@@ -365,9 +376,13 @@ Singleton {
 
     Process {
         id: mpv
+        property bool again: false
         onRunningChanged: {
             if (running) settle.restart();
-            else root.videoReady = false;
+            else {
+                root.videoReady = false;
+                if (again) { again = false; videoStart.restart(); }
+            }
         }
     }
     Timer {

@@ -119,6 +119,37 @@ note() { printf '%s\n' "    ${c_dim}$*${c_0}"; }
 ok()   { printf '%s\n' "  ${c_ok}✓${c_0} $*"; }
 warn() { printf '%s\n' "  ${c_bad}!${c_0} $*"; }
 die()  { warn "$*"; exit 1; }
+# ------------------------------------------------------------------ shell restart
+# restart through kk-shell, which brings crash recovery and the memory settings with it.
+# the old watcher is stopped first, so a new kk-shell script takes effect too
+restart_shell() {
+    [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] || return 0
+    # never pull the shell out from under a locked screen
+    if [ "$(qs -c kajukatli ipc call lock isLocked 2>/dev/null)" = true ]; then
+        warn "screen is locked: the shell updates at your next login"; return 0
+    fi
+    pkill -f '^/bin/sh .*/kk-shell$' 2>/dev/null
+    pkill -x qs 2>/dev/null
+    for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -x qs >/dev/null 2>&1 || break; sleep 0.3; done
+    (setsid "$HOME/.local/bin/kk-shell" >/dev/null 2>&1 &) || true
+}
+
+# quickshell uses qt's private api: after a qt update it must be rebuilt or it crashes
+# the shell is the notification service. dunst gets started by d-bus whenever something notifies
+# while the shell is restarting, then keeps the job: its popups piled up and never reached the shell
+silence_dunst() {
+    command -v dunst >/dev/null 2>&1 || return 0
+    systemctl --user mask dunst.service >/dev/null 2>&1 || true
+    pkill -x dunst 2>/dev/null || true
+}
+
+check_quickshell_qt() {
+    command -v qs >/dev/null 2>&1 || return 0
+    if qs log -c kajukatli 2>/dev/null | grep -q "Quickshell was built against Qt"; then
+        warn "quickshell was built against an older qt, which causes crashes. rebuild it: paru -S --rebuild quickshell  (or yay)"
+    fi
+}
+
 ask()  { # ask "question" default(y/n)
     local q="$1" d="${2:-y}" r
     if [ "$YES" = 1 ]; then [ "$d" = y ]; return; fi
@@ -127,6 +158,11 @@ ask()  { # ask "question" default(y/n)
     r="${r:-$d}"
     [[ "$r" =~ ^[Yy] ]]
 }
+
+# a dry run only knows how to show the full install plan: never fall through to a real action
+if [ "$DRY_RUN" = 1 ] && { [ "$MODE" != install ] || [ -n "$ONLY" ]; }; then
+    die "--dry-run only works for a full install; nothing was changed"
+fi
 
 case "$MODE" in
     update)
@@ -150,11 +186,15 @@ case "$MODE" in
         ok "updated $(git -C "$REPO" log -1 --format=%h "$old")..$(git -C "$REPO" log -1 --format=%h "$new")"
         note "something wrong? ./install.sh --rollback puts the old version and your settings back"
         "$REPO/install.sh" --links
+        "$REPO/install.sh" --shaders || warn "shaders didn't compile: ./install.sh --shaders"
+        git -C "$REPO" diff --quiet "$old" "$new" -- packages/ || warn "the package lists changed: run ./install.sh to install what's new"
         "$REPO/bin/kk-storage" tidy || true
         # what the update needs: the shell restarts by itself, hyprland reloads its config;
         # only gpu or login-screen changes need a log out
         hyprctl reload >/dev/null 2>&1 || true
-        pkill -x qs 2>/dev/null; (setsid qs -c kajukatli >/dev/null 2>&1 &) || true
+        silence_dunst
+        restart_shell
+        check_quickshell_qt
         if git -C "$REPO" diff --name-only "$old" "$new" | grep -qE "^system/|gpu|kk-session|greetd"; then
             note "this update changed system or graphics files: log out and back in once"
         else
@@ -181,7 +221,7 @@ case "$MODE" in
         if [ -n "$moved" ] && [ -f "$moved/.moved" ]; then
             while IFS= read -r dst; do
                 src="$moved/${dst#$HOME/}"
-                [ -e "$src" ] || continue
+                [ -e "$src" ] || [ -L "$src" ] || continue
                 [ -L "$dst" ] && rm -f "$dst"
                 [ -e "$dst" ] || { mkdir -p "$(dirname "$dst")"; cp -a "$src" "$dst"; note "restored ${dst#$HOME/}"; }
             done < "$moved/.moved"
@@ -292,7 +332,7 @@ bootstrap_aur_helper() {
 packages() {
     say "updating the system and installing packages"
     if [ "$DRY_RUN" = 1 ]; then
-        sed -e 's/#.*//' -e 's/[[:space:]]//g' "$REPO/packages/core.txt" | grep -v '^$' | sed 's/^/  package: /'
+        sed -e 's/#.*//' -e 's/[[:space:]]\{1,\}/\n/g' "$REPO/packages/core.txt" | grep -v '^$' | sed 's/^/  package: /'
         load_extras
         ledger_record "{\"type\":\"dry-run\",\"action\":\"packages\",\"time\":\"$(date -Iseconds)\"}"
         return 0
@@ -309,7 +349,7 @@ packages() {
         # (e.g. tuned-ppd provides power-profiles-daemon; installing both would conflict)
         pacman -T "$p" >/dev/null 2>&1 && continue
         if pacman -Si "$p" >/dev/null 2>&1; then repo+=("$p"); else aur+=("$p"); fi
-    done < <(cat "${lists[@]}" | sed -e 's/#.*//' -e 's/[[:space:]]//g' | sort -u)
+    done < <(cat "${lists[@]}" | sed -e 's/#.*//' -e 's/[[:space:]]\{1,\}/\n/g' | sort -u)
 
     # video decode/encode on the integrated gpu (mpv, mpvpaper, the recorder)
     if grep -q GenuineIntel /proc/cpuinfo; then repo+=(intel-media-driver vulkan-intel); fi
@@ -436,9 +476,9 @@ gpu() {
 # ------------------------------------------------------------------ links
 backup_and_link() { # src dst
     local src="$1" dst="$2"
-    if [ -L "$dst" ]; then
-        rm -f "$dst"
-    elif [ -e "$dst" ]; then
+    if [ -L "$dst" ] && [[ "$(readlink "$dst")" == "$REPO"/* ]]; then
+        rm -f "$dst"                       # our own link from an earlier run
+    elif [ -e "$dst" ] || [ -L "$dst" ]; then      # yours, file or link: kept
         mkdir -p "$BACKUP/$(dirname "${dst#$HOME/}")"
         mv "$dst" "$BACKUP/${dst#$HOME/}"
         echo "$dst" >> "$BACKUP/.moved"
@@ -753,7 +793,7 @@ defaults() {
 # the safe laptop tunables (powertop's list minus usb autosuspend, which breaks some mice),
 # compressed swap in ram, and caps on the things that grow: logs and the package cache.
 savings() {
-    ask "apply the battery, memory and disk savings (recommended on a laptop)" y || return 0
+    ask "apply the battery, memory and disk savings, incl. lower-memory browser settings (recommended on a laptop)" y || return 0
     say "savings"
     sys_install 644 "$REPO/system/sysctl/90-kajukatli-power.conf" /etc/sysctl.d/90-kajukatli-power.conf
     sys_install 644 "$REPO/system/modprobe/kajukatli-power.conf" /etc/modprobe.d/kajukatli-power.conf
@@ -765,6 +805,8 @@ savings() {
     sudo sysctl --system >/dev/null 2>&1 || true
     sudo systemctl restart systemd-journald 2>/dev/null || true
     sudo journalctl --vacuum-size=200M >/dev/null 2>&1 || true
+    # browsers: settings that keep their memory down (kk-lowmem undo)
+    "$REPO/bin/kk-lowmem" || true
     # zram: only if there's no swap set up already (keeps hibernation setups alone)
     if [ ! -f /etc/systemd/zram-generator.conf ] && ! swapon --show=NAME --noheadings 2>/dev/null | grep -v zram >/dev/null; then
         sys_install 644 "$REPO/system/zram/zram-generator.conf" /etc/systemd/zram-generator.conf
@@ -851,6 +893,8 @@ grub_theme || true
 
 # the safe clean-ups and caps on what grows (clipboard images, caches, old packages)
 "$BIN/kk-storage" tidy || true
+silence_dunst
+check_quickshell_qt
 
 echo
 ok "done."

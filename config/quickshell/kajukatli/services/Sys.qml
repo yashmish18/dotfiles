@@ -40,7 +40,7 @@ Singleton {
     Process {
         id: proc
         running: root.running
-        command: [Config.bin + "kk-sys", Power.saving ? "5" : "2"]   // slower sampling on battery
+        command: ["setpriv", "--pdeathsig", "TERM", "--", Config.bin + "kk-sys", Power.saving ? "5" : "2"]   // slower sampling on battery
         stdout: SplitParser {
             onRead: line => {
                 let j;

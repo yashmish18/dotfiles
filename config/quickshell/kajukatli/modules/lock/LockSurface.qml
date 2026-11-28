@@ -169,7 +169,7 @@ Item {
                     Layout.preferredHeight: 52
                     radius: 26
                     color: Theme.surfaceHigh
-                    Image { anchors.fill: parent; source: Media.art; fillMode: Image.PreserveAspectCrop; sourceSize: Qt.size(104, 104); asynchronous: true }
+                    Image { anchors.fill: parent; source: Media.cover; fillMode: Image.PreserveAspectCrop; sourceSize: Qt.size(104, 104); asynchronous: true }
                 }
                 ColumnLayout {
                     Layout.fillWidth: true

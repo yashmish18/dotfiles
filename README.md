@@ -24,7 +24,7 @@ Kajukatli is Hyprland plus its own desktop. It uses no GNOME or KDE desktop piec
 - **A visualiser you control completely:** wave, bars, mirror, or wave plus bars. Full width (bottom, top or middle) or a box you drag anywhere. Height, bar count, gap, rounded or square bars, see-through, smoothness, and colour (wallpaper, accent, the album's, rainbow).
 - **Music fun:** the clock bounces on the beat, sparks fly off the bars, and the screen edges glow in the album's colour.
 - **Now playing** with the cover art in the bar, a player card, synced lyrics, and the accent colour taken from the album.
-- **Sound modes:** Music, Movie, Voice, Laptop speakers, and Dolby Atmos with your own laptop's tuning file. Dolby makes no Linux driver; this runs inside PipeWire.
+- **Equalizer:** ten bands and presets, heard as you drag, following whichever output you use. Built on PipeWire’s own filters; nothing runs while it is off.
 
 ### Everyday
 

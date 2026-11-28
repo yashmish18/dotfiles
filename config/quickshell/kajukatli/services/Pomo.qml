@@ -12,6 +12,8 @@ Singleton {
     property real endsAt: 0          // ms since epoch while running
     property real leftMs: minutes * 60000   // what's left while paused
     property real now: Date.now()
+    // pausing assigns leftMs, which drops its binding: follow a new length by hand
+    onMinutesChanged: if (!running && !onBreak) leftMs = minutes * 60000
 
     readonly property real remaining: running ? Math.max(0, endsAt - now) : leftMs
     readonly property real total: (onBreak ? Config.s.timerBreak : minutes) * 60000

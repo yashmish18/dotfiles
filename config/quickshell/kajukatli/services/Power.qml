@@ -43,6 +43,10 @@ Singleton {
 
     // night light: hyprsunset lives only while it's on, and restores gamma when it exits
     property bool nightLight: false
+    // night light and stay-awake survive a shell restart (state.json)
+    Component.onCompleted: { nightLight = Store.s.nightLight; caffeine = Store.s.caffeine; }
+    onNightLightChanged: Store.s.nightLight = nightLight
+    onCaffeineChanged: Store.s.caffeine = caffeine
     // on a schedule (settings → display): checked once a minute, and it only ever flips the
     // switch at the two edges, so turning it on or off by hand still works in between
     property bool scheduleWas: false
@@ -61,25 +65,37 @@ Singleton {
     }
     Process {
         running: root.nightLight
-        command: ["hyprsunset", "-t", String(Config.s.nightLightTemp)]
+        command: ["setpriv", "--pdeathsig", "TERM", "--", "hyprsunset", "-t", String(Config.s.nightLightTemp)]
     }
 
     // caffeine: a logind idle inhibitor that hypridle honours
+    // a running hyprsunset ignores a changed command: tell it the new temperature
+    Connections {
+        target: Config.s
+        function onNightLightTempChanged() { if (root.nightLight) Quickshell.execDetached(["hyprctl", "hyprsunset", "temperature", String(Config.s.nightLightTemp)]); }
+    }
     property bool caffeine: false
     Process {
         running: root.caffeine
-        command: ["systemd-inhibit", "--what=idle", "--who=kajukatli", "--why=caffeine", "--mode=block", "sleep", "infinity"]
+        command: ["setpriv", "--pdeathsig", "TERM", "--", "systemd-inhibit", "--what=idle", "--who=kajukatli", "--why=caffeine", "--mode=block", "sleep", "infinity"]
     }
 
     // unplugged: quieter profile, and the battery saver. plugged in: back to normal.
     // (also once at login: booting on battery is the common case, and there's no "change" then)
     readonly property bool saving: onBattery && Config.s.batterySaver
-    onOnBatteryChanged: applyPower()
+    // the profile follows the charger (and its own switch). nothing else may undo your choice
+    onOnBatteryChanged: { applyProfile(); applyPower(); }
     onSavingChanged: applyPower()
-    Timer { id: atLogin; interval: 2500; running: true; onTriggered: root.applyPower() }
-    function applyPower() {
+    Timer { id: atLogin; interval: 2500; running: true; onTriggered: { root.applyProfile(); root.applyPower(); } }
+    Connections {
+        target: Config.s
+        function onAutoPowerProfileChanged() { root.applyProfile(); }
+    }
+    function applyProfile() {
         if (Config.s.autoPowerProfile)
             PowerProfiles.profile = onBattery ? PowerProfile.PowerSaver : PowerProfile.Balanced;
+    }
+    function applyPower() {
         // the compositor's two costly effects: blur passes and shadows
         Hypr.hyprEval(saving
             // xray: blur only what's behind the windows on the wallpaper layer, worked out once

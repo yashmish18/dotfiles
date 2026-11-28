@@ -122,12 +122,20 @@ LazyLoader {
             if (!e) return;
             Store.s.recentEmojis = [e].concat((Store.s.recentEmojis || []).filter(x => x !== e)).slice(0, 24);
             pasting = true;
+            if (paste.running) { paste.queue.push(e); return; }
             paste.command = [Config.bin + "kk-emoji-type", "--stay", e];
             paste.running = true;
         }
         Process {
             id: paste
-            onExited: { win.pasting = false; search.forceActiveFocus(); }
+            property var queue: []
+            onExited: {
+                if (queue.length) Qt.callLater(() => {
+                    paste.command = [Config.bin + "kk-emoji-type", "--stay", paste.queue.shift()];
+                    paste.running = true;
+                });
+                else { win.pasting = false; search.forceActiveFocus(); }
+            }
         }
         readonly property var highlighted: shown.length ? shown[Math.min(index, shown.length - 1)][0] : ""
         function move(d: var) {

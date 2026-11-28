@@ -105,24 +105,39 @@ NVD_BACKEND=direct" ;;
     off)
         [ -n "$pci" ] && [ -e "/sys/bus/pci/devices/$pci" ] || { echo "already off"; exit 0; }
         case "$(live_devs)" in *kk-dgpu*) echo "the desktop itself is drawing with the nvidia card. choose 'integrated only' and log out and back in; then it can go off." >&2; exit 1 ;; esac
-        # apps on the card move to the integrated graphics first: each one is closed, then
-        # started again (same command, same folder) without the nvidia offload, once the card is off
+        # apps on the card move to the integrated graphics: closed, then started again (same
+        # command, same folder) without the nvidia offload. nothing is closed until the
+        # password has been accepted, and the shell and the x server are never touched
         moved="$(mktemp -d)"
         hp="$(hypr_pid)"
         n=0
+        pids=""
         for p in $(fuser /dev/nvidia* 2>/dev/null | tr -s ' ' '\n' | sort -u); do
             [ -n "$p" ] && [ "$p" != "$hp" ] && [ -r "/proc/$p/cmdline" ] || continue
             [ "$(stat -c %u "/proc/$p")" = "$(id -u)" ] || continue
+            case "$(cat "/proc/$p/comm" 2>/dev/null)" in quickshell|qs|Hyprland|hyprland|Xwayland|xwayland) continue ;; esac
             cp "/proc/$p/cmdline" "$moved/$p.cmd" 2>/dev/null || continue
             readlink "/proc/$p/cwd" > "$moved/$p.cwd" 2>/dev/null
             cat "/proc/$p/comm" > "$moved/$p.name" 2>/dev/null
-            kill "$p" 2>/dev/null && n=$((n + 1))
+            pids="$pids $p"
+            n=$((n + 1))
         done
-        i=0
-        while [ "$i" -lt 25 ] && [ -n "$(fuser /dev/nvidia* 2>/dev/null | tr -s ' ' '\n' | grep -vx "${hp:-x}" | grep .)" ]; do sleep 0.2; i=$((i + 1)); done
-        for f in "$moved"/*.cmd; do [ -e "$f" ] || continue; p="$(basename "$f" .cmd)"; kill -9 "$p" 2>/dev/null || true; done
-        # anything left that isn't ours (a system service) keeps the driver busy
-        if ! pkexec sh -c "systemctl stop nvidia-persistenced 2>/dev/null; modprobe -r nvidia_drm nvidia_modeset nvidia_uvm nvidia && echo 1 > /sys/bus/pci/devices/$pci/remove"; then
+        # shellcheck disable=SC2086
+        pkexec sh -c '
+            pci="$1"; shift
+            if [ "$#" -gt 0 ]; then
+                kill "$@" 2>/dev/null
+                i=0; while [ "$i" -lt 25 ] && kill -0 "$@" 2>/dev/null; do sleep 0.2; i=$((i + 1)); done
+                kill -9 "$@" 2>/dev/null
+            fi
+            # anything left that is not ours (a system service) keeps the driver busy
+            systemctl stop nvidia-persistenced 2>/dev/null
+            modprobe -r nvidia_drm nvidia_modeset nvidia_uvm nvidia && echo 1 > "/sys/bus/pci/devices/$pci/remove"
+        ' sh "$pci" $pids
+        rc=$?
+        # no password (cancelled or refused): nothing was closed, so there is nothing to reopen
+        if [ "$rc" = 126 ] || [ "$rc" = 127 ]; then rm -rf "$moved"; echo "not switched off: no password. nothing was closed." >&2; exit 1; fi
+        if [ "$rc" != 0 ]; then
             echo "something of the system's is still using the nvidia card (try: fuser -v /dev/nvidia*); it stays on." >&2
             relaunch=1
         else

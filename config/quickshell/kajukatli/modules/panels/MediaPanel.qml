@@ -34,7 +34,7 @@ Item {
             Image {
                 id: art
                 anchors.fill: parent
-                source: Media.art
+                source: Media.cover
                 fillMode: Image.PreserveAspectCrop
                 sourceSize: Qt.size(760, 760)
                 asynchronous: true

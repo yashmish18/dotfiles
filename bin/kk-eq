@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+# kk-eq run <g1,...,g10>     put a 10-band equalizer in front of the current output (stays running;
+#                            exits 75 when the output device changes, to be started again)
+# kk-eq apply <g1,...,g10>   change the bands of the running one, without a gap in the sound
+# gains are in dB, -12..12, for 31 62 125 250 500 1k 2k 4k 8k 16k Hz.
+# pipewire's own filter-chain does the work: nothing to install, nothing runs while it's off.
+# for testing: KK_EQ_TARGET=<sink> plays into that sink and leaves the default output alone.
+set -uo pipefail
+NODE=kk_eq
+FREQS=(31 62 125 250 500 1000 2000 4000 8000 16000)
+RUN="${XDG_RUNTIME_DIR:-/tmp}"
+# a test run gets its own name and files, so it can never fight the one you're listening to
+if [ -n "${KK_EQ_TARGET:-}" ]; then NODE=kk_eq_test; RUN="$RUN/kk-eq-test"; mkdir -p "$RUN"; fi
+
+die() { echo "kk-eq: $*" >&2; exit 1; }
+
+read_gains() { # fills G[0..9] and PRE (linear), refusing anything that isn't ten numbers
+    IFS=, read -ra G <<<"${1:-}"
+    [ "${#G[@]}" = 10 ] || die "want ten comma-separated gains"
+    local g
+    for g in "${G[@]}"; do [[ "$g" =~ ^-?[0-9]+(\.[0-9]+)?$ ]] || die "not a number: $g"; done
+    # as loud on as off: even out the average power of the ten octaves (cutting by the biggest
+    # boost made every preset 3 to 6 db quieter than no equalizer)
+    # shortcut: a track mastered to full scale can clip on strong boosts; add a limiter if heard
+    PRE="$(printf '%s\n' "${G[@]}" | LC_ALL=C awk '{ g = $1 > 12 ? 12 : $1 < -12 ? -12 : $1; s += 10 ^ (g / 10) } END { printf "%.4f", 1 / sqrt(s / NR) }')"
+}
+
+label() { case "$1" in 0) echo bq_lowshelf ;; 9) echo bq_highshelf ;; *) echo bq_peaking ;; esac; }
+
+write_conf() { # target
+    local i q nodes links="" prev="pre:Out"
+    nodes="{ type = builtin name = pre label = mixer control = { \"Gain 1\" = $PRE } }"
+    for i in "${!FREQS[@]}"; do
+        q=1.41; { [ "$i" = 0 ] || [ "$i" = 9 ]; } && q=0.7
+        nodes+="
+        { type = builtin name = b$i label = $(label "$i") control = { Freq = ${FREQS[$i]} Q = $q Gain = ${G[$i]} } }"
+        links+="
+        { output = \"$prev\" input = \"b$i:In\" }"
+        prev="b$i:Out"
+    done
+    cat > "$RUN/kk-eq.conf" <<CONF
+context.properties = { log.level = 0 }
+context.spa-libs = { audio.convert.* = audioconvert/libspa-audioconvert  support.* = support/libspa-support }
+context.modules = [
+  { name = libpipewire-module-rt args = { nice.level = -11 } flags = [ ifexists nofail ] }
+  { name = libpipewire-module-protocol-native }
+  { name = libpipewire-module-client-node }
+  { name = libpipewire-module-adapter }
+  { name = libpipewire-module-filter-chain
+    args = {
+      node.description = "Equalizer"
+      media.name = "Equalizer"
+      # one mono chain: pipewire makes a copy of it for each channel
+      filter.graph = {
+        nodes = [
+        $nodes
+        ]
+        links = [$links
+        ]
+        inputs = [ "pre:In 1" ]
+        outputs = [ "$prev" ]
+      }
+      audio.channels = 2
+      audio.position = [ FL FR ]
+      capture.props = { node.name = "$NODE" media.class = Audio/Sink }
+      # always into the real device: left to follow the default, it would chase itself
+      playback.props = { node.name = "$NODE.output" node.passive = true target.object = "$1" node.dont-reconnect = true }
+    }
+  }
+]
+CONF
+}
+
+node_id() { pw-dump 2>/dev/null | jq -r --arg n "$NODE" 'first(.[] | select(.info.props."node.name" == $n) | .id) // empty'; }
+
+apply() {
+    read_gains "$1"
+    local id params i
+    id="$(node_id)"; [ -n "$id" ] || die "the equalizer isn't running"
+    params="\"pre:Gain 1\" $PRE"
+    for i in "${!G[@]}"; do params+=" \"b$i:Gain\" ${G[$i]}"; done
+    pw-cli set-param "$id" Props "{ params = [ $params ] }" >/dev/null || die "couldn't change the bands"
+}
+
+PW=""
+cleanup() {
+    trap - EXIT INT TERM
+    # give the output back, only if we're still the default (you may have picked another)
+    if [ -z "${KK_EQ_TARGET:-}" ] && [ "$(pactl get-default-sink 2>/dev/null)" = "$NODE" ]; then
+        pactl set-default-sink "$TARGET" 2>/dev/null
+    fi
+    [ -n "$PW" ] && kill "$PW" 2>/dev/null && wait "$PW" 2>/dev/null
+}
+
+run() {
+    read_gains "$1"
+    command -v pactl >/dev/null || die "pactl is missing (install libpulse)"
+    TARGET="${KK_EQ_TARGET:-$(pactl get-default-sink 2>/dev/null)}"
+    # left over from a crash: the default is still us. use the device from last time
+    [ "$TARGET" = "$NODE" ] && TARGET="$(cat "$RUN/kk-eq.target" 2>/dev/null)"
+    if [ -z "$TARGET" ] || [ "$TARGET" = "$NODE" ]; then die "no output device found"; fi
+    # only one at a time. one left behind (the shell was killed) is stopped: the newest wins
+    exec 9>"$RUN/kk-eq.lock"
+    if ! flock -w 2 9; then
+        old="$(cat "$RUN/kk-eq.pid" 2>/dev/null)"
+        grep -qa 'kk-eq' "/proc/${old:-none}/cmdline" 2>/dev/null && kill "$old" 2>/dev/null
+        flock -w 5 9 || die "another equalizer is already running"
+    fi
+    echo $$ > "$RUN/kk-eq.pid"
+    pkill -f "^pipewire -c $RUN/kk-eq.conf" 2>/dev/null && sleep 0.3    # an orphan would be a second "kk_eq"
+    # a headset that connected while we ran takes over
+    next="$(cat "$RUN/kk-eq.next" 2>/dev/null)"; rm -f "$RUN/kk-eq.next"
+    if [ -n "$next" ] && [ -z "${KK_EQ_TARGET:-}" ] && pactl list short sinks | cut -f2 | grep -qxF "$next"; then TARGET="$next"; fi
+    printf '%s\n' "$TARGET" > "$RUN/kk-eq.target"
+    write_conf "$TARGET"
+    trap cleanup EXIT
+    trap 'exit 0' INT TERM
+    setpriv --pdeathsig TERM pipewire -c "$RUN/kk-eq.conf" 9>&- &
+    PW=$!
+    local up=0
+    for _ in $(seq 1 50); do
+        kill -0 "$PW" 2>/dev/null || die "pipewire stopped while starting"
+        pactl list short sinks 2>/dev/null | cut -f2 | grep -qx "$NODE" && { up=1; break; }
+        sleep 0.1
+    done
+    [ "$up" = 1 ] || die "the equalizer never appeared"
+    if [ -n "${KK_EQ_TARGET:-}" ]; then wait "$PW"; exit $?; fi
+    pactl set-sink-volume "$NODE" 100% 2>/dev/null    # the real device's volume still applies: don't turn down twice
+    pactl set-default-sink "$NODE" || die "couldn't make it the output"
+    # follow the devices: another output picked, or ours unplugged → exit 75 and start over
+    # watch the devices from this very shell: a background watcher outlived it and piled up.
+    # the one helper, pactl, is told to die with us. the default is "kk_eq" now, so a headset
+    # connecting would not take the sound by itself: new bluetooth outputs are looked for too
+    local line known sinks fresh now moved=0
+    known="$(pactl list short sinks | cut -f2)"
+    exec 8< <(exec setpriv --pdeathsig TERM pactl subscribe 9>&- 2>/dev/null)
+    while kill -0 "$PW" 2>/dev/null; do
+        line=""
+        IFS= read -r -t 2 line <&8
+        case "$line" in *"on server"*|*"'new' on sink "*|*"'remove' on sink "*) ;; *) continue ;; esac
+        sinks="$(pactl list short sinks | cut -f2)"
+        fresh="$(grep -vxF "$known" <<<"$sinks" | grep -m1 '^bluez_output')"
+        known="$sinks"
+        now="$(pactl get-default-sink 2>/dev/null)"
+        if [ -n "$fresh" ]; then printf '%s\n' "$fresh" > "$RUN/kk-eq.next"
+        elif { [ -z "$now" ] || [ "$now" = "$NODE" ]; } && grep -qxF "$TARGET" <<<"$sinks"; then continue
+        fi
+        moved=1
+        break
+    done
+    exec 8<&-
+    [ "$moved" = 1 ] && exit 75       # cleanup stops pipewire and hands the output back
+    wait "$PW"; local rc=$?
+    PW=""
+    [ "$rc" = 0 ] && rc=1
+    die "pipewire stopped (exit $rc)"
+}
+
+case "${1:-}" in
+    run) run "${2:-0,0,0,0,0,0,0,0,0,0}" ;;
+    apply) apply "${2:-}" ;;
+    *) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+esac

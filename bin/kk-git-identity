@@ -1,34 +1,30 @@
 #!/usr/bin/env bash
+# kk-git-identity [personal|work] ["Name" "email"]   asks for what you leave out.
+# only touches the keys it owns: the rest of your git config stays as it is.
 set -euo pipefail
 mode="${1:-personal}"
 name="${2:-}"
 email="${3:-}"
+[ -n "$name" ] || read -r -p "git name: " name || true
+[ -n "$email" ] || read -r -p "git email: " email || true
 if [ -z "$name" ] || [ -z "$email" ]; then
     echo "usage: kk-git-identity personal|work \"Name\" \"email\""
     exit 2
 fi
 mkdir -p "$HOME/.config/git"
 include="$HOME/.config/git/identity-$mode"
-cat >"$include" <<EOF
-[user]
-    name = $name
-    email = $email
-[commit]
-    gpgsign = true
-EOF
-cat >"$HOME/.config/git/config" <<EOF
-[include]
-    path = $include
-[init]
-    defaultBranch = main
-[pull]
-    rebase = true
-[core]
-    pager = delta
-[interactive]
-    diffFilter = delta --color-only
-[delta]
-    navigate = true
-    line-numbers = true
-EOF
+git config --file "$include" user.name "$name"
+git config --file "$include" user.email "$email"
+# one identity include at a time; later wins over any user.* already in the file
+git config --global --unset-all include.path '/identity-' 2>/dev/null || true
+git config --global --add include.path "$include"
+set_default() { git config --global --get "$1" >/dev/null || git config --global "$1" "$2"; }
+set_default init.defaultBranch main
+set_default pull.rebase true
+if command -v delta >/dev/null; then
+    set_default core.pager delta
+    set_default interactive.diffFilter "delta --color-only"
+    set_default delta.navigate true
+    set_default delta.line-numbers true
+fi
 echo "configured $mode identity for $name <$email>"

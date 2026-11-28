@@ -13,6 +13,9 @@ import qs.components
 // to the front so they can be dragged.
 Item {
     id: layer
+    // for the widgets' contents: each is its own Component, where a bare `layer` means the
+    // item's built-in `layer` property, not this id
+    readonly property var desk: layer
     property bool behind: false
     property var monitor: null
     // windows over the desktop? then nobody can see the moving parts: pause them (power)
@@ -299,18 +302,18 @@ Item {
             editable: !layer.behind
             shown: layer.barsHere
             Visualizer {
-                implicitWidth: layer.boxStyle === "mirror" ? 420 : layer.boxStyle === "wave" ? 360 : 240
-                implicitHeight: layer.boxStyle === "mirror" ? 80 : layer.boxStyle === "wave" ? 60 : 30
-                style: layer.boxStyle
-                active: visible && !layer.covered && !Wall.switching
-                count: layer.boxStyle === "mirror" ? 96 : Math.max(16, Math.min(96, Config.s.visualizerBars))
+                implicitWidth: desk.boxStyle === "mirror" ? 420 : desk.boxStyle === "wave" ? 360 : 240
+                implicitHeight: desk.boxStyle === "mirror" ? 80 : desk.boxStyle === "wave" ? 60 : 30
+                style: desk.boxStyle
+                active: visible && !desk.covered && !Wall.switching
+                count: desk.boxStyle === "mirror" ? 96 : Math.max(16, Math.min(96, Config.s.visualizerBars))
                 gap: Math.min(Config.s.visualizerGap, 3)
                 color: Theme.wallText
                 colorMode: Config.s.visualizerColor
                 fillOpacity: Config.s.visualizerOpacity
                 roundness: Config.s.visualizerRoundness
                 easeMs: Config.s.visualizerSmooth
-                sparks: Config.s.musicSparks && !layer.behind
+                sparks: Config.s.musicSparks && !desk.behind
             }
         }
 
@@ -322,7 +325,7 @@ Item {
             fallback: ({ x: 0.5, y: 0.15 })
             editable: !layer.behind
             shown: layer.clockHere
-            DesktopClock { screenHeight: layer.height; live: !layer.covered }
+            DesktopClock { screenHeight: desk.height; live: !desk.covered }
         }
 
         Movable {
@@ -346,7 +349,7 @@ Item {
             name: "stats"
             fallback: ({ x: 0.02, y: 0.7 })
             shown: !layer.behind && Config.s.showStats
-            StatsWidget { live: !layer.covered }
+            StatsWidget { live: !desk.covered }
         }
 
         Movable {

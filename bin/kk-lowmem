@@ -1,0 +1,44 @@
+#!/bin/sh
+# kk-lowmem        make brave and firefox hold less memory (restart them afterwards)
+# kk-lowmem undo   remove exactly what it added
+# only adds a marked block (or a line-marked flag); your own settings are left alone.
+set -u
+mark="kajukatli-lowmem"
+conf="${XDG_CONFIG_HOME:-$HOME/.config}"
+mode="${1:-apply}"
+
+strip() { [ -f "$1" ] && sed -i "/$mark begin/,/$mark end/d" "$1"; }
+block() { # file comment-prefix body
+    strip "$1"
+    [ "$mode" = undo ] && return 0
+    # no final newline: our marker would join your last line, and undo would delete both
+    [ -s "$1" ] && [ -n "$(tail -c1 "$1")" ] && echo >> "$1"
+    printf '%s %s begin\n%s\n%s %s end\n' "$2" "$mark" "$3" "$2" "$mark" >> "$1"
+}
+
+# brave: share renderer processes between tabs sooner, and cap the disk cache
+if command -v brave >/dev/null 2>&1; then
+    block "$conf/brave-flags.conf" '#' '--renderer-process-limit=4
+--disk-cache-size=268435456'
+    echo "brave: done (also turn on Memory Saver: brave://settings/system)"
+fi
+
+# firefox: fewer content processes, less back/forward cache, unload idle tabs when memory is low
+for root in "$conf/mozilla/firefox" "$HOME/.mozilla/firefox"; do
+    [ -f "$root/profiles.ini" ] || continue
+    sed -n 's/^Path=//p' "$root/profiles.ini" | while read -r p; do
+        case "$p" in /*) dir="$p" ;; *) dir="$root/$p" ;; esac
+        [ -d "$dir" ] || continue
+        block "$dir/user.js" '//' 'user_pref("dom.ipc.processCount", 4);
+user_pref("dom.ipc.processCount.webIsolated", 1);
+user_pref("browser.sessionhistory.max_total_viewers", 2);
+user_pref("browser.tabs.unloadOnLowMemory", true);
+user_pref("browser.sessionstore.interval", 60000);'
+        echo "firefox: done ($p)"
+    done
+done
+[ "$mode" = undo ] && echo "note: firefox keeps the old values until reset in about:config"
+
+# spotify gets no flag. an earlier version added one with no measured gain: take it out
+strip "$conf/spotify-launcher.conf"
+exit 0

@@ -79,7 +79,7 @@ alias icat='kitten icat'
 alias ssh='kitten ssh'        # brings kitty's terminfo along
 alias wall='kk-wall'
 alias doctor='kk-doctor'
-alias update='sudo pacman -Syu && { command -v paru >/dev/null && paru -Sua || command -v yay >/dev/null && yay -Sua; }'
+alias update='sudo pacman -Syu && if command -v paru >/dev/null; then paru -Sua; elif command -v yay >/dev/null; then yay -Sua; fi'
 
 unset _kk_shell _kk_init
 

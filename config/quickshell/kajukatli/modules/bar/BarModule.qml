@@ -395,14 +395,14 @@ Loader {
                 spacing: 6
                 // the cover, small and round-cornered, before the buttons
                 ClippingRectangle {
-                    visible: Media.art !== ""
+                    visible: Media.cover !== ""
                     anchors.verticalCenter: parent.verticalCenter
                     width: 18; height: 18
                     radius: 5
                     color: Theme.surfaceHigh
                     Image {
                         anchors.fill: parent
-                        source: Media.art
+                        source: Media.cover
                         sourceSize: Qt.size(48, 48)
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
@@ -444,12 +444,12 @@ Loader {
             }
             // standing up: the cover, with play / pause over it
             ClippingRectangle {
-                visible: root.vertical && Media.art !== ""
+                visible: root.vertical && Media.cover !== ""
                 anchors.centerIn: parent
                 width: 22; height: 22
                 radius: 6
                 color: Theme.surfaceHigh
-                Image { anchors.fill: parent; source: Media.art; sourceSize: Qt.size(48, 48); fillMode: Image.PreserveAspectCrop; asynchronous: true; opacity: 0.75 }
+                Image { anchors.fill: parent; source: Media.cover; sourceSize: Qt.size(48, 48); fillMode: Image.PreserveAspectCrop; asynchronous: true; opacity: 0.75 }
             }
             Icon {
                 visible: root.vertical

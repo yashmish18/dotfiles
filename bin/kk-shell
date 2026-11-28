@@ -3,6 +3,9 @@
 #            second, not your whole session (every shell shortcut goes through it).
 #            hyprland starts this at login; it does nothing if a shell is already running.
 set -u
+# keep the shell's memory down: glibc otherwise holds one big arena per thread and rarely
+# hands freed pages (decoded wallpapers, closed panels) back to the system
+export MALLOC_ARENA_MAX=2 MALLOC_TRIM_THRESHOLD_=131072 MALLOC_MMAP_THRESHOLD_=131072
 fast=0
 while :; do
     if qs -c kajukatli ipc show >/dev/null 2>&1; then
@@ -19,12 +22,14 @@ while :; do
         notify-send -u critical -a kajukatli "The shell keeps stopping" "See: qs -c kajukatli (run it in a terminal to read why). Trying again in a minute." 2>/dev/null
         sleep 60; fast=0
     else
-        if [ "$rc" -ge 128 ]; then
+        # only real crashes (ill, abrt, bus, fpe, segv). being stopped is not one
+        if [ "$rc" = 132 ] || [ "$rc" = 134 ] || [ "$rc" = 135 ] || [ "$rc" = 136 ] || [ "$rc" = 139 ]; then
             # killed by a signal (a real crash): say where quickshell left its crash report
             cr="$(ls -dt "${XDG_CACHE_HOME:-$HOME/.cache}"/quickshell/crashes/* 2>/dev/null | head -n1)"
-            notify-send -u critical -a kajukatli "The shell crashed and was restarted" "${cr:+report: $cr}" 2>/dev/null
-        elif [ "$rc" -ne 0 ]; then
-            notify-send -a kajukatli "The shell stopped and was restarted" "exit code $rc" 2>/dev/null
+            # sent once the new shell is up: sent now, it would start another notification daemon
+            ( sleep 6; notify-send -a kajukatli "The shell crashed and was restarted" "${cr:+report: $cr}" ) >/dev/null 2>&1 &
+        elif [ "$rc" -ne 0 ] && [ "$rc" -lt 128 ]; then
+            ( sleep 6; notify-send -a kajukatli "The shell stopped and was restarted" "exit code $rc" ) >/dev/null 2>&1 &
         fi
         sleep 1
     fi

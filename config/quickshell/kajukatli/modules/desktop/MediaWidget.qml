@@ -74,7 +74,7 @@ Item {
         Image {
             id: img
             anchors.fill: parent
-            source: Media.art
+            source: Media.cover
             asynchronous: true
             sourceSize: Qt.size(cv.width * 2, cv.height * 2)
             visible: false

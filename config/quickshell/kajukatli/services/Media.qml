@@ -10,29 +10,49 @@ Singleton {
     id: root
 
     readonly property var players: Mpris.players.values
-    property var _last: null
+    property var _last: null            // the last real music player that played
     property var pinned: null           // chosen in the media panel; else whatever's playing
     function pick(p: var) { pinned = p; }
+    function isBrowser(p: var): bool {
+        return p !== null && /firefox|chrom|brave|vivaldi|edge|opera|zen|youtube/i.test((p.identity || "") + " " + (p.desktopEntry || "") + " " + (p.dbusName || ""))
+    }
+    // a music player beats a browser (which reports "playing" for any tab with sound, often
+    // without artist or cover), and the one already chosen stays while it keeps playing
     readonly property var player: {
         if (pinned && players.indexOf(pinned) !== -1) return pinned;
-        const playing = players.find(p => p.isPlaying);
-        if (playing) return playing;
+        const playing = players.filter(p => p.isPlaying);
+        const music = playing.filter(p => !isBrowser(p));
+        if (music.length) return music.indexOf(_last) !== -1 ? _last : music[0];
+        if (playing.length) return playing[0];
         if (_last && players.indexOf(_last) !== -1) return _last;
-        return players.length ? players[0] : null;
+        return players.find(p => !isBrowser(p)) || players[0] || null;
     }
-    onPlayerChanged: if (player && player.isPlaying) _last = player
+    // later, not inside the change: `player` reads _last, so writing it here at once is a binding loop
+    onPlayerChanged: Qt.callLater(() => { if (root.player && root.player.isPlaying && !root.isBrowser(root.player)) root._last = root.player; })
 
     readonly property bool active: player !== null
     readonly property bool playing: player !== null && player.isPlaying
-    readonly property string title: player ? (player.trackTitle || player.identity || "") : ""
-    readonly property string artist: player ? (player.trackArtist || "") : ""
-    readonly property string album: player ? (player.trackAlbum || "") : ""
-    readonly property string art: player ? (player.trackArtUrl || "") : ""
-    readonly property real length: player && player.lengthSupported ? player.length : 0
+    // after the shell reloads itself quickshell can leave trackTitle & co. empty although the
+    // player's metadata is all there: read that too
+    function meta(key: string): string {
+        const v = player && player.metadata ? player.metadata[key] : undefined;
+        return v === undefined || v === null ? "" : String(Array.isArray(v) ? v.join(", ") : v);
+    }
+    readonly property string trackName: player ? (player.trackTitle || meta("xesam:title")) : ""   // "" = unknown
+    readonly property string title: player ? (trackName || player.identity || "") : ""
+    readonly property string artist: player ? (player.trackArtist || meta("xesam:artist")) : ""
+    readonly property string album: player ? (player.trackAlbum || meta("xesam:album")) : ""
+    readonly property string art: player ? (player.trackArtUrl || meta("mpris:artUrl")) : ""
+    readonly property real length: player && player.lengthSupported && player.length > 0 ? player.length : Number(meta("mpris:length") || 0) / 1e6
     property real position: 0
     readonly property real progress: length > 0 ? Math.min(1, position / length) : 0
 
-    function toggle() { if (player && player.canTogglePlaying) player.togglePlaying(); }
+    function toggle() {
+        if (!player) return;
+        if (player.canTogglePlaying) player.togglePlaying();
+        else if (player.isPlaying && player.canPause) player.pause();
+        else if (player.canPlay) player.play();
+    }
     function next() { if (player && player.canGoNext) player.next(); }
     function prev() { if (player && player.canGoPrevious) player.previous(); }
     function seek(frac: real) {
@@ -52,16 +72,36 @@ Singleton {
         running: root.playing && root.consumers > 0
         triggeredOnStart: true
         onTriggered: {
-            root.player.positionChanged();
-            root.position = root.player.position;
+            const p = root.player;
+            if (!p) return;
+            p.positionChanged();
+            root.position = p.position;
         }
     }
     Connections {
         target: root.player
         ignoreUnknownSignals: true
         function onPostTrackChanged() { root.position = 0; }
-        function onPositionChanged() { root.position = root.player.position; }
+        function onPositionChanged() { if (root.player) root.position = root.player.position; }
     }
+
+    // a fresh process per request, destroyed when done. reusing one Process meant a new request
+    // could be swallowed while the old one was still dying, or receive its leftover output.
+    Component {
+        id: jobC
+        Process {
+            id: job
+            property var done
+            running: true
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    job.done(text);
+                    job.destroy();
+                }
+            }
+        }
+    }
+    function run(cmd: var, done: var) { jobC.createObject(root, { command: cmd, done: done }); }
 
     // ---------------------------------------------------------------- the cover's colour
     // the player ui takes its accent from the album art. ColorQuantizer is made at runtime, so an
@@ -76,25 +116,33 @@ Singleton {
     // ColorQuantizer only reads local files. mpris gives remote URLs for streaming players
     // (spotify's i.scdn.co among them), which made it log a failed image load on every track.
     // fetch those once into a small cache file instead of pointing it at the URL.
-    readonly property string coverCache: Config.home + "/.cache/kajukatli/cover.jpg"
-    Process {
-        id: artFetch
-        property string want: ""
-        command: ["curl", "-sfL", "--max-time", "8", "-o", root.coverCache, want]
-        onExited: code => {
-            if (code === 0 && want === root.art && _quant) { _quant.source = ""; _quant.source = "file://" + root.coverCache; }   // same file name every track: clear it so it is read again
-        }
+    // one file per url, so a late download can't overwrite the current track's cover
+    readonly property string coverDir: Config.home + "/.cache/kajukatli/covers"
+    // what every cover image shows: a local file once downloaded (qt doesn't retry a remote
+    // image that failed once), the plain url only if the download failed
+    property string coverFor: ""
+    property string coverPath: ""
+    readonly property string cover: {
+        if (art === "" || art.charAt(0) === "/" || art.indexOf("file://") === 0) return art;
+        return coverFor === art ? coverPath : "";
+    }
+    function fetchCover(url: string) {
+        const file = coverDir + "/" + Qt.md5(url);
+        // download to a private temp file and rename; keep only the newest 12 covers
+        run(["sh", "-c", 'mkdir -p "$3" && { [ -s "$2" ] || { curl -sfL --max-time 8 -o "$2.$$" "$1" && mv -f "$2.$$" "$2"; } || { rm -f "$2.$$"; exit 1; }; } '
+             + '&& touch "$2" && echo ok; ls -t "$3" | tail -n +13 | while read -r f; do rm -f "$3/$f"; done',
+             "sh", url, file, coverDir], out => {
+            if (url !== root.art) return;
+            const ok = out.trim() === "ok";
+            root.coverPath = ok ? "file://" + file : url;
+            root.coverFor = url;
+            if (ok && root._quant) root._quant.source = "file://" + file;
+        });
     }
     function setArtSource(u: string): void {
-        if (!_quant) return;
-        if (!u) { _quant.source = ""; return; }
-        if (u.indexOf("file://") === 0) _quant.source = u;
-        else if (u.charAt(0) === "/") _quant.source = "file://" + u;
-        else {
-            if (artFetch.running) artFetch.running = false;
-            artFetch.want = u;
-            artFetch.running = true;
-        }
+        const local = u.indexOf("file://") === 0 ? u : u.charAt(0) === "/" ? "file://" + u : "";
+        if (u !== "" && local === "") fetchCover(u);
+        else if (_quant) _quant.source = local;
     }
     Component.onCompleted: {
         try {
@@ -107,6 +155,7 @@ Singleton {
     }
     onArtChanged: {
         artReady = false;
+        setArtSource("");
         if (art === "") { artColor = Theme.primary; artText = Theme.primaryText; }
         setArtSource(art);
     }
@@ -132,7 +181,14 @@ Singleton {
     property bool synced: false
     property string lyricsState: ""   // "", loading, none, ready
     property var _cache: ({})
-    readonly property string trackKey: artist + "\u0001" + title
+    readonly property string trackKey: artist + "\u0001" + title + "\u0001" + album
+    property int lyricsReq: 0         // only the newest request may write
+    property var _cacheOrder: []
+    function remember(key: string, r: var) {
+        if (_cache[key] === undefined) _cacheOrder.push(key);
+        _cache[key] = r;
+        while (_cacheOrder.length > 40) delete _cache[_cacheOrder.shift()];
+    }
     readonly property int lineIndex: {
         if (!synced || lines.length === 0) return -1;
         const p = position + 0.25;
@@ -146,7 +202,33 @@ Singleton {
     property int consumers: 0         // widgets showing the position (ticks it)
     property int lyricsUsers: 0       // widgets showing lyrics; nothing is fetched without one
 
-    onTrackKeyChanged: lyricsTimer.restart()
+    onTrackKeyChanged: {
+        lyricsReq++;
+        lines = [];
+        synced = false;
+        lyricsState = "";
+        lyricsTimer.restart();
+    }
+    // switching lyrics or online lyrics on takes effect at once
+    Connections {
+        target: Config.s
+        function onNetworkLyricsChanged() { lyricsTimer.restart(); }
+        function onLyricsChanged() { lyricsTimer.restart(); }
+    }
+    // qs -c kajukatli ipc call media status
+    IpcHandler {
+        target: "media"
+        function status(): string {
+            return JSON.stringify({ player: root.player ? root.player.identity : null, playing: root.playing, title: root.title, artist: root.artist,
+                                    art: root.art, cover: root.cover, lyrics: root.lyricsState, lines: root.lines.length, lyricsUsers: root.lyricsUsers,
+                                    online: Config.s.networkLyrics,
+                                    position: root.position, length: root.length, live: root.player ? root.player.position : 0, synced: root.synced, line: root.lineIndex, ticking: root.consumers,
+                                    lineAt: root.lineIndex >= 0 ? root.lines[root.lineIndex].t : -1,
+                                    raw: root.player ? { title: root.player.trackTitle, keys: Object.keys(root.player.metadata || {}), dbus: root.player.dbusName } : null,
+                                    all: root.players.map(p => ({ id: p.dbusName, playing: p.isPlaying, title: p.trackTitle })) });
+        }
+        function toggle(): void { root.toggle(); }
+    }
     onLyricsUsersChanged: if (lyricsUsers > 0) lyricsTimer.restart()
 
     Timer {
@@ -190,7 +272,7 @@ Singleton {
     // and the channel ("ArtistVEVO") instead of song and artist. clean that up for the search.
     readonly property bool fromBrowser: player !== null && /firefox|chrom|brave|vivaldi|edge|opera|zen|youtube/i.test((player.identity || "") + " " + (player.desktopEntry || ""))
     readonly property var song: {
-        let t = title || "", a = artist || "";
+        let t = trackName, a = artist || "";
         const junk = /\s*[\(\[][^\)\]]*(official|lyric|audio|video|visuali[sz]er|music|mv|m\/v|hd|hq|4k|remaster|live|explicit|clean|full|version|edit)[^\)\]]*[\)\]]/gi;
         t = t.replace(junk, "").replace(/\s*\|.*$/, "").replace(/\s+(ft\.?|feat\.?|featuring)\s.*$/i, "");
         a = a.replace(/vevo$/i, "").replace(/\s*-\s*topic$/i, "").replace(/\s*official$/i, "").trim();
@@ -203,83 +285,68 @@ Singleton {
     }
 
     function fetchLyrics() {
-        if (!Config.s.lyrics || lyricsUsers <= 0 || title === "") {
+        // (`title` falls back to the app's name: searching for that returned some other song's lyrics)
+        if (!Config.s.lyrics || lyricsUsers <= 0 || trackName === "") {
             lines = [];
             lyricsState = "";
             return;
         }
-        const key = trackKey;
+        const req = ++lyricsReq, key = trackKey;
         if (_cache[key] !== undefined) { useResult(_cache[key]); return; }
         lyricsState = "loading";
         lines = [];
-        localLyrics.key = key;
+        // snapshot the track now: later steps must not search for whatever is playing by then
+        const q = { title: song.title, artist: song.artist, album: album, length: length, browser: fromBrowser };
         const dir = (Config.s.localLyricsDir || "").replace(/^~/, Config.home);
         // passed as separate arguments, so no quoting is needed (escaping here broke "Don't")
-        const artist = song.artist.replace(/\//g, "-");
-        const track = song.title.replace(/\//g, "-");
-        localLyrics.command = ["sh", "-c",
-            "d=\"$1\"; a=\"$2\"; t=\"$3\"; "
-            + "for f in \"$d/$a - $t.lrc\" \"$d/$t.lrc\" \"$d/$a - $t.txt\" \"$d/$t.txt\"; do "
-            + "[ -f \"$f\" ] && { cat \"$f\"; exit 0; }; done",
-            "sh", dir, artist, track];
-        localLyrics.running = true;
-        if (!Config.s.networkLyrics) return;
-        if (lyricsProc.running) lyricsProc.running = false;
-        lyricsProc.key = key;
-        const args = ["curl", "-sfL", "--max-time", "8", "-G", "https://lrclib.net/api/get",
-                      "-H", "User-Agent: desktop-shell/1.0",
-                      "--data-urlencode", "track_name=" + song.title,
-                      "--data-urlencode", "artist_name=" + song.artist];
-        // a video's length includes intros and outros: only trust it from music players
-        if (!fromBrowser && album !== "") args.push("--data-urlencode", "album_name=" + album);
-        if (!fromBrowser && length > 0) args.push("--data-urlencode", "duration=" + Math.round(length));
-        lyricsProc.command = args;
-        lyricsProc.searched = false;
-        lyricsProc.running = true;
+        run(["sh", "-c",
+             "d=\"$1\"; a=\"$2\"; t=\"$3\"; "
+             + "for f in \"$d/$a - $t.lrc\" \"$d/$t.lrc\" \"$d/$a - $t.txt\" \"$d/$t.txt\"; do "
+             + "[ -f \"$f\" ] && { cat \"$f\"; exit 0; }; done",
+             "sh", dir, q.artist.replace(/\//g, "-"), q.title.replace(/\//g, "-")], out => {
+            if (req !== root.lyricsReq) return;
+            const text = out.trim();
+            if (text !== "") root.finish(key, /^\[\d+:/m.test(text) ? { syncedLyrics: text } : { plainLyrics: text });
+            else if (Config.s.networkLyrics) root.lookup(req, key, q, false);
+            else root.useResult(null);
+        });
     }
 
-    Process {
-        id: localLyrics
-        property string key: ""
-        stdout: StdioCollector {
-            id: localLyricsOut
-            onStreamFinished: {
-                const text = localLyricsOut.text.trim();
-                if (text === "") {
-                    if (!Config.s.networkLyrics) root._cache[localLyrics.key] = null;
-                    if (!Config.s.networkLyrics && localLyrics.key === root.trackKey) root.useResult(null);
-                    return;
-                }
-                const r = text.indexOf("[") === 0 ? { syncedLyrics: text } : { plainLyrics: text };
-                root._cache[localLyrics.key] = r;
-                if (localLyrics.key === root.trackKey) {
-                    if (lyricsProc.running) lyricsProc.running = false;
-                    root.useResult(r);
-                }
-            }
+    function finish(key: string, r: var) {
+        if (r) remember(key, r);     // misses aren't cached: being offline once must not stick
+        useResult(r);
+    }
+
+    // the search returns every version of a song (edits, remixes, sped up): timed lyrics are
+    // only right for a recording of about the same length. taking the first one put another
+    // version's timing on the track. no match: show the words without timing
+    function best(list: var, length: real, browser: bool): var {
+        const off = x => length > 0 && x.duration > 0 ? Math.abs(x.duration - length) : 1e6;
+        const sorted = list.filter(x => x && (x.syncedLyrics || x.plainLyrics)).sort((a, b) => off(a) - off(b));
+        const timed = sorted.find(x => x.syncedLyrics && (length <= 0 || off(x) <= (browser ? 6 : 3)));
+        if (timed) return timed;
+        const any = sorted[0];
+        return any ? { plainLyrics: any.plainLyrics || any.syncedLyrics.replace(/\[[0-9:.]+\] ?/g, "") } : null;
+    }
+
+    function lookup(req: int, key: string, q: var, search: bool) {
+        const args = ["curl", "-sfL", "--max-time", "8", "-G", "https://lrclib.net/api/" + (search ? "search" : "get"),
+                      "-H", "User-Agent: desktop-shell/1.0"];
+        if (search) args.push("--data-urlencode", "q=" + q.artist + " " + q.title);
+        else {
+            args.push("--data-urlencode", "track_name=" + q.title, "--data-urlencode", "artist_name=" + q.artist);
+            // a video's length includes intros and outros: only trust it from music players
+            if (!q.browser && q.album !== "") args.push("--data-urlencode", "album_name=" + q.album);
+            if (!q.browser && q.length > 0) args.push("--data-urlencode", "duration=" + Math.round(q.length));
         }
-    }
-
-    Process {
-        id: lyricsProc
-        property string key: ""
-        property bool searched: false
-        stdout: StdioCollector { id: lyricsOut }
-        onExited: code => {
+        run(args, out => {
+            if (req !== root.lyricsReq) return;
             let r = null;
-            try { r = code === 0 ? JSON.parse(lyricsOut.text) : null; } catch (e) { r = null; }
-            if (Array.isArray(r)) r = r.find(x => x.syncedLyrics) || r[0] || null;
-            if (!r && !searched) {
-                // the exact lookup wants matching album / duration. a loose search often finds it
-                searched = true;
-                command = ["curl", "-sfL", "--max-time", "8", "-G", "https://lrclib.net/api/search",
-                           "-H", "User-Agent: desktop-shell/1.0",
-                           "--data-urlencode", "q=" + root.song.artist + " " + root.song.title];
-                Qt.callLater(() => lyricsProc.running = true);
-                return;
-            }
-            root._cache[key] = r;
-            if (key === root.trackKey) root.useResult(r);
-        }
+            try { r = JSON.parse(out); } catch (e) {}
+            if (Array.isArray(r)) r = root.best(r, q.length, q.browser);
+            else if (r && !r.syncedLyrics && !r.plainLyrics) r = null;
+            if (!r && !search) root.lookup(req, key, q, true);
+            else root.finish(key, r);
+        });
     }
 }

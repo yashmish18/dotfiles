@@ -22,6 +22,8 @@ Singleton {
     // a privileged action is waiting for your password: the full-screen overlays step aside so
     // the password prompt (an ordinary window, under them) can be seen and typed into
     property bool authWaiting: false
+    property bool picking: false      // a file dialog is open: the panel that asked stays open
+    property string wifiDraft: ""     // a half-typed wi-fi password, kept across list refreshes
     // right-click on a desktop widget: which one, where, and on which screen's layer
     property string widgetMenu: ""
     // typing into the desktop notepad: the desktop layer takes the keyboard until you click away
@@ -47,7 +49,7 @@ Singleton {
     // unfocused) window alive for a moment and is destroyed only after the focus has moved on.
     property bool overlayLinger: false
     property bool emojiLinger: false
-    onOverlayChanged: { overlayLinger = overlay === "" ; if (overlay === "") lingerTimer.restart(); }
+    onOverlayChanged: { authWaiting = false; overlayLinger = overlay === "" ; if (overlay === "") lingerTimer.restart(); }
     onEmojiOpenChanged: { emojiLinger = !emojiOpen; if (!emojiOpen) lingerTimer.restart(); }
     Timer { id: lingerTimer; interval: 350; onTriggered: { root.overlayLinger = false; root.emojiLinger = false; } }
 

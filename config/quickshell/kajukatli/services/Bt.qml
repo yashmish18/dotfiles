@@ -58,8 +58,7 @@ Singleton {
 
     function connectDevice(d: var) {
         if (!d) return;
-        // trusted: bluez lets it reconnect by itself next time, and keeps it saved
-        if (d.paired && !d.trusted) d.trusted = true;
+        // (trust is set when pairing only: "connect automatically" off must stay off)
         setTrouble(d.address, "connecting");
         attempts[d.address] = (attempts[d.address] || 0) + 1;
         d.connect();
@@ -134,7 +133,7 @@ Singleton {
         id: reconnect
         interval: 1800        // the adapter needs a moment after powering up
         onTriggered: {
-            if (!root.enabled) return;
+            if (!root.enabled || !Config.s.btAutoReconnect) return;
             const want = Store.s.btRemember || [];
             for (const d of root.adapter.devices.values) {
                 if (d.connected || !d.paired) continue;

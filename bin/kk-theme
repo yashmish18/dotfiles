@@ -240,7 +240,8 @@ def write_owned(path: Path, text: str, comment: str = "#") -> bool:
             path.unlink()
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".kk-tmp")
-    tmp.write_text(f"{comment} {MARK} — edits here are overwritten\n{text}", encoding="utf-8")
+    close = " */" if comment == "/*" else ""
+    tmp.write_text(f"{comment} {MARK} — edits here are overwritten{close}\n{text}", encoding="utf-8")
     tmp.replace(path)
     return True
 

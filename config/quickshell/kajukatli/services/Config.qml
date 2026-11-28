@@ -189,7 +189,7 @@ Singleton {
             property bool clipboardClearAtLogin: true  // and none from the last session
             property int screenshotsDays: 0           // delete screenshots older than this (0 = keep)
             property int recordingsDays: 0            // same for screen recordings
-            property int trashDays: 30                // empty what's been in the recycle bin this long
+            property int trashDays: 0                 // empty what's been in the recycle bin this long (0 = keep)
             property bool musicPulse: false           // the clock bounces on the bass
             property bool musicSparks: false          // sparks fly off the visualizer on every beat
             property bool musicGlow: false            // the screen edges glow in the album's colour on the beat
@@ -273,8 +273,8 @@ Singleton {
             property bool noBackgroundApps: false   // an app whose last window closes is asked to quit (unless allowed below)
             property var backgroundAllowed: ["blueman-applet", "easyeffects", "syncthing"]
             property var gpuApps: ["blender", "steam", "lutris", "heroic", "godot", "unity", "unityhub", "davinci-resolve", "resolve", "obs", "kdenlive", "krita", "minecraft-launcher", "prismlauncher", "bottles", "gamescope", "rpcs3", "pcsx2", "dolphin-emu", "yuzu", "ryujinx"]
-            property string soundMode: "off"        // off | music | movie | voice | speakers | atmos (kk-sound)
-            property string soundModeLast: "music"
+            property bool eqOn: false               // the equalizer (kk-eq)
+            property var eqGains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]   // dB per band, 31 Hz … 16 kHz
             property bool gpuHint: true             // a heavy app (a game, blender…) started on the integrated gpu: offer to restart it on nvidia
         }
     }

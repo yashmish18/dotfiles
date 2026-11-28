@@ -50,7 +50,9 @@ Item {
     function change(values: var, risky: var) {
         if (!sel) return;
         if (risky) {
-            undo = { name: sel.name, profile: Object.assign({}, System.monitorProfile(sel.name)) };
+            undo = { name: sel.name, profile: Object.assign({}, System.monitorProfile(sel.name)),
+                     was: { mode: sel.width + "x" + sel.height + "@" + sel.refreshRate.toFixed(2), transform: sel.transform,
+                            bitdepth: /2101010/.test(sel.currentFormat || "") ? 10 : 8 } };
             countdown = 15;
             tick.restart();
         }
@@ -58,16 +60,23 @@ Item {
         reread.restart();
     }
     function keep() { undo = null; countdown = 0; tick.stop(); }
-    function revert() {
-        if (!undo) return;
+    function restore() {
         const profiles = Object.assign({}, Config.s.monitorProfiles || {});
         profiles[undo.name] = undo.profile;
         Config.s.monitorProfiles = profiles;
-        System.applyMonitor(undo.name);
+        // an empty profile means "as it was": name the old mode, or nothing would be sent
+        System.applyMonitor(undo.name, undo.was);
+    }
+    function revert() {
+        if (!undo) return;
+        restore();
         keep();
         reread.restart();
     }
     Timer { id: tick; interval: 1000; repeat: true; onTriggered: { root.countdown--; if (root.countdown <= 0) root.revert(); } }
+
+    // closed before "keep" was pressed (esc on a black screen): that's a no
+    Component.onDestruction: if (undo) restore()
 
     // ------------------------------------------------------------ helpers
     function logical(s: var): var {
@@ -377,10 +386,7 @@ Item {
                     Btn {
                         text: "Back to automatic"
                         onClicked: {
-                            const profiles = Object.assign({}, Config.s.monitorProfiles || {});
-                            delete profiles[root.sel.name];
-                            Config.s.monitorProfiles = profiles;
-                            System.setMonitor(root.sel.name, { mode: "preferred", position: "auto", scale: 1 });
+                            System.resetMonitor(root.sel.name);
                             reread.restart();
                         }
                     }

@@ -46,6 +46,7 @@ Rectangle {
 
         // a press anywhere in the note: the desktop takes the keyboard and the cursor goes here
         TapHandler {
+            enabled: !Ui.editing
             onPressedChanged: if (pressed) root.startTyping()
         }
         TextEdit {
@@ -59,7 +60,8 @@ Rectangle {
             font.family: Theme.sans
             font.pixelSize: Theme.md + 1
             onCursorRectangleChanged: flick.follow(cursorRectangle)
-            onActiveFocusChanged: if (activeFocus) root.startTyping()
+            readOnly: Ui.editing     // arranging the desktop: the note is just a box to move
+            onActiveFocusChanged: if (activeFocus && !Ui.editing) root.startTyping()
             Keys.onEscapePressed: { edit.focus = false; Ui.deskTyping = false; }
             Connections {
                 target: Ui
@@ -78,8 +80,10 @@ Rectangle {
     function startTyping() {
         Ui.deskTypingWin = root.QsWindow.window;
         Ui.deskTyping = true;
-        edit.forceActiveFocus();
+        Qt.callLater(edit.forceActiveFocus);   // after the window has the keyboard, or the first key is lost
     }
+    // hidden or closed within the save delay: keep the last words
+    Component.onDestruction: if (Config.s.noteText !== edit.text) Config.s.noteText = edit.text
     // a thin scroll bar, only when there's more than fits
     Rectangle {
         visible: flick.contentHeight > flick.height + 1

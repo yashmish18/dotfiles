@@ -83,6 +83,8 @@ Item {
         }
     }
     function signal_(pid: var, sig: var) {
+        const p = procs.find(x => x.pid === pid);
+        if (p && p.user !== Quickshell.env("USER")) Ui.authWaiting = true;   // pkexec will ask
         actProc.command = ["sh", "-c", 'kill -' + sig + ' "$1" 2>/dev/null || pkexec kill -' + sig + ' "$1"', "sh", String(pid)];
         actProc.running = true;
     }

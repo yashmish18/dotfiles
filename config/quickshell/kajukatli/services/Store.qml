@@ -28,6 +28,9 @@ Singleton {
             id: adapter
             property string wallpaper: ""     // source file of the current wallpaper
             property int frame: 1             // goes up by one every time you lock
+            property bool nightLight: false
+            property bool caffeine: false
+            property bool dnd: false
             property var batteryLog: []       // a day of battery levels (Battery.qml)
             property var launches: ({})       // how often each app is opened (the launcher's "recent")
             property var clipPins: []         // pinned clipboard texts

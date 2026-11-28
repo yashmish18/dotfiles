@@ -432,7 +432,7 @@ Item {
                         keys: ["kk-window"]
                         onDropped: d => {
                             if (d.source && d.source.address)
-                                Hypr.moveWindowTo(Hypr.firstFreeId(), d.source.address, false);
+                                Hypr.moveWindowTo(Hypr.takeFreeId(), d.source.address, false);
                         }
                     }
                 }

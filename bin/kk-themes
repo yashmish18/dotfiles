@@ -2,7 +2,7 @@
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 case "${1:-list}" in
-    list) python3 -c 'import json; d=json.load(open("'"$root/themes/manifest.json"'")); print("\n".join(f"{x[\"id\"]}\t{x[\"version\"]}\t{x[\"source\"]}" for x in d["themes"]))' ;;
+    list) python3 -c 'import json, sys; [print(x["id"], x["version"], x["source"], sep="\t") for x in json.load(open(sys.argv[1]))["themes"]]' "$root/themes/manifest.json" ;;
     validate) python3 -m json.tool "$root/themes/manifest.json" >/dev/null && echo "theme manifest valid" ;;
     *) echo "usage: kk-themes [list|validate]" >&2; exit 2 ;;
 esac

@@ -40,6 +40,11 @@ if [ -f "$cur" ]; then
     else echo "  note  depth clock: no subject found in this wallpaper (try: settings → looks → re-detect subject, or kk-prep <file> --force --model isnet-anime)"; fi
 fi
 
+# quickshell uses qt's private api: after a qt update it has to be rebuilt or it crashes
+if have qs && qs log -c kajukatli 2>/dev/null | grep -q "Quickshell was built against Qt"; then
+    fail "quickshell was built against an older qt (causes shell crashes)" "rebuild it: paru -S --rebuild quickshell   (or yay)"
+fi
+if pgrep -x dunst >/dev/null 2>&1; then fail "dunst is taking the notifications" "systemctl --user mask dunst.service && pkill -x dunst"; fi
 if pgrep -x qs >/dev/null 2>&1 || pgrep -f "quickshell" >/dev/null 2>&1; then pass "shell running"; else fail "shell not running" "qs -c kajukatli   (and read what it prints)"; fi
 if have hyprctl && [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
     errs="$(hyprctl configerrors 2>/dev/null | grep -v '^$')"

@@ -18,18 +18,15 @@ Scope {
     readonly property bool locked: lock.locked
     signal woke()       // back from sleep: every surface takes the keyboard again
 
-    // "start in the lock screen": kk-session --locked sets KK_LOCK_AT_START. lock once per
-    // login (PersistentProperties survives the shell reloading itself, so edits don't re-lock)
-    PersistentProperties {
-        id: once
-        reloadableId: "kk-lock-at-start"
-        property bool done: false
-    }
-    Component.onCompleted: {
-        if (!once.done && Quickshell.env("KK_LOCK_AT_START") === "1") {
-            once.done = true;
-            root.lockNow();
-        }
+    // "is it locked" lives on disk, per hyprland session, so it survives the shell restarting.
+    //   .on     exists while locked: a restarted or reloaded shell takes the lock back
+    //   .booted the "start in the lock screen" lock (KK_LOCK_AT_START) has been used. that
+    //           variable stays set all session, so without this every shell restart re-locked
+    readonly property string marker: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/kk-lock-" + (Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE") || "x")
+    Process {
+        running: true
+        command: ["sh", "-c", 'if [ -e "$1.on" ] || { [ "$KK_LOCK_AT_START" = 1 ] && [ ! -e "$1.booted" ]; }; then echo lock; fi; : > "$1.booted"', "sh", root.marker]
+        stdout: StdioCollector { onStreamFinished: if (text.trim() === "lock") root.lockNow() }
     }
 
     function lockNow() {
@@ -42,6 +39,7 @@ Scope {
         note = "";
         Ui.closeAll();
         lock.locked = true;
+        Quickshell.execDetached(["touch", marker + ".on"]);
     }
 
     function type(s: string) {
@@ -92,6 +90,7 @@ Scope {
         interval: 520
         onTriggered: {
             lock.locked = false;
+            Quickshell.execDetached(["rm", "-f", root.marker + ".on"]);
             root.password = "";
             root.phase = "idle";
         }

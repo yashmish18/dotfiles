@@ -34,13 +34,20 @@ Singleton {
             } else if (n === "urgent") {
                 root.consider("0x" + data.trim().replace(/^0x/, ""), "", "", true);
             }
-            if (n === "fullscreen") root.fullscreen = data.trim() === "1";
-            else if (n === "workspace" || n === "workspacev2") root.fullscreen = false;
+            // ask, don't guess: coming back to a fullscreen video must count as fullscreen
+            if (n === "fullscreen" || n === "workspace" || n === "workspacev2" || n === "focusedmon" || n === "closewindow")
+                fsSoon.restart();
             if (n.startsWith("workspace") || n.startsWith("createworkspace") || n.startsWith("destroyworkspace")
                 || n.startsWith("focusedmon") || n.startsWith("moveworkspace") || n.startsWith("openwindow")
                 || n.startsWith("closewindow") || n.startsWith("movewindow"))
                 again.restart();
         }
+    }
+    Timer { id: fsSoon; interval: 80; onTriggered: if (fsProc.running) restart(); else fsProc.running = true }
+    Process {
+        id: fsProc
+        command: ["hyprctl", "activeworkspace", "-j"]
+        stdout: StdioCollector { onStreamFinished: { try { root.fullscreen = JSON.parse(text).hasfullscreen === true; } catch (e) {} } }
     }
     Timer {
         id: again
@@ -104,14 +111,18 @@ Singleton {
         return out;
     }
 
-    function firstFreeId(): int {
+    // an id just handed out isn't in hyprland's list for a moment: nobody else may take it
+    property var reserved: ({})      // id → when
+    function isReserved(id: int): bool { return Date.now() - (reserved[id] || 0) < 1500; }
+    function takeFreeId(): int {
         const used = {};
         const all = Hyprland.workspaces.values;
         for (let i = 0; i < all.length; i++)
             used[all[i].id] = true;
         let id = 1;
-        while (used[id])
+        while (used[id] || isReserved(id))
             id++;
+        reserved[id] = Date.now();
         return id;
     }
 
@@ -170,14 +181,14 @@ Singleton {
             if (idx >= 0 && idx < list.length - 1)
                 focusWorkspace(list[idx + 1].id);
             else if (cur && cur.toplevels.values.length > 0)
-                focusWorkspace(firstFreeId());
+                focusWorkspace(takeFreeId());
         } else if (idx > 0) {
             focusWorkspace(list[idx - 1].id);
         }
     }
 
     function newWorkspace(moveWindow: bool) {
-        const id = firstFreeId();
+        const id = takeFreeId();
         if (moveWindow && Hyprland.activeToplevel)
             moveWindowTo(id, "", true);
         else
@@ -217,7 +228,7 @@ Singleton {
         const mine = workspaces.filter(w => w.id > 0 && w.monitor === mon.name && w.name === String(w.id)).sort((a, b) => a.id - b.id);
         for (const w of mine) {
             let free = 1;
-            while (used[free]) free++;
+            while (used[free] || isReserved(free)) free++;
             if (free >= w.id) continue;
             const wins = clients.filter(c => c.workspace && c.workspace.id === w.id && c.address);
             if (wins.length === 0 && w.id !== active) continue;

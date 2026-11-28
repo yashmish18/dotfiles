@@ -34,8 +34,12 @@ Item {
 
     Process {
         id: searchProc
+        property string asked: ""
+        // the box changed while this ran: search again
+        onExited: if (searchInput.text.trim() !== asked) Qt.callLater(root.search)
         stdout: StdioCollector {
             onStreamFinished: {
+                if (searchProc.asked !== searchInput.text.trim()) return;
                 const all = root.jsonLines(text);
                 // exact name first, then installed, then the repos before the aur before flathub
                 const q = searchInput.text.trim().toLowerCase();
@@ -51,7 +55,8 @@ Item {
         const q = searchInput.text.trim();
         if (q.length < 2) { results = []; status = ""; return; }
         status = "Searching…";
-        searchProc.running = false;
+        if (searchProc.running) return;
+        searchProc.asked = q;
         searchProc.command = [Config.bin + "kk-pkg", "search", q];
         searchProc.running = true;
     }
@@ -73,7 +78,9 @@ Item {
     }
     Process {
         id: infoProc
-        stdout: StdioCollector { onStreamFinished: root.details = text.trim() }
+        property var asked: null
+        onExited: if (root.picked !== asked && root.picked) Qt.callLater(() => root.pick(root.picked))
+        stdout: StdioCollector { onStreamFinished: if (root.picked === infoProc.asked) root.details = text.trim() }
     }
     Process {
         id: devProc
@@ -91,6 +98,8 @@ Item {
     function pick(p: var) {
         picked = p;
         details = "…";
+        if (infoProc.running) return;
+        infoProc.asked = picked;
         infoProc.command = [Config.bin + "kk-pkg", "info", p.name, p.source];
         infoProc.running = true;
     }
@@ -99,6 +108,7 @@ Item {
     Process {
         id: termProc
         onExited: {
+            Ui.authWaiting = false;
             root.status = "Done";
             instProc.running = true;
             if (root.tab === "updates") { root.checking = true; updProc.running = true; }
@@ -108,7 +118,9 @@ Item {
     }
     function runInTerminal(args: var, what: var) {
         status = what + " in the terminal…";
-        termProc.command = ["kitty", "--class", "kk-float", "--title", what, "sh", "-c",
+        Ui.authWaiting = true;     // the terminal opens under this overlay: step aside
+        // setsid -w: closing this sheet must never kill a half-done package install
+        termProc.command = ["setsid", "-f", "-w", "kitty", "--class", "kk-float", "--title", what, "sh", "-c",
             '"$@"; s=$?; echo; [ $s = 0 ] && echo "done. this closes in a moment." || echo "that didn\'t work (exit $s). press enter."; [ $s = 0 ] && sleep 2 || read _', "sh"].concat(args);
         termProc.running = true;
     }

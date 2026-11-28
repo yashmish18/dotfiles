@@ -14,6 +14,7 @@ Item {
     focus: true
     Keys.onEscapePressed: Ui.panel = ""
     Uses { service: Phone }
+    Component.onDestruction: Ui.picking = false
     Component.onCompleted: { if (!Phone.available) Phone.start(); else Phone.refresh(); }
 
     readonly property var d: Phone.current
@@ -22,6 +23,7 @@ Item {
         id: picker
         title: "Send to " + (root.d ? root.d.name : "phone")
         fileMode: FileDialog.OpenFiles
+        onVisibleChanged: Ui.picking = visible
         onAccepted: Phone.sendPaths(root.d, selectedFiles.map(u => decodeURIComponent(String(u).replace(/^file:\/\//, ""))))
     }
 
