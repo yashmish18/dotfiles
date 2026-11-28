@@ -195,6 +195,40 @@ Singleton {
             focusWorkspace(id);
     }
 
+    // which workspaces move up so a new one can take id `at`: { old: new }. only the run that
+    // is in the way moves (a free number absorbs the shift); ids another screen uses are skipped
+    function insertPlan(mine: var, others: var, at: int): var {
+        const plan = {};
+        let last = at;
+        for (const id of mine.filter(i => i >= at).sort((a, b) => a - b)) {
+            if (id > last) break;
+            let to = last + 1;
+            while (others.indexOf(to) !== -1) to++;
+            plan[id] = to;
+            last = to;
+        }
+        return plan;
+    }
+    // a new workspace holding this window, where workspace `at` is now: it and those after move up
+    function insertWorkspace(at: int, address: string, monitor: var) {
+        const here = workspacesOn(monitor);
+        const others = workspacesOn(null).filter(w => here.indexOf(w) === -1).map(w => w.id);
+        const plan = insertPlan(here.map(w => w.id), others, at);
+        const active = monitor && monitor.activeWorkspace ? monitor.activeWorkspace.id : -1;
+        // read everything first: the lists change under us as windows move
+        const steps = Object.keys(plan).map(Number).sort((a, b) => b - a).map(id => {
+            const w = here.find(x => x.id === id);
+            return { to: plan[id], name: w.name !== String(id) ? w.name : "",
+                     windows: w.toplevels.values.map(t => (t.lastIpcObject || {}).address).filter(a => a && a !== address) };
+        });
+        for (const s of steps) {       // highest first, so two workspaces never mix
+            for (const a of s.windows) moveWindowTo(s.to, a, false);
+            if (s.name !== "") renameWorkspace(s.to, s.name);
+        }
+        moveWindowTo(at, address, false);
+        if (plan[active] !== undefined) focusWorkspace(plan[active]);   // stay with your windows
+    }
+
     function hyprEval(lua: string) {
         Quickshell.execDetached(["hyprctl", "eval", lua]);
     }

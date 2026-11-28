@@ -83,6 +83,18 @@ Item {
     // still be reached. the window being dragged is moved back by the same amount so it stays
     // under the pointer.
     property Item dragItem: null
+    // holding a window over the space before card `insertAt`: a new workspace goes there
+    property int insertAt: -1
+    property var insertSource: null
+    readonly property real ghostW: cardW * 0.7
+    // how far card i steps aside to show the new one
+    function aside(i: int): real { return insertAt < 0 ? 0 : (i < insertAt ? -1 : 1) * (ghostW + gap) / 2; }
+    // a window alone on its workspace, dropped right beside it, would change nothing
+    function canInsert(i: int, src: var): bool {
+        if (!src || !src.address || !list[i]) return false;
+        const own = list.findIndex(w => w.id === src.wsId);
+        return !(own >= 0 && list[own].toplevels.values.length === 1 && (i === own || i === own + 1));
+    }
     property real dragX: -1
     Timer {
         interval: 16
@@ -197,6 +209,57 @@ Item {
         clip: root.dragging === 0
         boundsBehavior: Flickable.StopAtBounds
 
+        // what you'll get if you let go here. under the cards, so the window in your hand is on top
+        Rectangle {
+            visible: root.insertAt >= 0
+            x: row.x + root.insertAt * (root.cardW + root.gap) - root.gap / 2 - width / 2
+            width: root.ghostW
+            height: root.cardH
+            radius: 16
+            color: Theme.alpha(Theme.primary, 0.25)
+            border.width: 4
+            border.color: Theme.primary
+            ScreencopyView {       // the window you're about to put there
+                anchors.centerIn: parent
+                anchors.verticalCenterOffset: -22
+                constraintSize: Qt.size(parent.width - 28, parent.height - 78)
+                captureSource: root.insertAt >= 0 && root.insertSource ? root.insertSource.modelData.wayland : null
+                live: true
+            }
+            Txt {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 20
+                text: root.insertAt >= 0 && root.list[root.insertAt] ? "New workspace " + root.list[root.insertAt].id : ""
+                font.weight: Font.Bold
+                color: "#ffffff"
+            }
+        }
+
+        // the drop zones between the cards (and before the first): the gap plus a strip of
+        // each neighbour, widening to the preview once you're in
+        Repeater {
+            model: root.dragging > 0 ? root.list.length : 0
+            delegate: DropArea {
+                required property int index
+                readonly property bool over: containsDrag && root.canInsert(index, drag.source)
+                z: 8
+                width: root.insertAt === index ? root.ghostW + root.cardW * 0.12 : root.gap + root.cardW * 0.24
+                height: root.cardH
+                x: row.x + index * (root.cardW + root.gap) - root.gap / 2 - width / 2
+                keys: ["kk-window"]
+                onOverChanged: {
+                    if (over) { root.insertSource = drag.source; root.insertAt = index; }
+                    else if (root.insertAt === index) root.insertAt = -1;
+                }
+                onDropped: d => {
+                    if (root.canInsert(index, d.source))
+                        Hypr.insertWorkspace(root.list[index].id, d.source.address, root.monitor);
+                    root.insertAt = -1;
+                }
+            }
+        }
+
         Row {
             id: row
             x: Math.max(0, (strip.width - width) / 2)
@@ -216,6 +279,9 @@ Item {
                     // a window from another workspace is over this one
                     readonly property bool target: drop.containsDrag && drop.drag.source !== null && drop.drag.source.wsId !== modelData.id
                     z: drags > 0 ? 10 : 0
+                    property real slide: root.aside(index)
+                    Behavior on slide { NumberAnimation { duration: Theme.fast; easing.type: Easing.OutCubic } }
+                    transform: Translate { x: frame.slide }
                     spacing: 12
 
                     Item {
@@ -388,6 +454,7 @@ Item {
                                     onReleased: {
                                         if (drag.active) {
                                             win.Drag.drop();
+                                            root.insertAt = -1;
                                             // back onto the live position (a plain value would freeze it there)
                                             win.x = Qt.binding(() => win.visible ? (win.ipc.at[0] - win.ox) * root.scaleF : 0);
                                             win.y = Qt.binding(() => win.visible ? (win.ipc.at[1] - win.oy) * root.scaleF : 0);

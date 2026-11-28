@@ -33,4 +33,5 @@ for a in --update --links --rollback --restore; do
 done
 
 bin/kk-themes list >/dev/null || fail "kk-themes list"
+if command -v node >/dev/null; then node scripts/test-insert-plan.js >/dev/null || fail "workspace insert plan"; fi
 echo "selfcheck passed"
