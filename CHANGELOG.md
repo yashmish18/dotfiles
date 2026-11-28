@@ -3,6 +3,7 @@
 ## Unreleased
 
 - A ten-band equalizer replaces the sound modes, about as loud on as off.
+- Super + Q no longer force-kills a virtual machine window (VirtualBox, QEMU, virt-manager, VMware); it is asked to close, so you can save its state.
 - Workspace overview: hold a window between two workspaces and they step aside to show a live preview of the new one; letting go makes it right there (the later ones move up one).
 - Workspace overview: previews are live and follow windows as they move; a moved window no longer turns blank; a drop goes where the pointer is (not the window's middle, which often hit "New workspace"); the target says "Move to workspace N" and the held window shrinks out of the way; workspaces are renumbered only after the overview closes.
 - Data safety: uninstall keeps personal backups, Plymouth setup keeps your boot hooks, `--dry-run` never runs a real action, git identity keeps your config, and the recycle bin is no longer emptied by age by default.

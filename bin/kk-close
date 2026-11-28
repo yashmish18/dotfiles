@@ -18,6 +18,9 @@ close_polite() {
 # the shell's own window (settings, floating panels)
 case "$cls" in
     org.quickshell|quickshell|qs|*kajukatli*) close_polite; exit 0 ;;
+    # a virtual machine: killing its window is pulling the plug on the guest (lost work, a
+    # damaged disk). asked politely, it offers to save the state or shut down
+    *[Vv]irtual[Bb]ox*|[Qq]emu*|virt-manager|virt-viewer|[Vv]mware*) close_polite; exit 0 ;;
 esac
 
 # a terminal (or anything) that has the shell somewhere under it
