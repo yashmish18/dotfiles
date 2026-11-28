@@ -206,7 +206,13 @@ Singleton {
     Timer {
         id: compactSoon
         interval: 450
-        onTriggered: if (Config.s.compactWorkspaces && !snapProc.running) snapProc.running = true
+        // not while you're arranging in the overview: renumbering under your hands looked like
+        // a drop had made a new workspace. it happens when the overview closes
+        onTriggered: if (Config.s.compactWorkspaces && Ui.overlay !== "overview" && !snapProc.running) snapProc.running = true
+    }
+    Connections {
+        target: Ui
+        function onOverlayChanged() { if (Ui.overlay !== "overview") compactSoon.restart(); }
     }
     Process {
         id: snapProc

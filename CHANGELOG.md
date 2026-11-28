@@ -3,6 +3,7 @@
 ## Unreleased
 
 - A ten-band equalizer replaces the sound modes, about as loud on as off.
+- Workspace overview: previews are live and follow windows as they move; a moved window no longer turns blank; a drop goes where the pointer is (not the window's middle, which often hit "New workspace"); the target says "Move to workspace N" and the held window shrinks out of the way; workspaces are renumbered only after the overview closes.
 - Data safety: uninstall keeps personal backups, Plymouth setup keeps your boot hooks, `--dry-run` never runs a real action, git identity keeps your config, and the recycle bin is no longer emptied by age by default.
 - Security: phone file transfers only talk to the paired certificate; a drive label can no longer run commands as root.
 - Fixed GTK colours (the generated stylesheet was commented out), saved "off" settings being read as on, installer extra numbers in the README, and many shell bugs.

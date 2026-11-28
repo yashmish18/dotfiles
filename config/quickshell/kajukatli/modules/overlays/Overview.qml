@@ -65,6 +65,11 @@ Item {
         function onOverviewCycle(d) { root.cycling = true; root.stepSel(d); }
     }
 
+    // live placement: hyprland says nothing when a window is only resized or dragged about,
+    // so ask while this is open. never mid-drag, so the window in your hand stays put
+    function refresh() { Hyprland.refreshToplevels(); Hyprland.refreshWorkspaces(); }
+    Timer { interval: 400; repeat: true; running: root.dragging === 0; onTriggered: root.refresh() }
+
     // keep the highlighted workspace in view
     onSelChanged: Qt.callLater(showSel)
     function showSel() {
@@ -198,7 +203,8 @@ Item {
             spacing: root.gap
 
             Repeater {
-                model: root.list
+                // keeps the cards that stay: a plain array rebuilt them all (blank previews)
+                model: ScriptModel { values: root.list }
 
                 delegate: Column {
                     id: frame
@@ -207,6 +213,8 @@ Item {
                     property int drags: 0
                     readonly property bool active: modelData.active
                     readonly property bool hot: drop.containsDrag || root.sel === index
+                    // a window from another workspace is over this one
+                    readonly property bool target: drop.containsDrag && drop.drag.source !== null && drop.drag.source.wsId !== modelData.id
                     z: drags > 0 ? 10 : 0
                     spacing: 12
 
@@ -264,9 +272,28 @@ Item {
                             }
                         }
 
+                        // where a dropped window will go, drawn over the windows so it can't be missed
+                        Rectangle {
+                            anchors.fill: parent
+                            z: 15
+                            visible: frame.target
+                            radius: 16
+                            color: Theme.alpha(Theme.primary, 0.35)
+                            border.width: 4
+                            border.color: Theme.primary
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: dropText.implicitWidth + 32
+                                height: 40
+                                radius: 20
+                                color: Theme.primary
+                                Txt { id: dropText; anchors.centerIn: parent; text: "Move to workspace " + frame.modelData.id; font.weight: Font.Bold; color: Theme.primaryText }
+                            }
+                        }
+
                         // windows, positioned like they are on screen
                         Repeater {
-                            model: frame.modelData.toplevels.values
+                            model: frame.modelData.toplevels
                             delegate: Item {
                                 id: win
                                 required property var modelData
@@ -282,28 +309,54 @@ Item {
                                 height: visible ? Math.max(16, ipc.size[1] * root.scaleF) : 0
                                 z: dragArea.drag.active ? 20 : (ipc.floating ? 2 : 1)
                                 readonly property bool moving: dragArea.drag.active
-                                onMovingChanged: { frame.drags += moving ? 1 : -1; root.dragging += moving ? 1 : -1; }
-                                scale: moving ? 0.9 : dragArea.containsMouse ? 1.03 : 1
+                                property bool counted: false
+                                function count(on: bool) {
+                                    if (on === counted) return;
+                                    counted = on;
+                                    frame.drags += on ? 1 : -1;
+                                    root.dragging += on ? 1 : -1;
+                                }
+                                onMovingChanged: count(moving)
+                                Component.onDestruction: if (counted) root.dragging -= 1   // closed in your hand
+                                property point grab: Qt.point(0, 0)    // where you took hold of it
+                                // in your hand it shrinks around the pointer, so the card under it stays readable
+                                property real held: moving ? Math.min(1, root.cardW * 0.4 / Math.max(1, width)) : 1
+                                Behavior on held { NumberAnimation { duration: Theme.fast } }
+                                transform: Scale { origin.x: win.grab.x; origin.y: win.grab.y; xScale: win.held; yScale: win.held }
+                                opacity: moving ? 0.92 : 1
+                                scale: !moving && dragArea.containsMouse ? 1.03 : 1
                                 Behavior on scale { NumberAnimation { duration: Theme.fast } }
 
                                 Drag.active: dragArea.drag.active
                                 Drag.keys: ["kk-window"]
                                 Drag.source: win
-                                Drag.hotSpot.x: width / 2
-                                Drag.hotSpot.y: height / 2
+                                // the drop goes where the pointer is. it used to be judged by the window's
+                                // middle, which could already be over the next card or "new workspace"
+                                Drag.hotSpot.x: grab.x
+                                Drag.hotSpot.y: grab.y
 
                                 ClippingRectangle {
                                     anchors.fill: parent
                                     radius: 7
                                     color: Theme.surfaceHigh
-                                    border.width: dragArea.containsMouse || win.moving ? 2 : 1
+                                    border.width: win.moving ? 5 : dragArea.containsMouse ? 2 : 1
                                     border.color: dragArea.containsMouse || win.moving ? Theme.primary : Theme.alpha("#ffffff", 0.12)
                                     ScreencopyView {
                                         id: shot
                                         anchors.fill: parent
                                         captureSource: win.modelData.wayland
-                                        live: false
-                                        Component.onCompleted: captureFrame()
+                                        live: true          // only while the overview is open
+                                    }
+                                    // a moved or resized window ends its capture, and quickshell doesn't
+                                    // start it again by itself: without this the preview stayed blank
+                                    Timer {
+                                        interval: 300
+                                        repeat: true
+                                        running: !shot.hasContent
+                                        onTriggered: {
+                                            shot.captureSource = null;
+                                            shot.captureSource = Qt.binding(() => win.modelData.wayland);
+                                        }
                                     }
                                     IconImage {
                                         visible: !shot.hasContent
@@ -330,13 +383,14 @@ Item {
                                     cursorShape: drag.active ? Qt.ClosedHandCursor : Qt.PointingHandCursor
                                     drag.target: win
                                     property point start
-                                    onPressed: { start = Qt.point(win.x, win.y); root.dragItem = win; }
+                                    onPressed: m => { start = Qt.point(win.x, win.y); win.grab = Qt.point(m.x, m.y); root.dragItem = win; }
                                     onPositionChanged: m => { if (drag.active) root.dragX = mapToItem(strip, m.x, m.y).x; }
                                     onReleased: {
                                         if (drag.active) {
                                             win.Drag.drop();
-                                            win.x = start.x;
-                                            win.y = start.y;
+                                            // back onto the live position (a plain value would freeze it there)
+                                            win.x = Qt.binding(() => win.visible ? (win.ipc.at[0] - win.ox) * root.scaleF : 0);
+                                            win.y = Qt.binding(() => win.visible ? (win.ipc.at[1] - win.oy) * root.scaleF : 0);
                                         }
                                         root.dragItem = null;
                                         root.dragX = -1;
@@ -350,7 +404,7 @@ Item {
                         }
 
                         Txt {
-                            visible: frame.modelData.toplevels.values.length === 0
+                            visible: frame.modelData.toplevels.values.length === 0 && !frame.target
                             anchors.centerIn: parent
                             text: "empty"
                             color: Theme.alpha("#ffffff", 0.6)
