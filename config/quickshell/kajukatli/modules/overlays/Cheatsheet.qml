@@ -23,7 +23,7 @@ Item {
         { keys: ["emoji", "type"], what: "search · tab: next group · enter: put it in" },
         { keys: ["control center", "icon"], what: "switch it on/off · the rest of the tile: its page" },
         { keys: ["tray icon", "click"], what: "everything the app offers · right-click: open it" },
-        { keys: ["widgets", "right-click"], what: "its menu · drag the corner dot to resize · double-click: back to normal" },
+        { keys: ["widgets", "right-click"], what: "its menu · ctrl + scroll to resize · double-click: back to normal" },
         { keys: ["launcher", "right-click"], what: "start that app on the nvidia card" },
         { keys: ["displays", "drag"], what: "arrange your screens (they snap edge to edge)" }
     ]

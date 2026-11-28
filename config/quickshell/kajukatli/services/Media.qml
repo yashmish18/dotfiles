@@ -50,11 +50,11 @@ Singleton {
     function toggle() {
         if (!player) return;
         if (player.canTogglePlaying) player.togglePlaying();
-        else if (player.isPlaying && player.canPause) player.pause();
-        else if (player.canPlay) player.play();
+        else if (player.isPlaying) player.pause();
+        else player.play();
     }
-    function next() { if (player && player.canGoNext) player.next(); }
-    function prev() { if (player && player.canGoPrevious) player.previous(); }
+    function next() { if (player) player.next(); }
+    function prev() { if (player) player.previous(); }
     function seek(frac: real) {
         if (player && player.canSeek && length > 0) player.position = frac * length;
     }

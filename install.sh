@@ -7,9 +7,12 @@
 #   ./install.sh --extras=3,5,10  essentials + exactly these extras (numbers from the menu)
 #   ./install.sh --links          only (re)link the dotfiles
 #   ./install.sh --shaders        only recompile the shaders
-#   ./install.sh --fonts          only (re)download the typefaces
+#   ./install.sh --fonts          only (re)install the typefaces (they ship in fonts/)
 #   ./install.sh --walls          only download the wallpaper pack
 #   ./install.sh --ai             only (re)build the wallpaper ai
+#   ./install.sh --grub           only the boot menu theme
+#   ./install.sh --savings        only the battery, memory and disk savings
+#   ./install.sh --no-ai          the install without the wallpaper ai
 #   ./install.sh --dry-run        print the actions; change nothing
 #   ./install.sh --update         fetch the newest dotfiles (only them: no history, no screenshots),
 #                                 after a snapshot, then relink. --rollback undoes it
@@ -56,7 +59,7 @@ for a in "$@"; do
         --snapshot) MODE=snapshot ;;
         --restore) MODE=restore ;;
         --no-ai) EXTRAS_ARG="${EXTRAS_ARG:-default}"; NO_AI=1 ;;
-        -h|--help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown option: $a (try --help)"; exit 2 ;;
     esac
 done
@@ -364,7 +367,10 @@ packages() {
     if [ "${#aur[@]}" -gt 0 ]; then
         note "${#aur[@]} from the aur: ${aur[*]}"
         if find_aur_helper || bootstrap_aur_helper; then
-            "$AUR_HELPER" -S --needed --noconfirm "${aur[@]}" || warn "some aur packages failed: ${aur[*]} (the rest still works)"
+            if ! "$AUR_HELPER" -S --needed --noconfirm "${aur[@]}"; then
+                # one that fails to build must not take the others down with it: one at a time
+                for p in "${aur[@]}"; do "$AUR_HELPER" -S --needed --noconfirm "$p" || warn "aur package failed: $p (the rest still works)"; done
+            fi
         else
             warn "skipped aur packages: ${aur[*]}"
         fi
@@ -640,9 +646,11 @@ ai_env() {
     printf 'model=%s\ndepth=%s\n' "$model" "$depth" > "$DATA/ai.conf"
 
     local py="$DATA/venv/bin/python"
-    [ -x "$py" ] || python3 -m venv --system-site-packages "$DATA/venv"
-    "$py" -m pip install --quiet --no-cache-dir --upgrade pip
-    "$py" -m pip install --quiet --no-cache-dir onnxruntime opencv-python-headless
+    # checked by hand: this runs inside "&& ai_env ||", where set -e is switched off
+    [ -x "$py" ] || python3 -m venv --system-site-packages "$DATA/venv" || { warn "wallpaper ai: couldn't make its python environment"; return 1; }
+    "$py" -m pip install --quiet --no-cache-dir --upgrade pip || true
+    "$py" -m pip install --quiet --no-cache-dir onnxruntime opencv-python-headless \
+        || { warn "wallpaper ai: couldn't install its python packages (network?). try again later: ./install.sh --ai"; return 1; }
     # rembg (and its ~700 mb of numba / scipy / scikit-image) is no longer needed
     "$py" -m pip uninstall -y --quiet rembg pymatting numba llvmlite scikit-image scipy 2>/dev/null || true
     note "fetching the model(s) now so the first wallpaper doesn't wait"
@@ -884,7 +892,7 @@ if extra_chosen live-wallpapers; then
     nohup nice -n 19 "$BIN/kk-livewalls" >"$CACHE/livewalls.log" 2>&1 &
     note "making example live wallpapers in the background (~/Pictures/wallpapers/live)"
 fi
-extra_chosen wallpaper-ai && ai_env || note "no wallpaper ai: wallpapers and colours still work, the clock just stays in front."
+{ extra_chosen wallpaper-ai && ai_env; } || note "no wallpaper ai: wallpapers and colours still work, the clock just stays in front."
 services
 extra_chosen terminal && terminal || true
 defaults

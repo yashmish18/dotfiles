@@ -239,6 +239,13 @@ Singleton {
 
             // ---------------------------------------------------- system
             property bool autoPowerProfile: true    // power-saver on battery, balanced on ac
+            // what the battery saver does while unplugged: each one can be turned off on its own
+            property bool saverParallax: true       // no pointer parallax on the wallpaper
+            property bool saverAnimations: true     // no window animations
+            property bool saverFun: true            // no beat glow or bouncing clock
+            property int idleBatDim: 60             // seconds idle on battery before the screen dims (0 = never)
+            property int idleBatOff: 120            // … before it turns off (0 = never)
+            property int idleBatSuspend: 7          // minutes idle on battery before the machine sleeps (0 = never)
             property bool batterySaver: true        // unplugged: 60 hz, lighter blur, no shadows, no visualizer
             property int chargeLimit: 100           // stop charging here (80 keeps the battery young); 100 = off
             property bool clock24h: true

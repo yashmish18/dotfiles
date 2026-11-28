@@ -4,7 +4,7 @@ import qs.services
 import qs.components
 
 // a note on the desktop: a fixed-size card you type in; longer text scrolls (wheel, or just
-// keep typing). it saves as you go. drag it by the strip at the top, resize by its corner dot.
+// keep typing). it saves as you go. drag it by the strip at the top, ctrl + scroll resizes it.
 Rectangle {
     id: root
     implicitWidth: 280

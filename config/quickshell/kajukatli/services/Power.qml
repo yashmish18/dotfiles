@@ -83,6 +83,11 @@ Singleton {
     // unplugged: quieter profile, and the battery saver. plugged in: back to normal.
     // (also once at login: booting on battery is the common case, and there's no "change" then)
     readonly property bool saving: onBattery && Config.s.batterySaver
+    // each saving can be turned off on its own (settings → power)
+    readonly property bool saveParallax: saving && Config.s.saverParallax
+    readonly property bool saveAnimations: saving && Config.s.saverAnimations
+    readonly property bool saveFun: saving && Config.s.saverFun
+    onSaveAnimationsChanged: applyPower()
     // the profile follows the charger (and its own switch). nothing else may undo your choice
     onOnBatteryChanged: { applyProfile(); applyPower(); }
     onSavingChanged: applyPower()
@@ -102,7 +107,7 @@ Singleton {
             // and reused, instead of re-blurring everything under every glass window each frame
             ? "hl.config({ decoration = { blur = { passes = 1, xray = true }, shadow = { enabled = false } } })"
             : "hl.config({ decoration = { blur = { passes = 2, xray = false }, shadow = { enabled = true } } })");
-        System.applyAll();          // the refresh rate (60 hz while saving)
+        System.applyAll();          // the refresh rate (60 hz while saving) and window animations
     }
 
     onChargingChanged: if (charging) Sounds.play("plug", 2000)

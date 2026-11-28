@@ -4,7 +4,7 @@ import qs.components
 
 // right-click on the music bars: the few things you change often, in plain words.
 // the rest (colour, see-through, smoothness, sparks) lives in settings → desktop.
-// the box itself is resized by dragging its corner, like every widget.
+// the box itself is resized with ctrl + scroll, like every widget.
 Rectangle {
     id: root
     signal done()
@@ -103,7 +103,7 @@ Rectangle {
             width: parent.width
             visible: !root.across
             wrapMode: Text.WordWrap
-            text: "Drag the box to move it. Drag its corner to make it bigger or smaller."
+            text: "Drag the box to move it. Ctrl + scroll makes it bigger or smaller."
             font.pixelSize: Theme.sm
             color: Theme.surfaceTextDim
         }

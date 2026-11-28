@@ -10,7 +10,7 @@ A desktop shell for Arch Linux and Hyprland that builds its colours and clock fr
 
 ## Features
 
-Kajukatli is Hyprland plus its own desktop. It uses no GNOME or KDE desktop pieces: the control center, task manager, software centre, display settings, phone link and sound modes are all built into the shell. Files open in Nautilus, coloured by the shell; imv, mpv and GParted cover pictures, video and disks.
+Kajukatli is Hyprland plus its own desktop. It uses no GNOME or KDE desktop pieces: the control center, task manager, software centre, display settings, phone link and equalizer are all built into the shell. Files open in Nautilus, coloured by the shell; imv, mpv and GParted cover pictures, video and disks.
 
 ### The look
 
@@ -28,7 +28,7 @@ Kajukatli is Hyprland plus its own desktop. It uses no GNOME or KDE desktop piec
 
 ### Everyday
 
-- **Control center** (`Super + A`): tap a tile's icon to switch it on or off; tap the rest of the tile for its page. Wi-Fi, Bluetooth (devices stay saved and reconnect, with per-device controls), sound, NVIDIA, sound mode, and a battery page with health, watts, cycles and the last 24 hours.
+- **Control center** (`Super + A`): tap a tile's icon to switch it on or off; tap the rest of the tile for its page. Wi-Fi, Bluetooth (devices stay saved and reconnect, with per-device controls), sound, NVIDIA, the equalizer, and a battery page with health, watts, cycles and the last 24 hours.
 - **Your phone** (`Super + Shift + M`): `kk-phone` speaks the KDE Connect protocol by itself, so the free KDE Connect app on your phone pairs with it. You get its battery, ring it, send files and the clipboard both ways, browse its storage, and see its notifications.
 - **Every running app** (`Super + Shift + A`), including the ones without a window: go to it, its menu, quit, force quit, and optionally no apps in the background.
 - **Emoji** (`Super + .`) floats by the pointer and types straight into the app you were in.
@@ -40,7 +40,7 @@ Kajukatli is Hyprland plus its own desktop. It uses no GNOME or KDE desktop piec
 - **Software** (`Super + Shift + I`): the official repos, the AUR and Flathub in one search; installed apps, updates, developer setups.
 - **Displays** (`Super + D`): quick modes (laptop, external, extend, duplicate), or arrange screens by dragging and set resolution, refresh rate, scale, rotation, mirroring, adaptive sync and 10-bit colour. Changes that might black out the screen undo themselves after 15 seconds unless you keep them.
 - **Graphics** on hybrid laptops: integrated, both, or NVIDIA only; heavy apps start on NVIDIA; switching the card off moves the apps on it to the integrated graphics first.
-- **Nothing piles up:** clipboard history is short and starts empty each session; caches, old packages, logs and crash dumps stay capped; the recycle bin empties itself. `kk-storage why` shows what fills your disk.
+- **Nothing piles up:** clipboard history is short and starts empty each session; caches, old packages, logs and crash dumps stay capped; the recycle bin is only emptied by age if you ask for it (Settings → Behaviour). `kk-storage why` shows what fills your disk.
 - **Battery saving** when unplugged, an **installer** that keeps a copy of everything it changes, `--update` without reboots, `--rollback`, and `./uninstall.sh --all` to get your old Arch back.
 
 ## Looks
@@ -82,7 +82,7 @@ git sparse-checkout set --no-cone '/*' '!/assets/'
 ./install.sh
 ```
 
-The installer creates a backup before linking configuration and offers these extras:
+The installer creates a backup before linking configuration and offers these extras (the numbers are the ones in its menu, and the ones `--extras=` takes):
 
 | # | Extra | Contents |
 |---|---|---|
@@ -92,12 +92,12 @@ The installer creates a backup before linking configuration and offers these ext
 | 4 | Live wallpapers | MP4, WebM, MKV, MOV and GIF through mpvpaper, plus example loops |
 | 5 | Terminal | Starship, Fastfetch, Eza, Bat, Zoxide, FZF, and Btop |
 | 6 | CJK fonts | Chinese, Japanese, and Korean text |
-| 8 | Greeter | greetd and tuigreet login screen |
-| 9 | Wallpaper pack | Public-domain paintings (off by default; ~45 MB) |
-| 10 | Wallpaper AI | Subject cut-out and optional 3D depth |
-| 12 | Developer | Containers, distrobox, mise |
-| 13 | Phone | Browsing the phone's storage (sshfs); the phone link itself is built in |
-| 14 | Security toolkit | nmap, Wireshark, Burp, Metasploit, Ghidra, hashcat… (off by default; `kk-cybersec`) |
+| 7 | Greeter | greetd and tuigreet login screen |
+| 8 | Wallpaper pack | Public-domain paintings (off by default; ~45 MB) |
+| 9 | Wallpaper AI | Subject cut-out and optional 3D depth |
+| 10 | Developer | Containers, distrobox, mise |
+| 11 | Phone | Browsing the phone's storage (sshfs); the phone link itself is built in |
+| 12 | Security toolkit | nmap, Wireshark, Burp, Metasploit, Ghidra, hashcat… (off by default; `kk-cybersec`) |
 
 Useful installer flags:
 
@@ -110,6 +110,8 @@ Useful installer flags:
 ./install.sh --fonts               # Reinstall fonts
 ./install.sh --walls               # Reinstall wallpapers
 ./install.sh --ai                  # Reconfigure subject detection
+./install.sh --grub                # Only the boot menu theme
+./install.sh --savings             # Only the battery, memory and disk savings
 ```
 
 After installation, reboot, log in, and press `Super + W` to open the wallpaper picker. Run `kk-doctor` if any component is missing or misconfigured.

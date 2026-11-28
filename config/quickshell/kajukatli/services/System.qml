@@ -152,7 +152,8 @@ Singleton {
         Config.s.monitorProfiles = profiles;
     }
     function applyMotion() {
-        Hypr.hyprEval("hl.config({ animations = { enabled = " + (Config.s.reducedMotion ? "false" : "true") + " } })");
+        // one place decides: "reduced motion", or the battery saver's "no window animations"
+        Hypr.hyprEval("hl.config({ animations = { enabled = " + (Config.s.reducedMotion || Power.saveAnimations ? "false" : "true") + " } })");
     }
     Connections {
         target: Config.s

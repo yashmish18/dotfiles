@@ -3,7 +3,7 @@ import qs.services
 import qs.components
 
 // right-click on a desktop widget: that widget's own options, in plain words.
-// moving and sizing are done by hand: drag the widget, drag its corner.
+// moving and sizing are done by hand: drag the widget, ctrl + scroll over it.
 Rectangle {
     id: root
     property string w: ""            // which widget
@@ -155,8 +155,8 @@ Rectangle {
         Txt {
             width: parent.width
             wrapMode: Text.WordWrap
-            text: root.w === "note" ? "Drag it by the strip at the top. Drag its corner to make it bigger or smaller."
-                                    : "Drag it to move it. Drag its corner to make it bigger or smaller."
+            text: root.w === "note" ? "Drag it by the strip at the top. Ctrl + scroll makes it bigger or smaller."
+                                    : "Drag it to move it. Ctrl + scroll makes it bigger or smaller."
             font.pixelSize: Theme.sm
             color: Theme.surfaceTextDim
         }

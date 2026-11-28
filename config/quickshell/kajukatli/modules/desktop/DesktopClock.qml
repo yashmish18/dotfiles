@@ -29,7 +29,7 @@ Item {
     transformOrigin: Item.Center
 
     // music: the clock bounces on the bass (settings → desktop → music fun)
-    readonly property bool pulsing: Config.s.musicPulse && Media.playing && live && !Config.s.reducedMotion
+    readonly property bool pulsing: Config.s.musicPulse && Media.playing && live && !Config.s.reducedMotion && !Power.saveFun
     Uses { service: Cava; active: root.pulsing }
     property real kick: 0
     Connections {

@@ -98,6 +98,11 @@ Scope {
 
     WlSessionLock {
         id: lock
+        // a marker for kk-shell: "the screen is locked by me". if the shell dies while it exists,
+        // the restarted shell takes the lock back (so it can be unlocked), and only then
+        onLockedChanged: Quickshell.execDetached(["sh", "-c", locked
+            ? 'touch "${XDG_RUNTIME_DIR:-/tmp}/kk-locked"'
+            : 'rm -f "${XDG_RUNTIME_DIR:-/tmp}/kk-locked"'])
 
         WlSessionLockSurface {
             color: Theme.ink

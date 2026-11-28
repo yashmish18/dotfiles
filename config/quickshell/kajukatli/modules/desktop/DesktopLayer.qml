@@ -134,11 +134,7 @@ Item {
     function autoClock(w: var, h: var, W: var, H: var): var {
         const m = Wall.current;
         if (!m || !m.width || !m.height || W <= w || H <= h) return null;
-        // without the cut-out (no wallpaper ai, or the clock kept in front) the numbers can't
-        // tuck behind anyone: find the calmest open part of the picture instead
-        const depth = Config.s.clockDepth && Wall.depthReady;
-        if (!(m.clock_auto && m.clock_auto.mode === "free") && (!depth || !m.subject_box || m.subject_box.length < 4))
-            return calmSpot(m, w, h, W, H);
+        if (!(m.clock_auto && m.clock_auto.mode === "free") && (!m.subject_box || m.subject_box.length < 4)) return null;
         const c = coverOf(m);
         const toX = u => ((u - 0.5) / c.x + 0.5) * layer.width - area.x;
         const toY = v => ((v - 0.5) / c.y + 0.5) * layer.height - area.y;
@@ -156,47 +152,6 @@ Item {
         // the lower half of the numbers behind the subject
         const y = Math.max(0, top - h * 0.5);
         return { x: Math.max(0, Math.min(1, x / (W - w))), y: Math.max(0, Math.min(1, y / (H - h))) };
-    }
-    // the emptiest place on screen for a w × h clock: low detail in the 16 × 9 colour grid,
-    // away from the subject, a little nearer the top than the bottom. always fully on screen.
-    function calmSpot(m: var, w: var, h: var, W: var, H: var): var {
-        const g = m.grid;
-        if (!g || g.length < 144) return { x: 0.5, y: 0.18 };
-        const c = coverOf(m);
-        const toU = x => ((area.x + x) / layer.width - 0.5) * c.x + 0.5;
-        const toV = y => ((area.y + y) / layer.height - 0.5) * c.y + 0.5;
-        const box = m.subject_box && m.subject_box.length >= 4 ? m.subject_box : null;
-        let best = null, bestCost = 1e12;
-        for (let fy = 0; fy <= 1.0001; fy += 0.1) {
-            for (let fx = 0; fx <= 1.0001; fx += 0.1) {
-                const x = fx * (W - w), y = fy * (H - h);
-                const u0 = toU(x), u1 = toU(x + w), v0 = toV(y), v1 = toV(y + h);
-                let n = 0, sr = 0, sg = 0, sb = 0, qr = 0, qg = 0, qb = 0;
-                for (let j = 0; j < 9; j++) {
-                    const v = (j + 0.5) / 9;
-                    if (v < v0 || v > v1) continue;
-                    for (let i = 0; i < 16; i++) {
-                        const u = (i + 0.5) / 16;
-                        if (u < u0 || u > u1) continue;
-                        const px = g[j * 16 + i];
-                        sr += px[0]; sg += px[1]; sb += px[2];
-                        qr += px[0] * px[0]; qg += px[1] * px[1]; qb += px[2] * px[2];
-                        n++;
-                    }
-                }
-                if (n === 0) continue;
-                // how busy the picture is under it: the spread of colours in those cells
-                let cost = (qr / n - (sr / n) * (sr / n)) + (qg / n - (sg / n) * (sg / n)) + (qb / n - (sb / n) * (sb / n));
-                if (box) {
-                    const ox = Math.max(0, Math.min(u1, box[2]) - Math.max(u0, box[0]));
-                    const oy = Math.max(0, Math.min(v1, box[3]) - Math.max(v0, box[1]));
-                    cost += 9000 * (ox * oy) / Math.max(1e-6, (u1 - u0) * (v1 - v0));
-                }
-                cost += 900 * Math.abs(fy - 0.2);
-                if (cost < bestCost) { bestCost = cost; best = { x: fx, y: fy }; }
-            }
-        }
-        return best || { x: 0.5, y: 0.18 };
     }
     property alias barsItem: barsM
     property alias statsItem: statsM

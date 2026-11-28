@@ -141,7 +141,6 @@ Variants {
             onFinished: {
                 // free the old picture's video memory
                 if (win.fromSlot === 0) win.metaA = null; else win.metaB = null;
-                gc();       // the old picture's textures can go now
             }
         }
 
@@ -149,10 +148,10 @@ Variants {
         Image { id: imgB; visible: false; asynchronous: true; cache: false; fillMode: Image.PreserveAspectCrop; sourceSize: win.decode; source: win.fileUrl(win.metaB ? win.metaB.display : "") }
         // depth/mask/ink are sampled at screen size too — without sourceSize Qt decodes the
         // full-resolution PNGs (tens of MB each, per screen) and that is most of the shell's RSS.
-        Image { id: depA; visible: false; asynchronous: true; cache: false; sourceSize: win.decode; source: win.fileUrl(win.metaA && Config.s.parallax ? win.metaA.depth : "") }
-        Image { id: depB; visible: false; asynchronous: true; cache: false; sourceSize: win.decode; source: win.fileUrl(win.metaB && Config.s.parallax ? win.metaB.depth : "") }
-        Image { id: maskA; visible: false; asynchronous: true; cache: false; sourceSize: win.decode; source: win.fileUrl(win.metaA ? (win.metaA.mask || "") : "") }
-        Image { id: maskB; visible: false; asynchronous: true; cache: false; sourceSize: win.decode; source: win.fileUrl(win.metaB ? (win.metaB.mask || "") : "") }
+        Image { id: depA; visible: false; asynchronous: true; cache: false; source: win.fileUrl(win.metaA && Config.s.parallax ? win.metaA.depth : "") }
+        Image { id: depB; visible: false; asynchronous: true; cache: false; source: win.fileUrl(win.metaB && Config.s.parallax ? win.metaB.depth : "") }
+        Image { id: maskA; visible: false; asynchronous: true; cache: false; source: win.fileUrl(win.metaA ? (win.metaA.mask || "") : "") }
+        Image { id: maskB; visible: false; asynchronous: true; cache: false; source: win.fileUrl(win.metaB ? (win.metaB.mask || "") : "") }
 
         // ---------------------------------------------------------------- behind the subject
         // the shader samples this as a texture. it sits under the (opaque) wallpaper effect, so
@@ -170,7 +169,7 @@ Variants {
             height: win.height
             sourceItem: depthLayer
             hideSource: true
-            live: depthLayer.anyHere && !Wall.switching    // frozen while the ink runs: one full-screen texture less to redraw per frame
+            live: depthLayer.anyHere
             recursive: false
         }
 
@@ -179,7 +178,6 @@ Variants {
             visible: false
             asynchronous: true
             cache: false
-            sourceSize: win.decode
             readonly property var m: win.pendingSlot === 0 ? win.metaA : win.pendingSlot === 1 ? win.metaB : null
             source: win.fileUrl(m ? m.ink : "")
         }
@@ -193,7 +191,7 @@ Variants {
             return list.length > 1 && i >= 0 ? (i / (list.length - 1)) * 2 - 1 : 0;
         }
         // (it only redraws while the pointer moves over the bare desktop, so battery is fine)
-        readonly property bool cursorOn: Config.s.parallax && Config.s.cursorParallax
+        readonly property bool cursorOn: Config.s.parallax && Config.s.cursorParallax && !Power.saveParallax
         property real mx: 0
         property real my: 0
         property real camX: -wsCam
